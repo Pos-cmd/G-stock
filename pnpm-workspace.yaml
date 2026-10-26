@@ -1,0 +1,21 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  esbuild: true
+  "@parcel/watcher": true
+  vue-demi: true
+overrides:
+  vite@*: npm:@voidzero-dev/vite-plus-core@1.4.0
+catalog:
+  zod: ^4.5.4
+  typescript: ^6.0.3
+  varlock: 1.23.0
+  "@libsql/client": 0.18.0
+  libsql: 0.5.29
+  "@orpc/server": ^1.15.6
+  "@orpc/client": ^1.15.6
+  "@orpc/openapi": ^1.15.6
+  "@orpc/zod": ^1.15.6
+  better-auth: 1.7.12
+  drizzle-orm: 1.0.0-rc.5

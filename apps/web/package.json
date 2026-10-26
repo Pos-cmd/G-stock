@@ -1,0 +1,47 @@
+{
+  "name": "web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b ../../packages/api && nuxt build",
+    "check-types": "tsc -b ../../packages/api && nuxt prepare && vue-tsc -b",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "node .output/server/index.mjs",
+    "postinstall": "nuxt prepare",
+    "env:generate": "varlock codegen",
+    "auth:generate": "varlock run -- pnpm dlx auth@latest generate --config src/services.ts --output ../../packages/db/src/schema/auth.ts --yes"
+  },
+  "dependencies": {
+    "@G-stock/api": "workspace:*",
+    "@G-stock/auth": "workspace:*",
+    "@G-stock/db": "workspace:*",
+    "@libsql/client": "catalog:",
+    "@nuxt/ui": "^4.11.0",
+    "@orpc/client": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "@orpc/tanstack-query": "^1.15.6",
+    "@orpc/zod": "catalog:",
+    "@tanstack/vue-query": "^5.102.8",
+    "@varlock/nuxt-integration": "0.1.4",
+    "better-auth": "catalog:",
+    "libsql": "catalog:",
+    "nuxt": "^4.6.2",
+    "varlock": "catalog:",
+    "vue": "^3.5.44",
+    "vue-router": "^5.3.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@G-stock/config": "workspace:*",
+    "@iconify-json/lucide": "^1.2.129",
+    "@tanstack/vue-query-devtools": "^6.1.48",
+    "tailwindcss": "^4.3.3",
+    "typescript": "catalog:",
+    "vue-tsc": "^3.3.11"
+  },
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
+  }
+}

@@ -1,0 +1,3 @@
+{
+  "extends": "@G-stock/config/tsconfig.base.json"
+}
