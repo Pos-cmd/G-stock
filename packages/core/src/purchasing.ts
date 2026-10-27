@@ -33,6 +33,8 @@ export interface LandedCostInput extends LandedCostFees {
   allocationMethod: AllocationMethod;
   rates: ExchangeRates;
   items: readonly LandedCostItem[];
+  /** Coût réel de la marchandise (paiements au taux du jour) ; sinon conversion aux taux. */
+  goodsFcfa?: number;
 }
 
 export interface LandedCostLine {
@@ -77,10 +79,14 @@ export const stockQtyFromWeight = (unit: string, weightTons: number): number | n
   return null;
 };
 
-const lineGoodsRmb = (item: LandedCostItem): number =>
+/** Valeur de la marchandise d'une ligne en RMB (à l'unité ou à la tonne). */
+export const lineGoodsRmb = (item: LandedCostItem): number =>
   item.pricingBasis === "weight"
     ? (item.weightTons ?? 0) * item.unitPriceRmb
     : item.qty * item.unitPriceRmb;
+
+export const totalGoodsRmb = (items: readonly LandedCostItem[]): number =>
+  items.reduce((sum, item) => sum + lineGoodsRmb(item), 0);
 
 /**
  * Répartit un montant entier selon des poids, sans perte d'arrondi :
@@ -145,16 +151,25 @@ const allocationWeight = (
  * RMB → USD → FCFA (à l'unité ou à la tonne), puis chaque frais réparti entre les lignes selon
  * sa propre méthode. Le coût unitaire divise le total de la ligne par la quantité reçue si elle
  * est connue, sinon par la quantité commandée.
+ *
+ * Si `goodsFcfa` est fourni (marchandise payée en plusieurs tranches à des taux différents), ce
+ * montant remplace la conversion aux taux et se répartit entre les lignes selon leur valeur en RMB.
  */
 export const computeLandedCostsFromFees = (input: {
   items: readonly LandedCostItem[];
   fees: readonly FeeAllocation[];
   rates: ExchangeRates;
+  goodsFcfa?: number;
 }): LandedCostBreakdown => {
-  const goods = input.items.map((item) => {
-    const goodsRmb = lineGoodsRmb(item);
-    return { goodsFcfa: rmbToFcfa(goodsRmb, input.rates), goodsRmb };
-  });
+  const goodsRmbByLine = input.items.map(lineGoodsRmb);
+  const goodsFcfaByLine =
+    input.goodsFcfa === undefined
+      ? goodsRmbByLine.map((goodsRmb) => rmbToFcfa(goodsRmb, input.rates))
+      : allocateAmount(input.goodsFcfa, goodsRmbByLine);
+  const goods = goodsRmbByLine.map((goodsRmb, index) => ({
+    goodsFcfa: goodsFcfaByLine[index] ?? 0,
+    goodsRmb,
+  }));
 
   // Les frais d'une même méthode sont additionnés puis répartis en une fois : aucune perte d'arrondi.
   const totalsByMethod = new Map<AllocationMethod, number>();
@@ -223,6 +238,7 @@ export const computeLandedCosts = (input: LandedCostInput): LandedCostResult => 
   return {
     ...computeLandedCostsFromFees({
       fees: [{ allocationMethod: input.allocationMethod, amountFcfa: feesFcfa }],
+      goodsFcfa: input.goodsFcfa,
       items: input.items,
       rates: input.rates,
     }),
