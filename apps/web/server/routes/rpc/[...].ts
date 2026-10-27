@@ -18,35 +18,40 @@ const rpcHandler = new RPCHandler(appRouter, {
 });
 
 const apiHandler = new OpenAPIHandler(appRouter, {
-  plugins: [
-    new OpenAPIReferencePlugin({
-      schemaConverters: [new ZodToJsonSchemaConverter()],
-    }),
-  ],
   interceptors: [
     onError((error) => {
       console.error(error);
     }),
   ],
+  plugins: [
+    new OpenAPIReferencePlugin({
+      schemaConverters: [new ZodToJsonSchemaConverter()],
+    }),
+  ],
 });
 
 export default defineEventHandler(async (event) => {
+  await ensureDatabaseReady();
   const request = toWebRequest(event);
   const context = await createContext({
     headers: request.headers,
   });
 
   const rpcResult = await rpcHandler.handle(request, {
-    prefix: "/rpc",
     context,
+    prefix: "/rpc",
   });
-  if (rpcResult.response) return rpcResult.response;
+  if (rpcResult.response) {
+    return rpcResult.response;
+  }
 
   const apiResult = await apiHandler.handle(request, {
-    prefix: "/rpc/api-reference",
     context,
+    prefix: "/rpc/api-reference",
   });
-  if (apiResult.response) return apiResult.response;
+  if (apiResult.response) {
+    return apiResult.response;
+  }
 
   setResponseStatus(event, 404, "Not Found");
   return "Not found";

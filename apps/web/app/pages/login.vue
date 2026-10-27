@@ -1,26 +1,28 @@
 <script setup lang="ts">
-import SignInForm from "~/components/SignInForm.vue";
-import SignUpForm from "~/components/SignUpForm.vue";
+import SignInForm from "~/components/auth/SignInForm.vue";
+import SignUpForm from "~/components/auth/SignUpForm.vue";
+
+definePageMeta({ layout: "auth" });
+useHead({ title: "Connexion" });
 
 const { data: session } = await useAuthSession();
 const showSignIn = ref(true);
 const hydrated = ref(false);
+
 onMounted(() => {
   hydrated.value = true;
 });
 
 watchEffect(() => {
   if (session.value) {
-    navigateTo("/dashboard", { replace: true });
+    navigateTo("/", { replace: true });
   }
 });
 </script>
 
 <template>
-  <UContainer class="py-8">
-    <fieldset v-if="!session" :disabled="!hydrated">
-      <SignInForm v-if="showSignIn" @switch-to-sign-up="showSignIn = false" />
-      <SignUpForm v-else @switch-to-sign-in="showSignIn = true" />
-    </fieldset>
-  </UContainer>
+  <fieldset v-if="!session" :disabled="!hydrated" class="flex w-full justify-center">
+    <SignInForm v-if="showSignIn" @switch-to-sign-up="showSignIn = false" />
+    <SignUpForm v-else @switch-to-sign-in="showSignIn = true" />
+  </fieldset>
 </template>

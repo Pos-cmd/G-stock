@@ -14,10 +14,11 @@ export default defineNuxtPlugin((nuxt) => {
     },
     queryCache: new QueryCache({
       onError: (error) => {
-        console.log(error);
         toast.add({
-          title: "Error",
-          description: error?.message || "An unexpected error occurred.",
+          color: "error",
+          description: error?.message || "Une erreur inattendue est survenue.",
+          icon: "i-lucide-circle-alert",
+          title: "Erreur de chargement",
         });
       },
     }),
