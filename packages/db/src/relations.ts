@@ -107,6 +107,12 @@ const businessRelations = defineRelations(schema, (r) => ({
     items: r.many.saleItems({ from: r.sales.id, to: r.saleItems.saleId }),
     payments: r.many.payments({ from: r.sales.id, to: r.payments.saleId }),
   },
+  simulations: {
+    purchaseOrder: r.one.purchaseOrders({
+      from: r.simulations.purchaseOrderId,
+      to: r.purchaseOrders.id,
+    }),
+  },
   stockLots: {
     movements: r.many.stockMovements({
       from: r.stockLots.id,

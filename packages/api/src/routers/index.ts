@@ -5,6 +5,7 @@ import { productsRouter } from "./products";
 import { purchasesRouter } from "./purchases";
 import { paymentsRouter, salesRouter } from "./sales";
 import { settingsRouter } from "./settings";
+import { simulationsRouter } from "./simulations";
 import { stockRouter } from "./stock";
 import { suppliersRouter } from "./suppliers";
 
@@ -15,6 +16,7 @@ export const appRouter = {
   purchases: purchasesRouter,
   sales: salesRouter,
   settings: settingsRouter,
+  simulations: simulationsRouter,
   stock: stockRouter,
   suppliers: suppliersRouter,
 };

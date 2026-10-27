@@ -4,4 +4,5 @@ export * from "./documents";
 export * from "./purchasing";
 export * from "./sales";
 export * from "./settings";
+export * from "./simulations";
 export * from "./stock";
