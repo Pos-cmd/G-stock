@@ -2,6 +2,7 @@ import type {
   AllocationMethod,
   LotSource,
   MovementType,
+  PricingBasis,
   PurchaseOrderStatus,
   StockStatus,
 } from "./enums";
@@ -11,6 +12,7 @@ export const SUGGESTED_UNITS = [
   "pièce",
   "rouleau",
   "kg",
+  "tonne",
   "mètre",
   "carton",
   "paquet",
@@ -47,4 +49,10 @@ export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> =
 export const ALLOCATION_METHOD_LABELS: Record<AllocationMethod, string> = {
   equal: "Parts égales",
   proportional: "Au prorata des voyages",
+  weight: "Au prorata du poids",
+};
+
+export const PRICING_BASIS_LABELS: Record<PricingBasis, string> = {
+  unit: "/ unité",
+  weight: "/ tonne",
 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { DEFAULT_EXCHANGE_RATES } from "./currency";
-import { allocateAmount, computeLandedCosts } from "./purchasing";
+import { allocateAmount, computeLandedCosts, stockQtyFromWeight } from "./purchasing";
 import type { LandedCostInput } from "./purchasing";
 
 // A : 100 × 72 RMB = 7 200 RMB = 1 000 $ = 598 000 FCFA, 3 voyages.
@@ -83,5 +83,70 @@ describe("computeLandedCosts", () => {
       rates: { fcfaPerUsd: 600, rmbPerUsd: 7.2 },
     });
     expect(result.lines[0]?.goodsFcfa).toBe(600_000);
+  });
+});
+
+// Bon de commande Yiwu (FAFA, 10/13) : prix à la tonne, stock compté en cartons.
+// Fil galva 8 T × 4 450 = 35 600 RMB ; fil barbelé 5 T × 4 700 = 23 500 ;
+// barbelé PVC 4 T × 7 200 = 28 800 ; pointes de toiture 2 T × 5 100 = 10 200. Total 98 100 RMB, 19 T.
+const tonnageOrder = (allocationMethod: LandedCostInput["allocationMethod"]): LandedCostInput => ({
+  allocationMethod,
+  freightCbm: 24.8,
+  freightRatePerCbmFcfa: 100_000,
+  items: [
+    { pricingBasis: "weight", qty: 800, trips: 1, unitPriceRmb: 4450, weightTons: 8 },
+    { pricingBasis: "weight", qty: 25, trips: 1, unitPriceRmb: 4700, weightTons: 5 },
+    { pricingBasis: "weight", qty: 20, trips: 1, unitPriceRmb: 7200, weightTons: 4 },
+    { pricingBasis: "weight", qty: 80, trips: 1, unitPriceRmb: 5100, weightTons: 2 },
+  ],
+  localTransportFcfa: 0,
+  otherFeesFcfa: 0,
+  rates: DEFAULT_EXCHANGE_RATES,
+});
+
+describe("commande à la tonne", () => {
+  it("calcule la marchandise sur le poids et non sur le nombre de cartons", () => {
+    const result = computeLandedCosts(tonnageOrder("equal"));
+    expect(result.lines.map((line) => line.goodsRmb)).toEqual([35_600, 23_500, 28_800, 10_200]);
+    expect(result.goodsRmb).toBe(98_100);
+    expect(result.totalWeightTons).toBe(19);
+  });
+
+  it("répartit les frais au prorata du poids, sans perte d'arrondi", () => {
+    const result = computeLandedCosts(tonnageOrder("weight"));
+    // 24,8 CBM × 100 000 = 2 480 000 FCFA, répartis 8 : 5 : 4 : 2 sur 19 T.
+    expect(result.lines.map((line) => line.transportShareFcfa)).toEqual([
+      1_044_210, 652_632, 522_105, 261_053,
+    ]);
+    expect(result.lines.reduce((sum, line) => sum + line.transportShareFcfa, 0)).toBe(2_480_000);
+  });
+
+  it("donne le coût de revient par carton et par tonne", () => {
+    const [galva] = computeLandedCosts(tonnageOrder("weight")).lines;
+    // 35 600 RMB = 2 956 778 FCFA ; + 1 044 210 de frais = 4 000 988 FCFA.
+    expect(galva?.totalFcfa).toBe(4_000_988);
+    expect(galva?.unitCostFcfa).toBe(5001);
+    expect(galva?.costPerTonFcfa).toBe(500_124);
+  });
+
+  it("garde le calcul à l'unité quand la ligne n'est pas au poids", () => {
+    const [line] = computeLandedCosts({
+      ...order("equal"),
+      items: [{ qty: 100, trips: 1, unitPriceRmb: 72, weightTons: 2 }],
+    }).lines;
+    expect(line?.goodsRmb).toBe(7200);
+    expect(line?.costPerTonFcfa).toBe(Math.round((598_000 + 400_000) / 2));
+  });
+});
+
+describe("stockQtyFromWeight", () => {
+  it("convertit le poids pour les produits gérés en tonnes ou en kg", () => {
+    expect(stockQtyFromWeight("tonne", 8)).toBe(8);
+    expect(stockQtyFromWeight(" T ", 2.5)).toBe(2.5);
+    expect(stockQtyFromWeight("kg", 2)).toBe(2000);
+  });
+
+  it("ne devine rien pour les autres unités", () => {
+    expect(stockQtyFromWeight("carton", 8)).toBeNull();
   });
 });
