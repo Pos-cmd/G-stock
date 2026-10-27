@@ -128,4 +128,17 @@ Le lint suit le preset Ultracite (`oxlint.config.ts`), avec deux dérogations ci
 
 ## Configuration
 
-Les variables d'environnement sont décrites dans `apps/web/.env.schema` (Varlock) : `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`. Lancez `pnpm run env:generate` après avoir modifié un schéma d'environnement.
+Les variables d'environnement sont décrites dans `apps/web/.env.schema` (Varlock) : `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (adresse habituelle de l'application) et, facultative, `TRUSTED_ORIGINS` (autres adresses autorisées à se connecter, séparées par des virgules). Lancez `pnpm run env:generate` après avoir modifié un schéma d'environnement.
+
+## Accès depuis le téléphone
+
+L'application reste sur le PC (la base ne le quitte pas) ; le téléphone l'ouvre dans son navigateur, sur le même Wi-Fi ou depuis l'extérieur, grâce à [Tailscale](https://tailscale.com/download) (réseau privé chiffré, gratuit pour un usage personnel). G-stock n'est pas exposé sur Internet : seuls vos appareils connectés à votre compte Tailscale l'atteignent.
+
+1. Installez Tailscale sur le PC et sur le téléphone, et connectez-les au **même compte**.
+2. Sur le PC, dans un terminal : `tailscale serve --bg 3000` (3000 : port de G-stock en production ; 3001 avec `pnpm run dev:web`). La commande affiche l'adresse HTTPS du PC, du type `https://mon-pc.tail1234.ts.net` (acceptez l'activation des certificats HTTPS si Tailscale la demande).
+3. Ajoutez cette adresse dans `apps/web/.env` : `TRUSTED_ORIGINS=https://mon-pc.tail1234.ts.net`, puis redémarrez G-stock. Sans cela, la connexion depuis le téléphone est refusée (« Invalid origin »).
+4. Sur le téléphone, ouvrez cette adresse, connectez-vous, puis « Ajouter à l'écran d'accueil ».
+
+Le PC doit être allumé et G-stock lancé. En HTTPS, le bouton « WhatsApp » d'une vente envoie directement le PDF du reçu.
+
+Côté écrans : les fenêtres (`ResponsiveModal`) s'affichent en modale sur PC et en tiroir qui monte du bas sur téléphone ; les actions d'une page passent sous le titre ; les tableaux défilent horizontalement.
