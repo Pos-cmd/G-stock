@@ -45,5 +45,9 @@ export type SaleStatus = (typeof SALE_STATUSES)[number];
 export const RECEIVABLE_LEVELS = ["current", "warning", "alert", "critical"] as const;
 export type ReceivableLevel = (typeof RECEIVABLE_LEVELS)[number];
 
+/** Fixation du prix de vente dans le simulateur. */
+export const SALE_PRICING_MODES = ["markup", "margin", "price"] as const;
+export type SalePricingMode = (typeof SALE_PRICING_MODES)[number];
+
 export const DOCUMENT_TYPES = ["receipt", "cost_sheet", "simulation", "purchase_order"] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];

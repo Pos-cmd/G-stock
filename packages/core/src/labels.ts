@@ -8,6 +8,7 @@ import type {
   PricingBasis,
   PurchaseOrderStatus,
   ReceivableLevel,
+  SalePricingMode,
   SaleStatus,
   StockStatus,
 } from "./enums";
@@ -100,4 +101,10 @@ export const RECEIVABLE_LEVEL_LABELS: Record<ReceivableLevel, string> = {
   critical: "Critique",
   current: "Récente",
   warning: "À relancer",
+};
+
+export const SALE_PRICING_MODE_LABELS: Record<SalePricingMode, string> = {
+  margin: "% du prix de vente",
+  markup: "% sur le revient",
+  price: "Prix saisi",
 };
