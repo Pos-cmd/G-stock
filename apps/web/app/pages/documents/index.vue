@@ -23,6 +23,7 @@ onMounted(async () => {
 const TYPE_LABELS: Record<GeneratedDocumentType, { label: string; icon: string }> = {
   cost_sheet: { icon: "i-lucide-ship", label: "Fiche de commande" },
   receipt: { icon: "i-lucide-receipt", label: "Reçu de vente" },
+  receipt_mobile: { icon: "i-lucide-smartphone", label: "Reçu téléphone" },
   simulation: { icon: "i-lucide-calculator", label: "Simulation" },
 };
 

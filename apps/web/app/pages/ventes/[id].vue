@@ -22,6 +22,7 @@ const invalidateSales = useInvalidateSales();
 const invalidateStock = useInvalidateStock();
 
 const { generate, generating } = useGenerateDocument();
+const { share, sharing } = useShareReceipt();
 
 const sale = useQuery(
   computed(() => $orpc.sales.get.queryOptions({ input: { id: saleId.value } })),
@@ -108,6 +109,16 @@ const columns: TableColumn<SaleItem>[] = [
           :loading="generating"
           @click="generate('receipt', data.id)"
         />
+        <UTooltip text="Reçu au format téléphone, avec un message pour le client">
+          <UButton
+            color="success"
+            variant="soft"
+            icon="i-lucide-message-circle"
+            label="WhatsApp"
+            :loading="sharing"
+            @click="share(data)"
+          />
+        </UTooltip>
         <SaleStatusBadge :status="data.status" :due-fcfa="data.summary.dueFcfa" />
         <template v-if="isActive">
           <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">

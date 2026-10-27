@@ -25,6 +25,7 @@ const state = reactive<AppSettings>({
   companyPhone: "",
   documentsFolder: "",
   fcfaPerUsd: 0,
+  phoneCountryCode: "",
   receivableAlertDays: 0,
   receivableCriticalDays: 0,
   receivableWarningDays: 0,
@@ -152,8 +153,21 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
           <UFormField label="Téléphone" name="companyPhone">
             <UInput v-model="state.companyPhone" type="tel" class="w-full" />
           </UFormField>
-          <UFormField label="Adresse" name="companyAddress" class="sm:col-span-2">
+          <UFormField label="Adresse" name="companyAddress">
             <UInput v-model="state.companyAddress" placeholder="Quartier, ville" class="w-full" />
+          </UFormField>
+          <UFormField
+            label="Indicatif téléphonique"
+            name="phoneCountryCode"
+            help="Ajouté aux numéros des clients saisis sans indicatif, pour WhatsApp."
+          >
+            <UInput
+              v-model="state.phoneCountryCode"
+              placeholder="ex. 228"
+              inputmode="numeric"
+              icon="i-lucide-phone"
+              class="w-full"
+            />
           </UFormField>
           <UFormField
             label="Dossier des documents"
