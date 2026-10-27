@@ -39,6 +39,9 @@ export default defineNuxtConfig({
     port: 3001,
   },
   devtools: { enabled: true },
+  // Application locale à un seul poste : les pages sont rendues dans le navigateur, Nitro ne sert
+  // que l'API. Évite les écarts d'hydratation entre un rendu serveur sans données et le client.
+  ssr: false,
   experimental: {
     payloadExtraction: "client",
   },
