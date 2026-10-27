@@ -16,7 +16,7 @@ const { $orpc } = useNuxtApp();
 const notify = useNotify();
 const invalidateStock = useInvalidateStock();
 
-const state = reactive<LotAdjustInput>({ lotId: 0, newQty: 0, reason: "" });
+const state = reactive<LotAdjustInput>({ lotId: "", newQty: 0, reason: "" });
 
 watch(open, (isOpen) => {
   if (isOpen && lot) {

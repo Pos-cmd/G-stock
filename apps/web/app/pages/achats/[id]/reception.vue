@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { uuidv7 } from "@G-stock/core/ids";
 import { purchaseReceptionSchema } from "@G-stock/api/schemas/purchases";
 import type { AllocationMethod, FeeCurrency } from "@G-stock/core/enums";
 import { formatFcfa, formatQty } from "@G-stock/core/format";
@@ -18,7 +19,7 @@ import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue"
 import type { PurchaseOrderDetail } from "~/types/api";
 
 const route = useRoute();
-const orderId = computed(() => Number(route.params.id));
+const orderId = computed(() => String(route.params.id));
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();
@@ -41,7 +42,7 @@ const formSchema = purchaseReceptionSchema.omit({ arrivedAt: true, id: true }).e
 type FormOutput = z.output<typeof formSchema>;
 
 interface FeeLine {
-  key: number;
+  key: string;
   label: string;
   amount: number;
   currency: FeeCurrency;
@@ -55,15 +56,13 @@ interface ReceptionState {
   billOfLading: string;
   forwarder: string;
   fees: FeeLine[];
-  items: { id: number; qtyReceived: number }[];
+  items: { id: string; qtyReceived: number }[];
 }
 
-let nextFeeKey = 0;
 const feeLine = (
   fee: Partial<Omit<FeeLine, "key">> & { allocationMethod: AllocationMethod },
 ): FeeLine => {
-  nextFeeKey += 1;
-  return { amount: 0, currency: "fcfa", key: nextFeeKey, label: "", ...fee };
+  return { amount: 0, currency: "fcfa", key: uuidv7(), label: "", ...fee };
 };
 
 /** Première saisie : l'estimation de la commande, plus une ligne Douane à compléter. */
@@ -169,7 +168,7 @@ const addFee = (label = "") => {
     }),
   );
 };
-const removeFee = (key: number) => {
+const removeFee = (key: string) => {
   state.fees = state.fees.filter((fee) => fee.key !== key);
 };
 

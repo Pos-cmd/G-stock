@@ -9,7 +9,7 @@ import { z } from "zod";
 import { useSettingsStore } from "~/stores/settings";
 
 const { product } = defineProps<{
-  product: { id: number; name: string; unit: string } | null;
+  product: { id: string; name: string; unit: string } | null;
 }>();
 const open = defineModel<boolean>("open", { required: true });
 

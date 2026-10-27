@@ -8,7 +8,7 @@ import type { z } from "zod";
 import type { SupplierRow } from "~/types/api";
 
 const { supplier = null } = defineProps<{ supplier?: SupplierRow | null }>();
-const emit = defineEmits<{ saved: [id: number] }>();
+const emit = defineEmits<{ saved: [id: string] }>();
 const open = defineModel<boolean>("open", { required: true });
 
 const { $orpc } = useNuxtApp();

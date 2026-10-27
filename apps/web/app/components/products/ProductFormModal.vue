@@ -12,7 +12,7 @@ import { useSettingsStore } from "~/stores/settings";
 import type { ProductDetail, ProductRow } from "~/types/api";
 
 const { product = null } = defineProps<{ product?: ProductRow | ProductDetail | null }>();
-const emit = defineEmits<{ saved: [id: number] }>();
+const emit = defineEmits<{ saved: [id: string] }>();
 const open = defineModel<boolean>("open", { required: true });
 
 const { $orpc } = useNuxtApp();

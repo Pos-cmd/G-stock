@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { uuidv7 } from "@G-stock/core/ids";
 import { idSchema } from "@G-stock/api/schemas/common";
 import {
   checkWeights,
@@ -23,7 +24,7 @@ const { formId = "purchase-form", order = null } = defineProps<{
   order?: PurchaseOrderDetail | null;
   formId?: string;
 }>();
-const emit = defineEmits<{ saved: [id: number] }>();
+const emit = defineEmits<{ saved: [id: string] }>();
 const dirty = defineModel<boolean>("dirty", { default: false });
 
 const { $orpc } = useNuxtApp();
@@ -47,8 +48,8 @@ const formSchema = purchaseOrderFieldsSchema
 type FormOutput = z.output<typeof formSchema>;
 
 interface LineState {
-  key: number;
-  productId: number | undefined;
+  key: string;
+  productId: string | undefined;
   qty: number;
   trips: number;
   unitPriceRmb: number;
@@ -56,11 +57,9 @@ interface LineState {
   weightTons: number | null;
 }
 
-let nextLineKey = 0;
 const newLine = (line: Partial<Omit<LineState, "key">> = {}): LineState => {
-  nextLineKey += 1;
   return {
-    key: nextLineKey,
+    key: uuidv7(),
     pricingBasis: "unit",
     productId: undefined,
     qty: 1,
@@ -82,7 +81,7 @@ interface FormState {
   orderDate: string;
   otherFeesFcfa: number;
   rmbPerUsd: number;
-  supplierId: number | undefined;
+  supplierId: string | undefined;
 }
 
 const emptyState = (): FormState => ({
@@ -221,12 +220,12 @@ const totalWeightTons = computed(() =>
 );
 
 // Lignes
-const addLine = (productId?: number) => {
+const addLine = (productId?: string) => {
   const price = productId ? (productsById.value.get(productId)?.referencePriceRmb ?? 0) : 0;
   state.items.push(newLine({ productId, unitPriceRmb: price }));
 };
 
-const removeLine = (key: number) => {
+const removeLine = (key: string) => {
   state.items = state.items.filter((line) => line.key !== key);
 };
 
@@ -290,7 +289,7 @@ const ratesDiffer = computed(
 // Création rapide depuis le formulaire
 const productModalOpen = ref(false);
 const supplierModalOpen = ref(false);
-const onProductCreated = async (id: number) => {
+const onProductCreated = async (id: string) => {
   await products.refetch();
   const emptyLine = state.items.find((line) => line.productId === undefined);
   if (emptyLine) {
@@ -300,7 +299,7 @@ const onProductCreated = async (id: number) => {
     addLine(id);
   }
 };
-const onSupplierCreated = async (id: number) => {
+const onSupplierCreated = async (id: string) => {
   await suppliers.refetch();
   state.supplierId = id;
 };

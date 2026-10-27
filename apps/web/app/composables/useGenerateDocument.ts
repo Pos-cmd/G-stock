@@ -11,7 +11,7 @@ export const useGenerateDocument = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation($orpc.documents.generate.mutationOptions());
 
-  const generate = async (type: GeneratedDocumentType, referenceId: number) => {
+  const generate = async (type: GeneratedDocumentType, referenceId: string) => {
     const tab = window.open("about:blank", "_blank");
     try {
       const document = await mutation.mutateAsync({ referenceId, type });

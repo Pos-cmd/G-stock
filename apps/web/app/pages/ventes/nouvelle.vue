@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isUuid } from "@G-stock/core/ids";
+import { uuidv7 } from "@G-stock/core/ids";
 import { saleInputSchema, saleLineSchema } from "@G-stock/api/schemas/sales";
 import type { PaymentMethod, PaymentType } from "@G-stock/core/enums";
 import { formatFcfa, formatQty } from "@G-stock/core/format";
@@ -24,11 +26,11 @@ const invalidateStock = useInvalidateStock();
 const formSchema = saleInputSchema
   .omit({ customerId: true, lines: true, notes: true, saleDate: true })
   .extend({
-    customerId: z.number({ error: "Choisissez un client" }).int().positive(),
+    customerId: z.uuid({ error: "Choisissez un client" }),
     lines: z
       .array(
         saleLineSchema.extend({
-          productId: z.number({ error: "Choisissez un produit" }).int().positive(),
+          productId: z.uuid({ error: "Choisissez un produit" }),
         }),
       )
       .min(1, "Ajoutez au moins un produit"),
@@ -51,22 +53,20 @@ const formSchema = saleInputSchema
 type FormOutput = z.output<typeof formSchema>;
 
 interface SaleLineState {
-  key: number;
-  productId: number | undefined;
+  key: string;
+  productId: string | undefined;
   qty: number;
   unitPriceFcfa: number;
 }
 
-let nextLineKey = 0;
 const newLine = (): SaleLineState => {
-  nextLineKey += 1;
-  return { key: nextLineKey, productId: undefined, qty: 1, unitPriceFcfa: 0 };
+  return { key: uuidv7(), productId: undefined, qty: 1, unitPriceFcfa: 0 };
 };
 
-const initialCustomer = Number(route.query.client) || undefined;
+const initialCustomer = isUuid(route.query.client) ? route.query.client : undefined;
 
 const state = reactive({
-  customerId: initialCustomer as number | undefined,
+  customerId: initialCustomer as string | undefined,
   lines: [newLine()] as SaleLineState[],
   notes: "",
   paidFcfa: 0,
@@ -120,7 +120,7 @@ const methodItems = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) =
 const addLine = () => {
   state.lines.push(newLine());
 };
-const removeLine = (key: number) => {
+const removeLine = (key: string) => {
   state.lines = state.lines.filter((line) => line.key !== key);
 };
 const onProductChange = (line: SaleLineState) => {
@@ -136,7 +136,7 @@ const quoteRequest = computed(() =>
     .filter((line) => line.productId && line.qty > 0)
     .map((line) => ({
       key: line.key,
-      productId: line.productId as number,
+      productId: line.productId as string,
       qty: line.qty,
     })),
 );
@@ -198,7 +198,7 @@ const lossLines = computed(
 
 // Création rapide d'un client
 const customerModalOpen = ref(false);
-const onCustomerCreated = async (id: number) => {
+const onCustomerCreated = async (id: string) => {
   await customers.refetch();
   state.customerId = id;
 };

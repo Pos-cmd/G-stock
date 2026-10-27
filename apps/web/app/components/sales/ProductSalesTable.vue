@@ -13,7 +13,7 @@ const {
 } = defineProps<{
   from: string;
   to: string;
-  customerId?: number | null;
+  customerId?: string | null;
 }>();
 
 const { $orpc } = useNuxtApp();

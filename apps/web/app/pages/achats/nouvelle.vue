@@ -6,7 +6,7 @@ useHead({ title: "Nouvelle commande" });
 
 const form = useTemplateRef<InstanceType<typeof PurchaseOrderForm>>("form");
 
-const onSaved = async (id: number) => {
+const onSaved = async (id: string) => {
   await navigateTo(`/achats/${id}`, { replace: true });
 };
 </script>

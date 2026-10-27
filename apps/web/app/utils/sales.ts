@@ -7,7 +7,7 @@ export interface SalesFilterState {
   search: string;
   from: string;
   to: string;
-  productId: number | undefined;
+  productId: string | undefined;
   status: SaleStatus | typeof ALL;
   paymentState: "paid" | "due" | typeof ALL;
 }
@@ -27,7 +27,7 @@ export const periodBounds = (from: string, to: string) => ({
   to: to ? new Date(`${to}T23:59:59.999`) : null,
 });
 
-export const toSaleListInput = (state: SalesFilterState, customerId?: number) => ({
+export const toSaleListInput = (state: SalesFilterState, customerId?: string) => ({
   ...periodBounds(state.from, state.to),
   customerId: customerId ?? null,
   paymentState: state.paymentState === ALL ? null : state.paymentState,

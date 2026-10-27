@@ -16,7 +16,7 @@ import { useSettingsStore } from "~/stores/settings";
 import type { StockLot } from "~/types/api";
 
 const route = useRoute();
-const productId = computed(() => Number(route.params.id));
+const productId = computed(() => String(route.params.id));
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();

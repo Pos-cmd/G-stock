@@ -1,6 +1,7 @@
 import type { ComparisonItem } from "@G-stock/api/schemas/comparison";
+import { isUuid } from "@G-stock/core/ids";
 
-/** Sélection d'une comparaison dans l'URL : « s12,c3 » = simulation 12, commande 3. */
+/** Sélection d'une comparaison dans l'URL : « s<uuid>,c<uuid> » = une simulation, une commande. */
 const PREFIXES = { purchase_order: "c", simulation: "s" } as const;
 
 export const encodeComparisonItems = (items: readonly ComparisonItem[]): string =>
@@ -11,8 +12,8 @@ export const decodeComparisonItems = (value: unknown): ComparisonItem[] => {
     return [];
   }
   return value.split(",").flatMap((token): ComparisonItem[] => {
-    const id = Number(token.slice(1));
-    if (!Number.isInteger(id) || id <= 0) {
+    const id = token.slice(1);
+    if (!isUuid(id)) {
       return [];
     }
     if (token.startsWith(PREFIXES.simulation)) {

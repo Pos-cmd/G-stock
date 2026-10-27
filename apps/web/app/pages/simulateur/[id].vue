@@ -9,7 +9,7 @@ import SimulationEditor from "~/components/simulator/SimulationEditor.vue";
 const SAVE_FIRST_HINT = "Enregistrez d'abord vos modifications";
 
 const route = useRoute();
-const simulationId = computed(() => Number(route.params.id));
+const simulationId = computed(() => String(route.params.id));
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();

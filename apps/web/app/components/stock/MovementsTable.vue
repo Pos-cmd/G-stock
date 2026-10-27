@@ -11,7 +11,7 @@ const PAGE_SIZE = 25;
 
 const { filters = {}, showProduct = true } = defineProps<{
   filters?: {
-    productId?: number | null;
+    productId?: string | null;
     type?: MovementType | null;
     from?: Date | null;
     to?: Date | null;

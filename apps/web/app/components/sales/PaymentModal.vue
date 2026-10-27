@@ -9,8 +9,8 @@ import { z } from "zod";
 
 /** Encaissement d'un client, rattaché ou non à une vente. */
 const { customer, saleId = null } = defineProps<{
-  customer: { id: number; name: string; dueFcfa: number };
-  saleId?: number | null;
+  customer: { id: string; name: string; dueFcfa: number };
+  saleId?: string | null;
 }>();
 const open = defineModel<boolean>("open", { required: true });
 
@@ -23,7 +23,7 @@ const formSchema = paymentInputSchema
   .extend({
     notes: z.string().max(500, "500 caractères maximum"),
     paymentDate: z.iso.date("Date invalide"),
-    saleId: z.number().int().positive().optional(),
+    saleId: z.uuid().optional(),
   });
 type FormOutput = z.output<typeof formSchema>;
 
@@ -32,7 +32,7 @@ interface PaymentFormState {
   method: PaymentMethod;
   notes: string;
   paymentDate: string;
-  saleId: number | undefined;
+  saleId: string | undefined;
 }
 
 const state = reactive<PaymentFormState>({

@@ -155,6 +155,7 @@ const columns: TableColumn<DocumentRow>[] = [
           <UButton
             :href="`/api/documents/${row.original.id}`"
             target="_blank"
+            external
             color="neutral"
             variant="ghost"
             icon="i-lucide-external-link"
@@ -162,6 +163,7 @@ const columns: TableColumn<DocumentRow>[] = [
           />
           <UButton
             :href="`/api/documents/${row.original.id}?telecharger`"
+            external
             color="neutral"
             variant="ghost"
             icon="i-lucide-download"

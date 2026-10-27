@@ -7,7 +7,7 @@ import { z } from "zod";
 
 /** Remise accordée après la vente : montant et motif obligatoire, tracés dans l'historique. */
 const { sale } = defineProps<{
-  sale: { id: number; reference: string; netFcfa: number };
+  sale: { id: string; reference: string; netFcfa: number };
 }>();
 const open = defineModel<boolean>("open", { required: true });
 

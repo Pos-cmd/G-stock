@@ -7,14 +7,14 @@ import type { z } from "zod";
 
 const { customer = null } = defineProps<{
   customer?: {
-    id: number;
+    id: string;
     name: string;
     phone: string | null;
     address: string | null;
     notes: string | null;
   } | null;
 }>();
-const emit = defineEmits<{ saved: [id: number] }>();
+const emit = defineEmits<{ saved: [id: string] }>();
 const open = defineModel<boolean>("open", { required: true });
 
 const { $orpc } = useNuxtApp();

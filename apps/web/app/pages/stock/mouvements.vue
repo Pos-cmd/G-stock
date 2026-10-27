@@ -12,7 +12,7 @@ const ALL = "all";
 
 const { $orpc } = useNuxtApp();
 
-const productId = ref<number | undefined>();
+const productId = ref<string | undefined>();
 const type = ref<MovementType | typeof ALL>(ALL);
 const from = ref("");
 const to = ref("");

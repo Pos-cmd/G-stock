@@ -17,7 +17,7 @@ type EditableStatus = (typeof EDITABLE_PURCHASE_STATUSES)[number];
 const SAVE_FIRST_HINT = "Enregistrez d'abord vos modifications";
 
 const route = useRoute();
-const orderId = computed(() => Number(route.params.id));
+const orderId = computed(() => String(route.params.id));
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();

@@ -16,7 +16,7 @@ import SalesFilters from "~/components/sales/SalesFilters.vue";
 import SalesTable from "~/components/sales/SalesTable.vue";
 
 const route = useRoute();
-const customerId = computed(() => Number(route.params.id));
+const customerId = computed(() => String(route.params.id));
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();
@@ -57,7 +57,7 @@ const tabs: TabsItem[] = [
 const formOpen = ref(false);
 const paymentOpen = ref(false);
 const deleteOpen = ref(false);
-const cancelledPaymentId = ref<number | null>(null);
+const cancelledPaymentId = ref<string | null>(null);
 const cancelPaymentOpen = computed({
   get: () => cancelledPaymentId.value !== null,
   set: (isOpen: boolean) => {

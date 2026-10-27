@@ -14,7 +14,7 @@ const {
   showCustomer = true,
 } = defineProps<{
   filters: SalesFilterState;
-  customerId?: number | null;
+  customerId?: string | null;
   showCustomer?: boolean;
 }>();
 

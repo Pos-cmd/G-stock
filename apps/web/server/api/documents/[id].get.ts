@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 
 import { getDocumentFile } from "@G-stock/api/services/documents";
+import { isUuid } from "@G-stock/core/ids";
 import { ORPCError } from "@orpc/server";
 
 import { createContext } from "../../../src/context";
@@ -13,8 +14,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: "Connexion requise" });
   }
 
-  const id = Number(getRouterParam(event, "id"));
-  if (!Number.isInteger(id) || id <= 0) {
+  const id = getRouterParam(event, "id");
+  if (!isUuid(id)) {
     throw createError({ statusCode: 400, statusMessage: "Document invalide" });
   }
 

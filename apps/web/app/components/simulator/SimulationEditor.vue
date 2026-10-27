@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { uuidv7 } from "@G-stock/core/ids";
 import { simulationInputSchema } from "@G-stock/api/schemas/simulations";
 import type {
   AllocationMethod,
@@ -30,7 +31,7 @@ const { formId = "simulation-form", simulation = null } = defineProps<{
   simulation?: SimulationDetail | null;
   formId?: string;
 }>();
-const emit = defineEmits<{ saved: [id: number] }>();
+const emit = defineEmits<{ saved: [id: string] }>();
 const dirty = defineModel<boolean>("dirty", { default: false });
 
 const DEFAULT_MARKUP_PERCENT = 30;
@@ -46,10 +47,10 @@ const formSchema = simulationInputSchema.extend({
 type FormOutput = z.output<typeof formSchema>;
 
 interface LineState {
-  key: number;
+  key: string;
   label: string;
   unit: string;
-  productId: number | null;
+  productId: string | null;
   qty: number;
   unitPriceRmb: number;
   pricingBasis: PricingBasis;
@@ -59,7 +60,7 @@ interface LineState {
 }
 
 interface FeeState {
-  key: number;
+  key: string;
   label: string;
   amount: number;
   currency: FeeCurrency;
@@ -79,10 +80,8 @@ interface SimulationState {
   };
 }
 
-let nextKey = 0;
-const withKey = <T extends object>(value: T): T & { key: number } => {
-  nextKey += 1;
-  return { ...value, key: nextKey };
+const withKey = <T extends object>(value: T): T & { key: string } => {
+  return { ...value, key: uuidv7() };
 };
 const newLine = (): LineState =>
   withKey({

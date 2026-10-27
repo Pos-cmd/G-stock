@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isUuid } from "@G-stock/core/ids";
 import type { PurchaseOrderStatus } from "@G-stock/core/enums";
 import { formatDate, formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
 import { PURCHASE_ORDER_STATUS_LABELS } from "@G-stock/core/labels";
@@ -21,8 +22,8 @@ const search = ref("");
 const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 const status = ref<PurchaseOrderStatus | typeof ALL>(ALL);
 // Lien « commandes de ce fournisseur » depuis la page Fournisseurs.
-const supplierId = ref<number | undefined>(
-  route.query.fournisseur ? Number(route.query.fournisseur) : undefined,
+const supplierId = ref<string | undefined>(
+  isUuid(route.query.fournisseur) ? route.query.fournisseur : undefined,
 );
 
 const orders = useQuery(

@@ -16,8 +16,8 @@ const queryClient = useQueryClient();
 const simulations = useQuery($orpc.simulations.list.queryOptions());
 
 // Simulations cochées pour être comparées.
-const selected = ref<number[]>([]);
-const toggleSelected = (id: number, checked: boolean | "indeterminate") => {
+const selected = ref<string[]>([]);
+const toggleSelected = (id: string, checked: boolean | "indeterminate") => {
   selected.value =
     checked === true
       ? [...selected.value, id]

@@ -14,7 +14,7 @@ import type { SaleDetail } from "~/types/api";
 type SaleItem = SaleDetail["items"][number];
 
 const route = useRoute();
-const saleId = computed(() => Number(route.params.id));
+const saleId = computed(() => String(route.params.id));
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();

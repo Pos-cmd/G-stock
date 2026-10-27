@@ -6,7 +6,7 @@ useHead({ title: "Nouvelle simulation" });
 
 const editor = useTemplateRef<InstanceType<typeof SimulationEditor>>("editor");
 
-const onSaved = async (id: number) => {
+const onSaved = async (id: string) => {
   await navigateTo(`/simulateur/${id}`, { replace: true });
 };
 </script>
