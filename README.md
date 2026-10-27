@@ -19,7 +19,7 @@ Ouvrez http://localhost:3001 et créez un compte. Au démarrage, le serveur cré
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Stock & Produits    | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, historique, alertes de stock bas                                            |
 | Tableau de bord     | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes                                                       |
-| Paramètres          | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances                                                                           |
+| Paramètres          | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances, sauvegarde quotidienne                                                   |
 | Achats fournisseurs | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock                                             |
 | Ventes              | ✅ Vente comptant ou à crédit (acompte), sortie FIFO, marge, remise et annulation tracées                                                      |
 | Clients             | ✅ Solde, avoir, ancienneté des créances, historique filtrable, achats par produit, paiements                                                  |
@@ -95,6 +95,20 @@ pnpm run db:generate --name <description>   # génère une migration SQL dans pa
 ```
 
 La migration est appliquée au prochain démarrage du serveur. `pnpm run db:studio` ouvre Drizzle Studio pour explorer la base.
+
+### Sauvegarde et restauration
+
+Tant que le serveur tourne, il vérifie toutes les heures que la dernière sauvegarde a moins de 24 h, sinon il en fait une : une copie cohérente de la base (`VACUUM INTO`) nommée `gstock-AAAA-MM-JJ-HHMMSS.db`. Le dossier et le nombre de copies conservées (30 par défaut) se règlent dans **Paramètres → Sauvegarde**, qui affiche aussi la dernière sauvegarde, un bouton « Sauvegarder maintenant » et le téléchargement des copies. Le tableau de bord avertit si la sauvegarde échoue ou date de plus de deux jours.
+
+Avec [Google Drive pour ordinateur](https://www.google.com/drive/download/), choisissez un dossier dans « Mon Drive » (proposé automatiquement s'il est détecté) : chaque copie part aussi en ligne. Sans Drive, les copies vont dans `Documents/G-stock/Sauvegardes`.
+
+Pour restaurer, arrêtez G-stock puis :
+
+```bash
+pnpm db:restore "G:\Mon Drive\G-stock\Sauvegardes\gstock-2026-10-27-090000.db"
+```
+
+La base actuelle est gardée à côté (`local.db.avant-restauration-<date>`) ; le script refuse de tourner tant que le serveur garde la base ouverte.
 
 ## Qualité
 
