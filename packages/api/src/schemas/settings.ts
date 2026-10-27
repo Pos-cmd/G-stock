@@ -5,6 +5,17 @@ const days = z.number().int().min(1, "Au moins 1 jour");
 
 export const appSettingsSchema = z
   .object({
+    /** Dossier des sauvegardes de la base (idéalement synchronisé par Google Drive). */
+    backupFolder: z
+      .string()
+      .trim()
+      .min(1, "Indiquez un dossier")
+      .max(500, "500 caractères maximum"),
+    backupKeep: z
+      .number()
+      .int()
+      .min(1, "Au moins 1 sauvegarde")
+      .max(365, "365 sauvegardes maximum"),
     /** Coordonnées imprimées en tête des documents (reçus, fiches). */
     companyAddress: z.string().trim().max(200, "200 caractères maximum"),
     companyName: z.string().trim().max(120, "120 caractères maximum"),

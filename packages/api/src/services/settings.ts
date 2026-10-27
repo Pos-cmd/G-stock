@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -14,6 +15,7 @@ type NumericSetting = {
 type TextSetting = Exclude<keyof AppSettings, NumericSetting>;
 
 const NUMERIC_KEYS = {
+  backupKeep: "backup_keep",
   fcfaPerUsd: "fcfa_per_usd",
   receivableAlertDays: "receivable_alert_days",
   receivableCriticalDays: "receivable_critical_days",
@@ -22,16 +24,41 @@ const NUMERIC_KEYS = {
 } as const satisfies Record<NumericSetting, string>;
 
 const TEXT_KEYS = {
+  backupFolder: "backup_folder",
   companyAddress: "company_address",
   companyName: "company_name",
   companyPhone: "company_phone",
   documentsFolder: "documents_folder",
 } as const satisfies Record<TextSetting, string>;
 
+/** Nombre de sauvegardes conservées par défaut : un mois de sauvegardes quotidiennes. */
+const DEFAULT_BACKUP_KEEP = 30;
+
 /** Dossier par défaut des PDF : Documents/G-stock de l'utilisateur. */
 export const defaultDocumentsFolder = (): string => path.join(homedir(), "Documents", "G-stock");
 
+/** Dossiers créés par Google Drive pour ordinateur (lecteur G: ou dossier de l'utilisateur). */
+const driveCandidates = (): string[] => [
+  "G:\\Mon Drive",
+  "G:\\My Drive",
+  path.join(homedir(), "Google Drive"),
+  path.join(homedir(), "Mon Drive"),
+  path.join(homedir(), "My Drive"),
+];
+
+/** Dossier G-stock dans Google Drive, si Google Drive pour ordinateur est installé. */
+export const detectDriveFolder = (): string | null => {
+  const drive = driveCandidates().find((candidate) => existsSync(candidate));
+  return drive ? path.join(drive, "G-stock", "Sauvegardes") : null;
+};
+
+/** Google Drive s'il est présent, sinon Documents/G-stock/Sauvegardes. */
+export const defaultBackupFolder = (): string =>
+  detectDriveFolder() ?? path.join(defaultDocumentsFolder(), "Sauvegardes");
+
 const defaultSettings = (): AppSettings => ({
+  backupFolder: defaultBackupFolder(),
+  backupKeep: DEFAULT_BACKUP_KEEP,
   companyAddress: "",
   companyName: "",
   companyPhone: "",
