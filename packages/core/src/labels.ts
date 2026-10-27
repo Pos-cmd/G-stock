@@ -3,8 +3,12 @@ import type {
   FeeCurrency,
   LotSource,
   MovementType,
+  PaymentMethod,
+  PaymentType,
   PricingBasis,
   PurchaseOrderStatus,
+  ReceivableLevel,
+  SaleStatus,
   StockStatus,
 } from "./enums";
 
@@ -73,4 +77,27 @@ export const SUGGESTED_FEE_LABELS = [
 export const PRICING_BASIS_LABELS: Record<PricingBasis, string> = {
   unit: "/ unité",
   weight: "/ tonne",
+};
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  bank: "Banque",
+  cash: "Espèces",
+  mobile_money: "Mobile money",
+};
+
+export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
+  cash: "Comptant",
+  credit: "À crédit",
+};
+
+export const SALE_STATUS_LABELS: Record<SaleStatus, string> = {
+  active: "Validée",
+  cancelled: "Annulée",
+};
+
+export const RECEIVABLE_LEVEL_LABELS: Record<ReceivableLevel, string> = {
+  alert: "Ancienne",
+  critical: "Critique",
+  current: "Récente",
+  warning: "À relancer",
 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { getStockStatus, weightedAverageCost } from "./stock";
+import { getStockStatus, planFifo, weightedAverageCost } from "./stock";
 
 describe("getStockStatus", () => {
   it("signale une rupture à zéro", () => {
@@ -30,5 +30,27 @@ describe("weightedAverageCost", () => {
   it("vaut 0 sans stock", () => {
     expect(weightedAverageCost([])).toBe(0);
     expect(weightedAverageCost([{ qtyRemaining: 0, unitCostFcfa: 1000 }])).toBe(0);
+  });
+});
+
+describe("planFifo", () => {
+  const lots = [
+    { id: 1, qtyRemaining: 5, unitCostFcfa: 1000 },
+    { id: 2, qtyRemaining: 0, unitCostFcfa: 9999 },
+    { id: 3, qtyRemaining: 10, unitCostFcfa: 1200 },
+  ];
+
+  it("prélève sur les lots dans l'ordre et calcule le coût", () => {
+    const plan = planFifo(lots, 8);
+    expect(plan.allocations.map((a) => [a.lotId, a.qty, a.qtyLeft])).toEqual([
+      [1, 5, 0],
+      [3, 3, 7],
+    ]);
+    expect(plan.costFcfa).toBe(5 * 1000 + 3 * 1200);
+    expect(plan.missingQty).toBe(0);
+  });
+
+  it("signale la quantité manquante", () => {
+    expect(planFifo(lots, 20).missingQty).toBe(5);
   });
 });

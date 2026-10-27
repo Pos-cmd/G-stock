@@ -38,5 +38,12 @@ export type PaymentType = (typeof PAYMENT_TYPES)[number];
 export const PAYMENT_METHODS = ["cash", "mobile_money", "bank"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+export const SALE_STATUSES = ["active", "cancelled"] as const;
+export type SaleStatus = (typeof SALE_STATUSES)[number];
+
+/** Ancienneté d'une créance, selon les seuils des Paramètres (30 / 60 / 90 jours par défaut). */
+export const RECEIVABLE_LEVELS = ["current", "warning", "alert", "critical"] as const;
+export type ReceivableLevel = (typeof RECEIVABLE_LEVELS)[number];
+
 export const DOCUMENT_TYPES = ["receipt", "cost_sheet", "simulation", "purchase_order"] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
