@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { DEFAULT_EXCHANGE_RATES } from "./currency";
-import { allocateAmount, computeLandedCosts, stockQtyFromWeight } from "./purchasing";
+import {
+  allocateAmount,
+  computeLandedCosts,
+  computeLandedCostsFromFees,
+  feeToFcfa,
+  stockQtyFromWeight,
+} from "./purchasing";
 import type { LandedCostInput } from "./purchasing";
 
 // A : 100 × 72 RMB = 7 200 RMB = 1 000 $ = 598 000 FCFA, 3 voyages.
@@ -148,5 +154,66 @@ describe("stockQtyFromWeight", () => {
 
   it("ne devine rien pour les autres unités", () => {
     expect(stockQtyFromWeight("carton", 8)).toBeNull();
+  });
+});
+
+describe("frais réels de réception", () => {
+  const { items, rates } = tonnageOrder("weight");
+
+  it("répartit chaque frais selon sa propre méthode", () => {
+    // Douane au prorata de la valeur, fret au prorata du poids.
+    const result = computeLandedCostsFromFees({
+      fees: [
+        { allocationMethod: "value", amountFcfa: 1_000_000 },
+        { allocationMethod: "weight", amountFcfa: 2_480_000 },
+      ],
+      items,
+      rates,
+    });
+    const goodsFcfa = result.lines.map((line) => line.goodsFcfa);
+    const customs = allocateAmount(1_000_000, goodsFcfa);
+    const freight = allocateAmount(2_480_000, [8, 5, 4, 2]);
+    expect(result.lines.map((line) => line.transportShareFcfa)).toEqual(
+      customs.map((share, index) => share + (freight[index] ?? 0)),
+    );
+    expect(result.feesFcfa).toBe(3_480_000);
+    expect(result.totalFcfa).toBe(8_147_751 + 3_480_000);
+  });
+
+  it("additionne les frais d'une même méthode avant de les répartir", () => {
+    const split = computeLandedCostsFromFees({
+      fees: [
+        { allocationMethod: "weight", amountFcfa: 1_000_000 },
+        { allocationMethod: "weight", amountFcfa: 1_480_000 },
+      ],
+      items,
+      rates,
+    });
+    const single = computeLandedCosts(tonnageOrder("weight"));
+    expect(split.lines.map((line) => line.transportShareFcfa)).toEqual(
+      single.lines.map((line) => line.transportShareFcfa),
+    );
+  });
+
+  it("répartit le coût de la ligne sur la quantité reçue", () => {
+    const [galva] = items;
+    if (!galva) {
+      throw new Error("Jeu de données incomplet");
+    }
+    const result = computeLandedCostsFromFees({
+      fees: [],
+      items: [{ ...galva, receivedQty: 790 }],
+      rates,
+    });
+    // 35 600 RMB = 2 956 778 FCFA payés pour 800 cartons, 790 reçus.
+    expect(result.lines[0]?.unitCostFcfa).toBe(Math.round(2_956_778 / 790));
+  });
+});
+
+describe("feeToFcfa", () => {
+  it("convertit un frais payé en USD, RMB ou FCFA", () => {
+    expect(feeToFcfa(1000, "usd", DEFAULT_EXCHANGE_RATES)).toBe(598_000);
+    expect(feeToFcfa(720, "rmb", DEFAULT_EXCHANGE_RATES)).toBe(59_800);
+    expect(feeToFcfa(1500.4, "fcfa", DEFAULT_EXCHANGE_RATES)).toBe(1500);
   });
 });

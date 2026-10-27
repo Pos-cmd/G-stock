@@ -1,5 +1,6 @@
 import type {
   AllocationMethod,
+  FeeCurrency,
   LotSource,
   MovementType,
   PricingBasis,
@@ -49,8 +50,25 @@ export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> =
 export const ALLOCATION_METHOD_LABELS: Record<AllocationMethod, string> = {
   equal: "Parts égales",
   proportional: "Au prorata des voyages",
+  value: "Au prorata de la valeur",
   weight: "Au prorata du poids",
 };
+
+export const FEE_CURRENCY_LABELS: Record<FeeCurrency, string> = {
+  fcfa: "FCFA",
+  rmb: "RMB",
+  usd: "USD",
+};
+
+/** Libellés proposés pour les frais de réception ; la saisie reste libre. */
+export const SUGGESTED_FEE_LABELS = [
+  "Fret maritime",
+  "Douane",
+  "Transit / manutention",
+  "Frais de port",
+  "Transport local",
+  "Autres frais",
+];
 
 export const PRICING_BASIS_LABELS: Record<PricingBasis, string> = {
   unit: "/ unité",

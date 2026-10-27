@@ -21,12 +21,16 @@ export const PURCHASE_ORDER_STATUSES = [
 ] as const;
 export type PurchaseOrderStatus = (typeof PURCHASE_ORDER_STATUSES)[number];
 
-export const ALLOCATION_METHODS = ["proportional", "equal", "weight"] as const;
+export const ALLOCATION_METHODS = ["proportional", "equal", "weight", "value"] as const;
 export type AllocationMethod = (typeof ALLOCATION_METHODS)[number];
 
 /** Base du prix d'achat d'une ligne : par unité de stock, ou à la tonne. */
 export const PRICING_BASES = ["unit", "weight"] as const;
 export type PricingBasis = (typeof PRICING_BASES)[number];
+
+/** Devise dans laquelle un frais d'approche a été payé ; il est converti en FCFA. */
+export const FEE_CURRENCIES = ["fcfa", "usd", "rmb"] as const;
+export type FeeCurrency = (typeof FEE_CURRENCIES)[number];
 
 export const PAYMENT_TYPES = ["cash", "credit"] as const;
 export type PaymentType = (typeof PAYMENT_TYPES)[number];

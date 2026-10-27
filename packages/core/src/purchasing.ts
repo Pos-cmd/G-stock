@@ -1,6 +1,6 @@
-import { rmbToFcfa, rmbToUsd, roundFcfa } from "./currency";
+import { rmbToFcfa, rmbToUsd, roundFcfa, usdToFcfa } from "./currency";
 import type { ExchangeRates } from "./currency";
-import type { AllocationMethod, PricingBasis } from "./enums";
+import type { AllocationMethod, FeeCurrency, PricingBasis } from "./enums";
 
 export interface LandedCostItem {
   /** Quantité qui entre en stock, dans l'unité du produit (cartons, rouleaux…). */
@@ -12,6 +12,14 @@ export interface LandedCostItem {
   pricingBasis?: PricingBasis;
   /** Poids de la ligne en tonnes : base du prix à la tonne et de la répartition au poids. */
   weightTons?: number | null;
+  /** Quantité effectivement reçue : le coût de la ligne est réparti sur elle (manquants, casse). */
+  receivedQty?: number | null;
+}
+
+/** Un frais d'approche déjà converti en FCFA, avec sa propre méthode de répartition. */
+export interface FeeAllocation {
+  amountFcfa: number;
+  allocationMethod: AllocationMethod;
 }
 
 export interface LandedCostFees {
@@ -37,15 +45,18 @@ export interface LandedCostLine {
   unitCostFcfa: number;
 }
 
-export interface LandedCostResult {
+export interface LandedCostBreakdown {
   lines: LandedCostLine[];
   goodsRmb: number;
   goodsUsd: number;
   goodsFcfa: number;
-  freightFcfa: number;
   feesFcfa: number;
   totalFcfa: number;
   totalWeightTons: number;
+}
+
+export interface LandedCostResult extends LandedCostBreakdown {
+  freightFcfa: number;
 }
 
 const TON_UNITS = new Set(["t", "tonne", "tonnes"]);
@@ -70,16 +81,6 @@ const lineGoodsRmb = (item: LandedCostItem): number =>
   item.pricingBasis === "weight"
     ? (item.weightTons ?? 0) * item.unitPriceRmb
     : item.qty * item.unitPriceRmb;
-
-const allocationWeight = (method: AllocationMethod, item: LandedCostItem): number => {
-  if (method === "proportional") {
-    return Math.max(item.trips, 0);
-  }
-  if (method === "weight") {
-    return Math.max(item.weightTons ?? 0, 0);
-  }
-  return 1;
-};
 
 /**
  * Répartit un montant entier selon des poids, sans perte d'arrondi :
@@ -111,6 +112,97 @@ export const allocateAmount = (total: number, weights: readonly number[]): numbe
   return shares;
 };
 
+/** Montant d'un frais converti en FCFA avec les taux de la commande. */
+export const feeToFcfa = (amount: number, currency: FeeCurrency, rates: ExchangeRates): number => {
+  if (currency === "usd") {
+    return roundFcfa(usdToFcfa(amount, rates));
+  }
+  if (currency === "rmb") {
+    return rmbToFcfa(amount, rates);
+  }
+  return roundFcfa(amount);
+};
+
+const allocationWeight = (
+  method: AllocationMethod,
+  item: LandedCostItem,
+  goodsFcfa: number,
+): number => {
+  if (method === "proportional") {
+    return Math.max(item.trips, 0);
+  }
+  if (method === "weight") {
+    return Math.max(item.weightTons ?? 0, 0);
+  }
+  if (method === "value") {
+    return goodsFcfa;
+  }
+  return 1;
+};
+
+/**
+ * Prix de revient d'une commande à partir d'une liste de frais : marchandise convertie
+ * RMB → USD → FCFA (à l'unité ou à la tonne), puis chaque frais réparti entre les lignes selon
+ * sa propre méthode. Le coût unitaire divise le total de la ligne par la quantité reçue si elle
+ * est connue, sinon par la quantité commandée.
+ */
+export const computeLandedCostsFromFees = (input: {
+  items: readonly LandedCostItem[];
+  fees: readonly FeeAllocation[];
+  rates: ExchangeRates;
+}): LandedCostBreakdown => {
+  const goods = input.items.map((item) => {
+    const goodsRmb = lineGoodsRmb(item);
+    return { goodsFcfa: rmbToFcfa(goodsRmb, input.rates), goodsRmb };
+  });
+
+  // Les frais d'une même méthode sont additionnés puis répartis en une fois : aucune perte d'arrondi.
+  const totalsByMethod = new Map<AllocationMethod, number>();
+  for (const fee of input.fees) {
+    totalsByMethod.set(
+      fee.allocationMethod,
+      (totalsByMethod.get(fee.allocationMethod) ?? 0) + fee.amountFcfa,
+    );
+  }
+  const shares = input.items.map(() => 0);
+  for (const [method, total] of totalsByMethod) {
+    const weights = input.items.map((item, index) =>
+      allocationWeight(method, item, goods[index]?.goodsFcfa ?? 0),
+    );
+    for (const [index, share] of allocateAmount(total, weights).entries()) {
+      shares[index] = (shares[index] ?? 0) + share;
+    }
+  }
+
+  const lines = input.items.map((item, index): LandedCostLine => {
+    const { goodsFcfa = 0, goodsRmb = 0 } = goods[index] ?? {};
+    const transportShareFcfa = shares[index] ?? 0;
+    const totalFcfa = goodsFcfa + transportShareFcfa;
+    const stockQty = item.receivedQty ?? item.qty;
+    return {
+      costPerTonFcfa: item.weightTons ? roundFcfa(totalFcfa / item.weightTons) : null,
+      goodsFcfa,
+      goodsRmb,
+      totalFcfa,
+      transportShareFcfa,
+      unitCostFcfa: stockQty > 0 ? roundFcfa(totalFcfa / stockQty) : 0,
+    };
+  });
+
+  const goodsRmb = lines.reduce((sum, line) => sum + line.goodsRmb, 0);
+  const goodsFcfa = lines.reduce((sum, line) => sum + line.goodsFcfa, 0);
+  const feesFcfa = input.fees.reduce((sum, fee) => sum + fee.amountFcfa, 0);
+  return {
+    feesFcfa,
+    goodsFcfa,
+    goodsRmb,
+    goodsUsd: rmbToUsd(goodsRmb, input.rates),
+    lines,
+    totalFcfa: goodsFcfa + feesFcfa,
+    totalWeightTons: input.items.reduce((sum, item) => sum + (item.weightTons ?? 0), 0),
+  };
+};
+
 export const computeFeesFcfa = (
   fees: LandedCostFees,
 ): { freightFcfa: number; feesFcfa: number } => {
@@ -122,41 +214,18 @@ export const computeFeesFcfa = (
 };
 
 /**
- * Prix de revient d'une commande fournisseur : marchandise convertie RMB → USD → FCFA,
- * plus les frais d'approche (fret CBM, transport local, divers) répartis entre les lignes
- * au prorata des voyages (`proportional`), du poids (`weight`) ou à parts égales (`equal`).
- * Une ligne se paie à l'unité de stock ou à la tonne (`pricingBasis`).
+ * Prix de revient estimé à la commande : fret (CBM × coût par CBM), transport local et autres
+ * frais, tous répartis avec la méthode de la commande. À la réception, les frais réels
+ * (`computeLandedCostsFromFees`) remplacent cette estimation.
  */
 export const computeLandedCosts = (input: LandedCostInput): LandedCostResult => {
   const { freightFcfa, feesFcfa } = computeFeesFcfa(input);
-  const weights = input.items.map((item) => allocationWeight(input.allocationMethod, item));
-  const shares = allocateAmount(feesFcfa, weights);
-
-  const lines = input.items.map((item, index): LandedCostLine => {
-    const goodsRmb = lineGoodsRmb(item);
-    const goodsFcfa = rmbToFcfa(goodsRmb, input.rates);
-    const transportShareFcfa = shares[index] ?? 0;
-    const totalFcfa = goodsFcfa + transportShareFcfa;
-    return {
-      costPerTonFcfa: item.weightTons ? roundFcfa(totalFcfa / item.weightTons) : null,
-      goodsFcfa,
-      goodsRmb,
-      totalFcfa,
-      transportShareFcfa,
-      unitCostFcfa: item.qty > 0 ? roundFcfa(totalFcfa / item.qty) : 0,
-    };
-  });
-
-  const goodsRmb = lines.reduce((sum, line) => sum + line.goodsRmb, 0);
-  const goodsFcfa = lines.reduce((sum, line) => sum + line.goodsFcfa, 0);
   return {
-    feesFcfa,
+    ...computeLandedCostsFromFees({
+      fees: [{ allocationMethod: input.allocationMethod, amountFcfa: feesFcfa }],
+      items: input.items,
+      rates: input.rates,
+    }),
     freightFcfa,
-    goodsFcfa,
-    goodsRmb,
-    goodsUsd: rmbToUsd(goodsRmb, input.rates),
-    lines,
-    totalFcfa: goodsFcfa + feesFcfa,
-    totalWeightTons: input.items.reduce((sum, item) => sum + (item.weightTons ?? 0), 0),
   };
 };
