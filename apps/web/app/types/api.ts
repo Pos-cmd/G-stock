@@ -19,3 +19,4 @@ export type ProductSalesRow = Outputs["sales"]["productSummary"][number];
 export type PaymentRow = Outputs["payments"]["list"][number];
 export type SimulationRow = Outputs["simulations"]["list"][number];
 export type SimulationDetail = Outputs["simulations"]["get"];
+export type DocumentRow = Outputs["documents"]["list"][number];

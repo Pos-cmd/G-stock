@@ -30,6 +30,8 @@ const data = computed(() => order.data.value);
 
 useHead({ title: () => data.value?.reference ?? "Commande" });
 
+const { generate, generating } = useGenerateDocument();
+
 const form = useTemplateRef<InstanceType<typeof PurchaseOrderForm>>("form");
 const dirty = ref(false);
 const cancelOpen = ref(false);
@@ -123,6 +125,17 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         icon="i-lucide-arrow-left"
         label="Commandes"
       />
+      <UTooltip v-if="data" :text="SAVE_FIRST_HINT" :disabled="!dirty">
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-file-down"
+          label="Fiche PDF"
+          :disabled="dirty"
+          :loading="generating"
+          @click="generate('cost_sheet', data.id)"
+        />
+      </UTooltip>
       <template v-if="data?.isLocked">
         <PurchaseStatusBadge :status="data.status" />
         <UButton

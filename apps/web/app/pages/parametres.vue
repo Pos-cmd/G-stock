@@ -17,6 +17,10 @@ const notify = useNotify();
 const saving = ref(false);
 
 const state = reactive<AppSettings>({
+  companyAddress: "",
+  companyName: "",
+  companyPhone: "",
+  documentsFolder: "",
   fcfaPerUsd: 0,
   receivableAlertDays: 0,
   receivableCriticalDays: 0,
@@ -129,6 +133,33 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
               :step="1"
               class="w-full"
             />
+          </UFormField>
+        </div>
+      </UPageCard>
+
+      <UPageCard
+        title="Entreprise et documents"
+        description="Coordonnées imprimées en tête des PDF (reçus, fiches de commande, simulations) et dossier où ils sont rangés."
+        variant="subtle"
+      >
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UFormField label="Nom de l'entreprise" name="companyName" help="« G-stock » si vide.">
+            <UInput v-model="state.companyName" class="w-full" />
+          </UFormField>
+          <UFormField label="Téléphone" name="companyPhone">
+            <UInput v-model="state.companyPhone" type="tel" class="w-full" />
+          </UFormField>
+          <UFormField label="Adresse" name="companyAddress" class="sm:col-span-2">
+            <UInput v-model="state.companyAddress" placeholder="Quartier, ville" class="w-full" />
+          </UFormField>
+          <UFormField
+            label="Dossier des documents"
+            name="documentsFolder"
+            required
+            class="sm:col-span-2"
+            help="Sous-dossiers créés automatiquement : Ventes, Simulations, Commandes/<référence>."
+          >
+            <UInput v-model="state.documentsFolder" icon="i-lucide-folder" class="w-full" />
           </UFormField>
         </div>
       </UPageCard>

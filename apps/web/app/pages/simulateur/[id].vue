@@ -25,6 +25,7 @@ const data = computed(() => simulation.data.value);
 useHead({ title: () => data.value?.name ?? "Simulation" });
 
 const editor = useTemplateRef<InstanceType<typeof SimulationEditor>>("editor");
+const { generate, generating } = useGenerateDocument();
 const dirty = ref(false);
 const convertOpen = ref(false);
 
@@ -92,6 +93,17 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           aria-label="Autres actions"
         />
       </UDropdownMenu>
+      <UTooltip :text="SAVE_FIRST_HINT" :disabled="!dirty">
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-file-down"
+          label="PDF"
+          :disabled="dirty || !data"
+          :loading="generating"
+          @click="generate('simulation', simulationId)"
+        />
+      </UTooltip>
       <UButton
         v-if="data?.purchaseOrderId"
         :to="`/achats/${data.purchaseOrderId}`"

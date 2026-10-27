@@ -21,6 +21,8 @@ const notify = useNotify();
 const invalidateSales = useInvalidateSales();
 const invalidateStock = useInvalidateStock();
 
+const { generate, generating } = useGenerateDocument();
+
 const sale = useQuery(
   computed(() => $orpc.sales.get.queryOptions({ input: { id: saleId.value } })),
 );
@@ -98,6 +100,14 @@ const columns: TableColumn<SaleItem>[] = [
         label="Ventes"
       />
       <template v-if="data">
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-file-down"
+          label="Reçu PDF"
+          :loading="generating"
+          @click="generate('receipt', data.id)"
+        />
         <SaleStatusBadge :status="data.status" :due-fcfa="data.summary.dueFcfa" />
         <template v-if="isActive">
           <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
