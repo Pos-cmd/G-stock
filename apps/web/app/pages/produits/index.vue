@@ -1,0 +1,307 @@
+<script setup lang="ts">
+import type { StockStatus } from "@G-stock/core/enums";
+import { formatFcfa, formatQty } from "@G-stock/core/format";
+import { STOCK_STATUS_LABELS } from "@G-stock/core/labels";
+import type { DropdownMenuItem, TableColumn } from "@nuxt/ui";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/vue-query";
+
+import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
+import PagePanel from "~/components/layout/PagePanel.vue";
+import ProductFormModal from "~/components/products/ProductFormModal.vue";
+import StockStatusBadge from "~/components/products/StockStatusBadge.vue";
+import LotEntryModal from "~/components/stock/LotEntryModal.vue";
+import type { ProductRow } from "~/types/api";
+
+useHead({ title: "Produits" });
+
+const ALL = "all";
+const SEARCH_DEBOUNCE_MS = 300;
+
+const { $orpc } = useNuxtApp();
+const notify = useNotify();
+const invalidateStock = useInvalidateStock();
+
+const search = ref("");
+const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
+const category = ref<string>(ALL);
+const status = ref<StockStatus | typeof ALL>(ALL);
+const includeArchived = ref(false);
+
+const products = useQuery(
+  computed(() => ({
+    ...$orpc.products.list.queryOptions({
+      input: {
+        category: category.value === ALL ? null : category.value,
+        includeArchived: includeArchived.value,
+        search: debouncedSearch.value || null,
+        status: status.value === ALL ? null : status.value,
+      },
+    }),
+    placeholderData: keepPreviousData,
+  })),
+);
+const categories = useQuery($orpc.products.categories.queryOptions());
+
+const categoryItems = computed(() => [
+  { label: "Toutes les catégories", value: ALL },
+  ...(categories.data.value ?? []).map((name) => ({
+    label: name,
+    value: name,
+  })),
+]);
+const statusItems = [
+  { label: "Tous les statuts", value: ALL },
+  ...Object.entries(STOCK_STATUS_LABELS).map(([value, label]) => ({
+    label,
+    value,
+  })),
+];
+
+const totals = computed(() => {
+  const rows = products.data.value ?? [];
+  return {
+    count: rows.length,
+    value: rows.reduce((sum, row) => sum + row.stockValueFcfa, 0),
+  };
+});
+
+// Modales
+const formOpen = ref(false);
+const editedProduct = ref<ProductRow | null>(null);
+const entryOpen = ref(false);
+const entryProduct = ref<ProductRow | null>(null);
+const deleteOpen = ref(false);
+const deletedProduct = ref<ProductRow | null>(null);
+
+const openCreate = () => {
+  editedProduct.value = null;
+  formOpen.value = true;
+};
+const openEdit = (product: ProductRow) => {
+  editedProduct.value = product;
+  formOpen.value = true;
+};
+const openEntry = (product: ProductRow) => {
+  entryProduct.value = product;
+  entryOpen.value = true;
+};
+
+const archiveMutation = useMutation($orpc.products.archive.mutationOptions());
+const restoreMutation = useMutation($orpc.products.restore.mutationOptions());
+const removeMutation = useMutation($orpc.products.remove.mutationOptions());
+
+const toggleArchive = async (product: ProductRow) => {
+  try {
+    if (product.archivedAt) {
+      await restoreMutation.mutateAsync({ id: product.id });
+      notify.success("Produit restauré", product.name);
+    } else {
+      await archiveMutation.mutateAsync({ id: product.id });
+      notify.success("Produit archivé", product.name);
+    }
+    await invalidateStock();
+  } catch (error) {
+    notify.error("Opération impossible", error);
+  }
+};
+
+const confirmDelete = async () => {
+  if (!deletedProduct.value) {
+    return;
+  }
+  try {
+    await removeMutation.mutateAsync({ id: deletedProduct.value.id });
+    notify.success("Produit supprimé", deletedProduct.value.name);
+    deleteOpen.value = false;
+    await invalidateStock();
+  } catch (error) {
+    notify.error("Suppression impossible", error);
+  }
+};
+
+const rowActions = (product: ProductRow): DropdownMenuItem[][] => [
+  [
+    {
+      icon: "i-lucide-eye",
+      label: "Voir la fiche",
+      to: `/produits/${product.id}`,
+    },
+    {
+      icon: "i-lucide-pencil",
+      label: "Modifier",
+      onSelect: () => openEdit(product),
+    },
+    {
+      disabled: Boolean(product.archivedAt),
+      icon: "i-lucide-package-plus",
+      label: "Entrée de stock",
+      onSelect: () => openEntry(product),
+    },
+  ],
+  [
+    {
+      icon: product.archivedAt ? "i-lucide-archive-restore" : "i-lucide-archive",
+      label: product.archivedAt ? "Restaurer" : "Archiver",
+      onSelect: () => toggleArchive(product),
+    },
+    ...(product.lotCount === 0
+      ? [
+          {
+            color: "error" as const,
+            icon: "i-lucide-trash-2",
+            label: "Supprimer",
+            onSelect: () => {
+              deletedProduct.value = product;
+              deleteOpen.value = true;
+            },
+          },
+        ]
+      : []),
+  ],
+];
+
+const rightAligned = { class: { td: "text-right", th: "text-right" } };
+
+const columns: TableColumn<ProductRow>[] = [
+  { accessorKey: "name", header: "Produit" },
+  { accessorKey: "category", header: "Catégorie" },
+  { accessorKey: "stockQty", header: "Stock", meta: rightAligned },
+  { accessorKey: "status", header: "Statut" },
+  { accessorKey: "averageCostFcfa", header: "Coût moyen", meta: rightAligned },
+  { accessorKey: "stockValueFcfa", header: "Valeur stock", meta: rightAligned },
+  {
+    accessorKey: "suggestedSalePriceFcfa",
+    header: "Prix conseillé",
+    meta: rightAligned,
+  },
+  { header: "", id: "actions", meta: rightAligned },
+];
+</script>
+
+<template>
+  <PagePanel id="products" title="Produits" icon="i-lucide-boxes">
+    <template #actions>
+      <UButton icon="i-lucide-plus" label="Nouveau produit" @click="openCreate" />
+    </template>
+
+    <template #toolbar>
+      <div class="flex w-full flex-wrap items-center gap-2 py-1">
+        <UInput
+          v-model="search"
+          icon="i-lucide-search"
+          placeholder="Rechercher un produit, une référence…"
+          class="w-full sm:w-72"
+        />
+        <USelect v-model="category" :items="categoryItems" class="w-48" />
+        <USelect v-model="status" :items="statusItems" class="w-40" />
+        <USwitch v-model="includeArchived" label="Afficher les archivés" class="ms-auto" />
+      </div>
+    </template>
+
+    <div class="space-y-3">
+      <p class="text-muted text-sm">
+        {{ totals.count }} produit{{ totals.count > 1 ? "s" : "" }} · stock valorisé
+        <strong class="text-highlighted">{{ formatFcfa(totals.value) }}</strong>
+      </p>
+
+      <UTable
+        :data="products.data.value ?? []"
+        :columns="columns"
+        :loading="products.isFetching.value"
+        class="border-default rounded-lg border"
+      >
+        <template #name-cell="{ row }">
+          <NuxtLink :to="`/produits/${row.original.id}`" class="group block">
+            <span class="text-highlighted font-medium group-hover:underline">{{
+              row.original.name
+            }}</span>
+            <UBadge
+              v-if="row.original.archivedAt"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="ms-2"
+            >
+              Archivé
+            </UBadge>
+            <p v-if="row.original.reference" class="text-dimmed text-xs">
+              {{ row.original.reference }}
+            </p>
+          </NuxtLink>
+        </template>
+
+        <template #category-cell="{ row }">
+          <span class="text-muted">{{ row.original.category ?? "—" }}</span>
+        </template>
+
+        <template #stockQty-cell="{ row }">
+          <span class="font-medium tabular-nums">{{
+            formatQty(row.original.stockQty, row.original.unit)
+          }}</span>
+          <p class="text-dimmed text-xs">seuil {{ formatQty(row.original.alertThreshold) }}</p>
+        </template>
+
+        <template #status-cell="{ row }">
+          <StockStatusBadge :status="row.original.status" />
+        </template>
+
+        <template #averageCostFcfa-cell="{ row }">
+          <span class="tabular-nums">{{
+            row.original.stockQty > 0 ? formatFcfa(row.original.averageCostFcfa) : "—"
+          }}</span>
+        </template>
+
+        <template #stockValueFcfa-cell="{ row }">
+          <span class="font-medium tabular-nums">{{
+            formatFcfa(row.original.stockValueFcfa)
+          }}</span>
+        </template>
+
+        <template #suggestedSalePriceFcfa-cell="{ row }">
+          <span class="tabular-nums">
+            {{
+              row.original.suggestedSalePriceFcfa === null
+                ? "—"
+                : formatFcfa(row.original.suggestedSalePriceFcfa)
+            }}
+          </span>
+        </template>
+
+        <template #actions-cell="{ row }">
+          <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
+            <UButton
+              icon="i-lucide-ellipsis-vertical"
+              color="neutral"
+              variant="ghost"
+              :aria-label="`Actions pour ${row.original.name}`"
+            />
+          </UDropdownMenu>
+        </template>
+
+        <template #empty>
+          <div class="flex flex-col items-center gap-3 py-10 text-center">
+            <UIcon name="i-lucide-package-search" class="text-dimmed size-10" />
+            <p class="text-muted">Aucun produit ne correspond à ces critères.</p>
+            <UButton
+              variant="soft"
+              icon="i-lucide-plus"
+              label="Créer un produit"
+              @click="openCreate"
+            />
+          </div>
+        </template>
+      </UTable>
+    </div>
+
+    <ProductFormModal v-model:open="formOpen" :product="editedProduct" />
+    <LotEntryModal v-model:open="entryOpen" :product="entryProduct" />
+    <ConfirmDialog
+      v-model:open="deleteOpen"
+      title="Supprimer le produit ?"
+      :description="`« ${deletedProduct?.name} » sera définitivement supprimé.`"
+      confirm-label="Supprimer"
+      :loading="removeMutation.isPending.value"
+      @confirm="confirmDelete"
+    />
+  </PagePanel>
+</template>
