@@ -14,7 +14,7 @@ import {
 } from "@G-stock/db/schema/sales";
 import { stockLots } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
-import { and, asc, desc, eq, exists, gte, inArray, isNull, like, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type {
@@ -25,32 +25,16 @@ import type {
   SaleInput,
 } from "../schemas/sales";
 import { loadLedgers, saleDiscountSql } from "./customers";
+import { nextReference } from "./references";
 import { getSettings } from "./settings";
 import { consumeFifo, listAvailableLots, returnToLots } from "./stock";
 
 const REFERENCE_PREFIX = "V";
-
-/** Ex. : V-2026-00042 */
-export const buildSaleReference = (year: number, sequence: number): string =>
-  `${REFERENCE_PREFIX}-${year}-${String(sequence).padStart(5, "0")}`;
-
-const nextSaleReference = async (executor: Executor, saleDate: Date): Promise<string> => {
-  const year = saleDate.getFullYear();
-  const prefix = `${REFERENCE_PREFIX}-${year}-`;
-  const [row] = await executor
-    .select({
-      last: sql<
-        number | null
-      >`max(cast(substr(${sales.reference}, ${prefix.length + 1}) as integer))`,
-    })
-    .from(sales)
-    .where(like(sales.reference, `${prefix}%`));
-  return buildSaleReference(year, (row?.last ?? 0) + 1);
-};
+const REFERENCE_DIGITS = 5;
 
 const saleCostSql = sql<number>`coalesce((select sum(${saleItems.costFcfa}) from ${saleItems} where ${saleItems.saleId} = ${sales.id}), 0)`;
 
-const getCustomerRow = async (executor: Executor, id: number) => {
+const getCustomerRow = async (executor: Executor, id: string) => {
   const [customer] = await executor.select().from(customers).where(eq(customers.id, id));
   if (!customer) {
     throw new ORPCError("NOT_FOUND", { message: "Client introuvable" });
@@ -58,7 +42,7 @@ const getCustomerRow = async (executor: Executor, id: number) => {
   return customer;
 };
 
-const getSaleRow = async (executor: Executor, id: number) => {
+const getSaleRow = async (executor: Executor, id: string) => {
   const [sale] = await executor.select().from(sales).where(eq(sales.id, id));
   if (!sale) {
     throw new ORPCError("NOT_FOUND", { message: "Vente introuvable" });
@@ -74,7 +58,7 @@ const assertSaleActive = (sale: typeof sales.$inferSelect): void => {
   }
 };
 
-const loadProducts = async (executor: Executor, productIds: readonly number[]) => {
+const loadProducts = async (executor: Executor, productIds: readonly string[]) => {
   const ids = [...new Set(productIds)];
   const rows =
     ids.length > 0 ? await executor.select().from(products).where(inArray(products.id, ids)) : [];
@@ -92,10 +76,10 @@ const loadProducts = async (executor: Executor, productIds: readonly number[]) =
  */
 export const quoteSale = async (
   executor: Executor,
-  lines: readonly { productId: number; qty: number }[],
+  lines: readonly { productId: string; qty: number }[],
 ) => {
   const productIds = [...new Set(lines.map((line) => line.productId))];
-  const lotsByProduct = new Map<number, FifoLot[]>(
+  const lotsByProduct = new Map<string, FifoLot[]>(
     await Promise.all(
       productIds.map(
         async (productId) => [productId, await listAvailableLots(executor, productId)] as const,
@@ -154,7 +138,12 @@ export const createSale = async (executor: Executor, input: SaleInput, userId?: 
     });
   }
 
-  const reference = await nextSaleReference(executor, input.saleDate);
+  const reference = await nextReference(
+    executor,
+    REFERENCE_PREFIX,
+    input.saleDate,
+    REFERENCE_DIGITS,
+  );
   const [sale] = await executor
     .insert(sales)
     .values({
@@ -246,7 +235,7 @@ const userNames = async (executor: Executor, ids: readonly (string | null)[]) =>
   return new Map(rows.map((row) => [row.id, row.name]));
 };
 
-export const getSale = async (executor: Executor, id: number) => {
+export const getSale = async (executor: Executor, id: string) => {
   const sale = await getSaleRow(executor, id);
   const [customer, items, discounts, salePayments, ledgers] = await Promise.all([
     getCustomerRow(executor, sale.customerId),
@@ -349,7 +338,7 @@ const containsInsensitive = (column: AnyColumn, needle: string): SQL =>
   sql`instr(lower(coalesce(${column}, '')), lower(${needle})) > 0`;
 
 const saleConditions = (filters: {
-  customerId?: number | null;
+  customerId?: string | null;
   from?: Date | null;
   to?: Date | null;
 }): SQL[] => {
@@ -517,7 +506,7 @@ export const productSalesSummary = async (executor: Executor, filters: ProductSa
  */
 export const cancelSale = async (
   executor: Executor,
-  params: { id: number; reason: string },
+  params: { id: string; reason: string },
   userId?: string | null,
 ) => {
   const sale = await getSaleRow(executor, params.id);
@@ -627,7 +616,7 @@ export const createPayment = async (
   return payment;
 };
 
-export const cancelPayment = async (executor: Executor, params: { id: number; reason: string }) => {
+export const cancelPayment = async (executor: Executor, params: { id: string; reason: string }) => {
   const [payment] = await executor.select().from(payments).where(eq(payments.id, params.id));
   if (!payment) {
     throw new ORPCError("NOT_FOUND", { message: "Paiement introuvable" });
@@ -645,7 +634,7 @@ export const cancelPayment = async (executor: Executor, params: { id: number; re
   return updated;
 };
 
-export const listPayments = async (executor: Executor, customerId: number) => {
+export const listPayments = async (executor: Executor, customerId: string) => {
   const rows = await executor
     .select({ payment: payments, saleReference: sales.reference })
     .from(payments)

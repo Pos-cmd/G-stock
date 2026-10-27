@@ -1,3 +1,4 @@
+import { uuidv7 } from "@G-stock/core/ids";
 import type { Database } from "@G-stock/db";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
@@ -185,10 +186,15 @@ describe("getComparison", () => {
   });
 
   it("limite la comparaison à 4 éléments", () => {
-    const items = Array.from({ length: 5 }, (_, index) => ({
-      id: index + 1,
-      type: "simulation",
-    }));
-    expect(comparisonSchema.safeParse({ items }).success).toBe(false);
+    const item = () => ({ id: uuidv7(), type: "simulation" });
+    const four = Array.from({ length: 4 }, item);
+    expect(comparisonSchema.safeParse({ items: four }).success).toBe(true);
+    const parsed = comparisonSchema.safeParse({ items: [...four, item()] });
+    expect(parsed.error?.issues[0]?.message).toBe("4 éléments au maximum");
+  });
+
+  it("refuse un identifiant qui n'est pas un UUID", () => {
+    const parsed = comparisonSchema.safeParse({ items: [{ id: 12, type: "simulation" }] });
+    expect(parsed.success).toBe(false);
   });
 });

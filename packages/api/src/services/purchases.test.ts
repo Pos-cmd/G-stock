@@ -435,3 +435,14 @@ describe("réception avec frais réels", () => {
     ).rejects.toThrow("rechargez la page");
   });
 });
+
+describe("numérotation", () => {
+  it("ne réutilise jamais le numéro d'une commande supprimée", async () => {
+    const { input } = await orderInput();
+    const first = await create(input);
+    await removePurchaseOrder(db, first.id);
+    const second = await create(input);
+    expect(first.reference).toBe("CF-2026-0001");
+    expect(second.reference).toBe("CF-2026-0002");
+  });
+});

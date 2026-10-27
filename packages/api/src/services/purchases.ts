@@ -13,7 +13,7 @@ import {
 } from "@G-stock/db/schema/purchasing";
 import { stockLots } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
-import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type {
@@ -22,6 +22,7 @@ import type {
   PurchaseReceiveInput,
   PurchaseReceptionInput,
 } from "../schemas/purchases";
+import { nextReference } from "./references";
 import { createLot } from "./stock";
 
 type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
@@ -29,26 +30,9 @@ type PurchaseItemRow = typeof purchaseOrderItems.$inferSelect;
 type PurchaseFeeRow = typeof purchaseOrderFees.$inferSelect;
 
 const REFERENCE_PREFIX = "CF";
+const REFERENCE_DIGITS = 4;
 const LOCKED_STATUSES: readonly PurchaseOrderStatus[] = ["received", "cancelled"];
 const REMOVABLE_STATUSES: readonly PurchaseOrderStatus[] = ["draft", "cancelled"];
-
-/** Ex. : CF-2026-0007 */
-export const buildOrderReference = (year: number, sequence: number): string =>
-  `${REFERENCE_PREFIX}-${year}-${String(sequence).padStart(4, "0")}`;
-
-const nextOrderReference = async (executor: Executor, orderDate: Date): Promise<string> => {
-  const year = orderDate.getFullYear();
-  const prefix = `${REFERENCE_PREFIX}-${year}-`;
-  const [row] = await executor
-    .select({
-      last: sql<
-        number | null
-      >`max(cast(substr(${purchaseOrders.reference}, ${prefix.length + 1}) as integer))`,
-    })
-    .from(purchaseOrders)
-    .where(like(purchaseOrders.reference, `${prefix}%`));
-  return buildOrderReference(year, (row?.last ?? 0) + 1);
-};
 
 const ratesOf = (order: PurchaseOrderRow) => ({
   fcfaPerUsd: order.fcfaPerUsd,
@@ -79,21 +63,21 @@ const displayedCostsOf = (
 ) =>
   order.status === "received" ? actualCostsOf(order, items, fees) : estimatedCostsOf(order, items);
 
-const listOrderItems = (executor: Executor, orderId: number) =>
+const listOrderItems = (executor: Executor, orderId: string) =>
   executor
     .select()
     .from(purchaseOrderItems)
     .where(eq(purchaseOrderItems.orderId, orderId))
     .orderBy(asc(purchaseOrderItems.id));
 
-const listOrderFees = (executor: Executor, orderId: number) =>
+const listOrderFees = (executor: Executor, orderId: string) =>
   executor
     .select()
     .from(purchaseOrderFees)
     .where(eq(purchaseOrderFees.orderId, orderId))
     .orderBy(asc(purchaseOrderFees.id));
 
-const getOrderRow = async (executor: Executor, id: number): Promise<PurchaseOrderRow> => {
+const getOrderRow = async (executor: Executor, id: string): Promise<PurchaseOrderRow> => {
   const [order] = await executor.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
   if (!order) {
     throw new ORPCError("NOT_FOUND", { message: "Commande introuvable" });
@@ -112,7 +96,7 @@ const assertEditable = (order: PurchaseOrderRow): void => {
   }
 };
 
-const assertProductsActive = async (executor: Executor, productIds: readonly number[]) => {
+const assertProductsActive = async (executor: Executor, productIds: readonly string[]) => {
   const ids = [...new Set(productIds)];
   const rows = await executor
     .select({ archivedAt: products.archivedAt, id: products.id, name: products.name })
@@ -143,7 +127,7 @@ const orderValues = (input: PurchaseOrderInput) => ({
 });
 
 /** Enregistre les lignes avec leur part de frais et leur coût de revient unitaire. */
-const insertItems = async (executor: Executor, orderId: number, input: PurchaseOrderInput) => {
+const insertItems = async (executor: Executor, orderId: string, input: PurchaseOrderInput) => {
   const { lines } = computeLandedCosts({
     ...input,
     rates: { fcfaPerUsd: input.fcfaPerUsd, rmbPerUsd: input.rmbPerUsd },
@@ -169,7 +153,12 @@ export const createPurchaseOrder = async (executor: Executor, input: PurchaseOrd
     executor,
     input.items.map((item) => item.productId),
   );
-  const reference = await nextOrderReference(executor, input.orderDate);
+  const reference = await nextReference(
+    executor,
+    REFERENCE_PREFIX,
+    input.orderDate,
+    REFERENCE_DIGITS,
+  );
   const [order] = await executor
     .insert(purchaseOrders)
     .values({ ...orderValues(input), reference })
@@ -184,7 +173,7 @@ export const createPurchaseOrder = async (executor: Executor, input: PurchaseOrd
 /** Remplace l'en-tête et toutes les lignes. À appeler dans une transaction. */
 export const updatePurchaseOrder = async (
   executor: Executor,
-  id: number,
+  id: string,
   input: PurchaseOrderInput,
 ) => {
   assertEditable(await getOrderRow(executor, id));
@@ -204,7 +193,7 @@ export const updatePurchaseOrder = async (
 
 export const setPurchaseStatus = async (
   executor: Executor,
-  id: number,
+  id: string,
   status: Exclude<PurchaseOrderStatus, "received">,
 ) => {
   assertEditable(await getOrderRow(executor, id));
@@ -216,7 +205,7 @@ export const setPurchaseStatus = async (
   return order;
 };
 
-export const removePurchaseOrder = async (executor: Executor, id: number) => {
+export const removePurchaseOrder = async (executor: Executor, id: string) => {
   const order = await getOrderRow(executor, id);
   if (!REMOVABLE_STATUSES.includes(order.status)) {
     throw new ORPCError("BAD_REQUEST", {
@@ -423,7 +412,7 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
   });
 };
 
-export const getPurchaseOrder = async (executor: Executor, id: number) => {
+export const getPurchaseOrder = async (executor: Executor, id: string) => {
   const [row] = await executor
     .select({ order: purchaseOrders, supplier: suppliers })
     .from(purchaseOrders)

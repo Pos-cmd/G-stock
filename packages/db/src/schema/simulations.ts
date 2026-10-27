@@ -1,7 +1,7 @@
 import type { SimulationInput } from "@G-stock/core/simulation";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import { createdAt, id, updatedAt } from "../columns";
+import { createdAt, id, ref, updatedAt } from "../columns";
 import { user } from "./auth";
 import { purchaseOrders } from "./purchasing";
 
@@ -17,7 +17,7 @@ export const simulations = sqliteTable(
     notes: text("notes"),
     data: text("data", { mode: "json" }).$type<SimulationInput>().notNull(),
     // Commande fournisseur créée à partir de cette simulation.
-    purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id, {
+    purchaseOrderId: ref("purchase_order_id").references(() => purchaseOrders.id, {
       onDelete: "set null",
     }),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),

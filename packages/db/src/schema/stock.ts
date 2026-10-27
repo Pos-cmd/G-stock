@@ -2,7 +2,7 @@ import { LOT_SOURCES, MOVEMENT_REFERENCE_TYPES, MOVEMENT_TYPES } from "@G-stock/
 import { sql } from "drizzle-orm";
 import { check, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import { createdAt, id, timestamp } from "../columns";
+import { createdAt, id, ref, timestamp } from "../columns";
 import { user } from "./auth";
 import { products } from "./catalog";
 import { purchaseOrderItems } from "./purchasing";
@@ -11,10 +11,10 @@ export const stockLots = sqliteTable(
   "stock_lots",
   {
     id: id(),
-    productId: integer("product_id")
+    productId: ref("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "restrict" }),
-    orderItemId: integer("order_item_id").references(() => purchaseOrderItems.id, {
+    orderItemId: ref("order_item_id").references(() => purchaseOrderItems.id, {
       onDelete: "set null",
     }),
     lotCode: text("lot_code").unique(),
@@ -40,10 +40,10 @@ export const stockMovements = sqliteTable(
   "stock_movements",
   {
     id: id(),
-    productId: integer("product_id")
+    productId: ref("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "restrict" }),
-    lotId: integer("lot_id")
+    lotId: ref("lot_id")
       .notNull()
       .references(() => stockLots.id, { onDelete: "restrict" }),
     type: text("type", { enum: MOVEMENT_TYPES }).notNull(),
@@ -54,7 +54,7 @@ export const stockMovements = sqliteTable(
     referenceType: text("reference_type", { enum: MOVEMENT_REFERENCE_TYPES })
       .notNull()
       .default("manual"),
-    referenceId: integer("reference_id"),
+    referenceId: ref("reference_id"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },

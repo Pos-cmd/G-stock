@@ -33,6 +33,11 @@ export const safeFileName = (value: string): string =>
     .replaceAll(EDGE_DASHES, "")
     .slice(0, MAX_FILE_NAME_LENGTH) || "document";
 
+const SHORT_ID_LENGTH = 6;
+
+/** Fin aléatoire d'un UUID : courte, lisible, et suffisante pour distinguer deux homonymes. */
+const shortId = (id: string): string => id.slice(-SHORT_ID_LENGTH);
+
 interface PreparedDocument {
   definition: TDocumentDefinitions;
   title: string;
@@ -45,14 +50,14 @@ interface PreparedDocument {
 const prepare = async (
   executor: Executor,
   type: GeneratedDocumentType,
-  referenceId: number,
+  referenceId: string,
   company: Parameters<typeof simulationDocument>[1],
 ): Promise<PreparedDocument> => {
   if (type === "simulation") {
     const simulation = await getSimulation(executor, referenceId);
     return {
       definition: simulationDocument(simulation, company),
-      fileName: `${safeFileName(simulation.name)}-${simulation.id}.pdf`,
+      fileName: `${safeFileName(simulation.name)}-${shortId(simulation.id)}.pdf`,
       folder: "Simulations",
       referenceType: "simulation",
       title: `Simulation — ${simulation.name}`,
@@ -85,7 +90,7 @@ const prepare = async (
  */
 export const generateDocument = async (
   executor: Executor,
-  input: { type: GeneratedDocumentType; referenceId: number },
+  input: { type: GeneratedDocumentType; referenceId: string },
 ) => {
   const settings = await getSettings(executor);
   const prepared = await prepare(executor, input.type, input.referenceId, settings);
@@ -162,7 +167,7 @@ export const listDocuments = async (executor: Executor, filters: DocumentFilters
 };
 
 /** Fichier d'un document, pour l'ouvrir ou le télécharger. */
-export const getDocumentFile = async (executor: Executor, id: number) => {
+export const getDocumentFile = async (executor: Executor, id: string) => {
   const [document] = await executor.select().from(documents).where(eq(documents.id, id));
   if (!document) {
     throw new ORPCError("NOT_FOUND", { message: "Document introuvable" });

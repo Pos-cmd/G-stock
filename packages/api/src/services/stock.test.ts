@@ -55,6 +55,9 @@ describe("createLot", () => {
     const lot = await entry(product.id, 10, 1500, JAN_1);
 
     expect(lot.lotCode).toBe(buildLotCode(JAN_1, lot.id));
+    // Suffixe tiré de la partie aléatoire de l'UUID : pas de compteur.
+    expect(lot.lotCode).toMatch(/^LOT-20260101-[\dA-F]{6}$/u);
+    expect(lot.id).toMatch(/^[\da-f]{8}-[\da-f]{4}-7/u);
     expect(lot.qtyRemaining).toBe(10);
 
     const movements = await db.select().from(stockMovements);

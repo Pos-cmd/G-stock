@@ -25,7 +25,7 @@ export interface ComparableLine {
 export interface ComparableColumn {
   key: string;
   type: ComparisonItem["type"];
-  id: number;
+  id: string;
   title: string;
   subtitle: string;
   date: Date;
@@ -47,8 +47,8 @@ export interface ComparableColumn {
 
 const simulationColumn = async (
   executor: Executor,
-  id: number,
-  productIdByName: Map<string, number>,
+  id: string,
+  productIdByName: Map<string, string>,
 ): Promise<ComparableColumn> => {
   const simulation = await getSimulation(executor, id);
   const { data, result } = simulation;
@@ -91,7 +91,7 @@ const simulationColumn = async (
   };
 };
 
-const orderColumn = async (executor: Executor, id: number): Promise<ComparableColumn> => {
+const orderColumn = async (executor: Executor, id: string): Promise<ComparableColumn> => {
   const order = await getPurchaseOrder(executor, id);
   const received = order.status === "received";
   // Reçue : frais et quantités réels ; sinon l'estimation de la commande.

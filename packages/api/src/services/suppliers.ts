@@ -28,7 +28,7 @@ export const listSuppliers = (executor: Executor) =>
     .groupBy(suppliers.id)
     .orderBy(asc(suppliers.name));
 
-const assertNameAvailable = async (executor: Executor, name: string, exceptId?: number) => {
+const assertNameAvailable = async (executor: Executor, name: string, exceptId?: string) => {
   const conditions: SQL[] = [sql`lower(${suppliers.name}) = lower(${name})`];
   if (exceptId) {
     conditions.push(ne(suppliers.id, exceptId));
@@ -53,7 +53,7 @@ export const createSupplier = async (executor: Executor, input: SupplierInput) =
   return created;
 };
 
-export const updateSupplier = async (executor: Executor, id: number, input: SupplierInput) => {
+export const updateSupplier = async (executor: Executor, id: string, input: SupplierInput) => {
   await assertNameAvailable(executor, input.name, id);
   const [updated] = await executor
     .update(suppliers)
@@ -67,7 +67,7 @@ export const updateSupplier = async (executor: Executor, id: number, input: Supp
 };
 
 /** Suppression réservée aux fournisseurs sans commande. */
-export const removeSupplier = async (executor: Executor, id: number) => {
+export const removeSupplier = async (executor: Executor, id: string) => {
   const [usage] = await executor
     .select({ orders: count() })
     .from(purchaseOrders)

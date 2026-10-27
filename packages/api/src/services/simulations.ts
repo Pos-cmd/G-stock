@@ -12,7 +12,7 @@ import { createPurchaseOrder } from "./purchases";
 
 type SimulationRow = typeof simulations.$inferSelect;
 
-const getRow = async (executor: Executor, id: number): Promise<SimulationRow> => {
+const getRow = async (executor: Executor, id: string): Promise<SimulationRow> => {
   const [row] = await executor.select().from(simulations).where(eq(simulations.id, id));
   if (!row) {
     throw new ORPCError("NOT_FOUND", { message: "Simulation introuvable" });
@@ -23,7 +23,7 @@ const getRow = async (executor: Executor, id: number): Promise<SimulationRow> =>
 const orderReferences = async (executor: Executor, rows: readonly SimulationRow[]) => {
   const ids = rows.flatMap((row) => (row.purchaseOrderId ? [row.purchaseOrderId] : []));
   if (ids.length === 0) {
-    return new Map<number, string>();
+    return new Map<string, string>();
   }
   const orders = await executor
     .select({ id: purchaseOrders.id, reference: purchaseOrders.reference })
@@ -52,7 +52,7 @@ export const listSimulations = async (executor: Executor) => {
   });
 };
 
-export const getSimulation = async (executor: Executor, id: number) => {
+export const getSimulation = async (executor: Executor, id: string) => {
   const row = await getRow(executor, id);
   const references = await orderReferences(executor, [row]);
   return {
@@ -79,7 +79,7 @@ export const createSimulation = async (
 
 export const updateSimulation = async (
   executor: Executor,
-  id: number,
+  id: string,
   input: SimulationSaveInput,
 ) => {
   await getRow(executor, id);
@@ -93,7 +93,7 @@ export const updateSimulation = async (
 
 export const duplicateSimulation = async (
   executor: Executor,
-  id: number,
+  id: string,
   userId?: string | null,
 ) => {
   const source = await getRow(executor, id);
@@ -112,7 +112,7 @@ export const duplicateSimulation = async (
   return copy;
 };
 
-export const removeSimulation = async (executor: Executor, id: number) => {
+export const removeSimulation = async (executor: Executor, id: string) => {
   await getRow(executor, id);
   await executor.delete(simulations).where(eq(simulations.id, id));
   return { id };
@@ -122,7 +122,7 @@ const resolveProduct = async (
   executor: Executor,
   line: SimulationRow["data"]["lines"][number],
   salePriceFcfa: number | undefined,
-): Promise<{ id: number; created: boolean }> => {
+): Promise<{ id: string; created: boolean }> => {
   if (line.productId) {
     const [product] = await executor
       .select({ id: products.id })
@@ -161,7 +161,7 @@ const resolveProduct = async (
  * conseillé. Les frais libres deviennent des « autres frais » de l'estimation.
  * À appeler dans une transaction.
  */
-export const convertSimulationToOrder = async (executor: Executor, id: number) => {
+export const convertSimulationToOrder = async (executor: Executor, id: string) => {
   const simulation = await getRow(executor, id);
   if (simulation.purchaseOrderId) {
     throw new ORPCError("BAD_REQUEST", {
@@ -172,7 +172,7 @@ export const convertSimulationToOrder = async (executor: Executor, id: number) =
   const result = computeSimulation(data);
 
   const createdProducts: string[] = [];
-  const productIds: number[] = [];
+  const productIds: string[] = [];
   for (const [index, line] of data.lines.entries()) {
     // Séquentiel : deux lignes du même libellé doivent retrouver le même produit.
     // oxlint-disable-next-line no-await-in-loop
@@ -190,7 +190,7 @@ export const convertSimulationToOrder = async (executor: Executor, id: number) =
     freightRatePerCbmFcfa: data.freightRatePerCbmFcfa,
     items: data.lines.map((line, index) => ({
       pricingBasis: line.pricingBasis ?? "unit",
-      productId: productIds[index] ?? 0,
+      productId: productIds[index] ?? "",
       qty: line.qty,
       trips: line.trips,
       unitPriceRmb: line.unitPriceRmb,

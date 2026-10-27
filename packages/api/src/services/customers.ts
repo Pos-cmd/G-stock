@@ -28,8 +28,8 @@ export interface CustomerLedger extends PaymentAllocation {
  */
 export const loadLedgers = async (
   executor: Executor,
-  customerId?: number | null,
-): Promise<Map<number, CustomerLedger>> => {
+  customerId?: string | null,
+): Promise<Map<string, CustomerLedger>> => {
   const saleConditions: SQL[] = [eq(sales.status, "active")];
   const paymentConditions: SQL[] = [isNull(payments.cancelledAt)];
   if (customerId) {
@@ -62,7 +62,7 @@ export const loadLedgers = async (
   const paymentsByCustomer = Map.groupBy(paymentRows, (row) => row.customerId);
   const customerIds = new Set([...salesByCustomer.keys(), ...paymentsByCustomer.keys()]);
 
-  const ledgers = new Map<number, CustomerLedger>();
+  const ledgers = new Map<string, CustomerLedger>();
   for (const id of customerIds) {
     const customerSales = (salesByCustomer.get(id) ?? []).map((sale) => ({
       date: sale.saleDate,
@@ -132,7 +132,7 @@ export const listCustomers = async (executor: Executor, filters: CustomerFilters
   return items.filter((customer) => customer.dueFcfa > 0).toSorted((a, b) => b.dueFcfa - a.dueFcfa);
 };
 
-export const getCustomer = async (executor: Executor, id: number) => {
+export const getCustomer = async (executor: Executor, id: string) => {
   const [customer] = await executor.select().from(customers).where(eq(customers.id, id));
   if (!customer) {
     throw new ORPCError("NOT_FOUND", { message: "Client introuvable" });
@@ -144,7 +144,7 @@ export const getCustomer = async (executor: Executor, id: number) => {
   return { ...customer, ...accountOf(ledgers.get(id), thresholds, new Date()) };
 };
 
-const assertNameAvailable = async (executor: Executor, name: string, exceptId?: number) => {
+const assertNameAvailable = async (executor: Executor, name: string, exceptId?: string) => {
   const conditions: SQL[] = [sql`lower(${customers.name}) = lower(${name})`];
   if (exceptId) {
     conditions.push(ne(customers.id, exceptId));
@@ -169,7 +169,7 @@ export const createCustomer = async (executor: Executor, input: CustomerInput) =
   return created;
 };
 
-export const updateCustomer = async (executor: Executor, id: number, input: CustomerInput) => {
+export const updateCustomer = async (executor: Executor, id: string, input: CustomerInput) => {
   await assertNameAvailable(executor, input.name, id);
   const [updated] = await executor
     .update(customers)
@@ -183,7 +183,7 @@ export const updateCustomer = async (executor: Executor, id: number, input: Cust
 };
 
 /** Suppression réservée aux clients sans vente ni paiement. */
-export const removeCustomer = async (executor: Executor, id: number) => {
+export const removeCustomer = async (executor: Executor, id: string) => {
   const [[saleUsage], [paymentUsage]] = await Promise.all([
     executor.select({ n: count() }).from(sales).where(eq(sales.customerId, id)),
     executor.select({ n: count() }).from(payments).where(eq(payments.customerId, id)),

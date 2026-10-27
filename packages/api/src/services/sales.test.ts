@@ -298,7 +298,10 @@ describe("paiements", () => {
     expect(await saleDue(first.id)).toBe(0);
     expect(await saleDue(second.id)).toBe(2500);
 
-    await cancelPayment(db, { id: payment?.id ?? 0, reason: "Doublon" });
+    if (!payment) {
+      throw new Error("Paiement non créé");
+    }
+    await cancelPayment(db, { id: payment.id, reason: "Doublon" });
     const afterCancel = await getCustomer(db, awa.id);
     expect(afterCancel.dueFcfa).toBe(5000);
   });

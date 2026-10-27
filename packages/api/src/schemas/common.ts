@@ -9,6 +9,7 @@ export const optionalText = (maxLength: number) =>
     .nullish()
     .transform((value) => value || null);
 
-export const idSchema = z.number().int().positive();
+/** Identifiant UUID d'un enregistrement. */
+export const idSchema = z.uuid("Identifiant invalide");
 
 export const byIdSchema = z.object({ id: idSchema });

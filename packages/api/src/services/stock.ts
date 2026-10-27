@@ -1,4 +1,5 @@
 import type { LotSource, MovementReferenceType } from "@G-stock/core/enums";
+import { uuidv7 } from "@G-stock/core/ids";
 import { QTY_EPSILON, planFifo, roundQty } from "@G-stock/core/stock";
 import type { Executor } from "@G-stock/db";
 import { user } from "@G-stock/db/schema/auth";
@@ -12,49 +13,54 @@ import type { SQL } from "drizzle-orm";
 import type { MovementFilters } from "../schemas/stock";
 
 export interface CreateLotParams {
-  productId: number;
+  productId: string;
   qty: number;
   unitCostFcfa: number;
   source: LotSource;
   receivedAt: Date;
-  orderItemId?: number | null;
+  orderItemId?: string | null;
   notes?: string | null;
   userId?: string | null;
   referenceType?: MovementReferenceType;
-  referenceId?: number | null;
+  referenceId?: string | null;
 }
 
 export interface AdjustLotParams {
-  lotId: number;
+  lotId: string;
   newQty: number;
   reason: string;
   userId?: string | null;
 }
 
 export interface ConsumeFifoParams {
-  productId: number;
+  productId: string;
   qty: number;
   referenceType: MovementReferenceType;
-  referenceId?: number | null;
+  referenceId?: string | null;
   reason?: string | null;
   userId?: string | null;
 }
 
 export interface LotAllocation {
-  lotId: number;
+  lotId: string;
   qty: number;
   unitCostFcfa: number;
 }
 
 const pad = (value: number, length = 2): string => String(value).padStart(length, "0");
 
-/** Ex. : LOT-20261026-0042 */
-export const buildLotCode = (receivedAt: Date, lotId: number): string => {
+const LOT_SUFFIX_LENGTH = 6;
+
+/**
+ * Ex. : LOT-20261026-3F9A2C. Le suffixe vient de la partie aléatoire de l'identifiant du lot :
+ * aucun compteur, donc aucun risque de doublon.
+ */
+export const buildLotCode = (receivedAt: Date, lotId: string): string => {
   const day = `${receivedAt.getFullYear()}${pad(receivedAt.getMonth() + 1)}${pad(receivedAt.getDate())}`;
-  return `LOT-${day}-${pad(lotId, 4)}`;
+  return `LOT-${day}-${lotId.slice(-LOT_SUFFIX_LENGTH).toUpperCase()}`;
 };
 
-const getActiveProduct = async (executor: Executor, productId: number) => {
+const getActiveProduct = async (executor: Executor, productId: string) => {
   const [product] = await executor.select().from(products).where(eq(products.id, productId));
   if (!product) {
     throw new ORPCError("NOT_FOUND", { message: "Produit introuvable" });
@@ -77,9 +83,12 @@ export const createLot = async (executor: Executor, params: CreateLotParams) => 
   }
   await getActiveProduct(executor, params.productId);
 
+  const lotId = uuidv7();
   const [inserted] = await executor
     .insert(stockLots)
     .values({
+      id: lotId,
+      lotCode: buildLotCode(params.receivedAt, lotId),
       notes: params.notes ?? null,
       orderItemId: params.orderItemId ?? null,
       productId: params.productId,
@@ -94,9 +103,6 @@ export const createLot = async (executor: Executor, params: CreateLotParams) => 
     throw new Error("L'insertion du lot n'a renvoyé aucune ligne");
   }
 
-  const lotCode = buildLotCode(params.receivedAt, inserted.id);
-  await executor.update(stockLots).set({ lotCode }).where(eq(stockLots.id, inserted.id));
-
   await executor.insert(stockMovements).values({
     createdBy: params.userId ?? null,
     lotId: inserted.id,
@@ -109,7 +115,7 @@ export const createLot = async (executor: Executor, params: CreateLotParams) => 
     unitCostFcfa: params.unitCostFcfa,
   });
 
-  return { ...inserted, lotCode };
+  return inserted;
 };
 
 /** Corrige la quantité restante d'un lot (inventaire, casse…) et trace l'écart. */
@@ -156,7 +162,7 @@ export const adjustLot = async (executor: Executor, params: AdjustLotParams) => 
 };
 
 /** Lots d'un produit qui ont encore du stock, du plus ancien au plus récent (ordre FIFO). */
-export const listAvailableLots = (executor: Executor, productId: number) =>
+export const listAvailableLots = (executor: Executor, productId: string) =>
   executor
     .select()
     .from(stockLots)
@@ -164,10 +170,10 @@ export const listAvailableLots = (executor: Executor, productId: number) =>
     .orderBy(asc(stockLots.receivedAt), asc(stockLots.id));
 
 export interface ReturnToLotsParams {
-  productId: number;
-  allocations: readonly { lotId: number; qty: number; unitCostFcfa: number }[];
+  productId: string;
+  allocations: readonly { lotId: string; qty: number; unitCostFcfa: number }[];
   referenceType: MovementReferenceType;
-  referenceId?: number | null;
+  referenceId?: string | null;
   reason: string;
   userId?: string | null;
 }
@@ -254,7 +260,7 @@ export const consumeFifo = async (
   }));
 };
 
-export const listLots = (executor: Executor, productId: number, includeEmpty: boolean) => {
+export const listLots = (executor: Executor, productId: string, includeEmpty: boolean) => {
   const conditions: SQL[] = [eq(stockLots.productId, productId)];
   if (!includeEmpty) {
     conditions.push(gt(stockLots.qtyRemaining, QTY_EPSILON));

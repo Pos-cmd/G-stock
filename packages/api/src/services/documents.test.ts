@@ -171,11 +171,13 @@ describe("generateDocument", () => {
       referenceId: simulation.id,
       type: "simulation",
     });
-    expect(path.basename(document.filePath)).toBe(`Ete-grillage-test-${simulation.id}.pdf`);
+    expect(path.basename(document.filePath)).toBe(
+      `Ete-grillage-test-${simulation.id.slice(-6)}.pdf`,
+    );
     expect(isPdf(document.filePath)).toBe(true);
 
     const file = await getDocumentFile(db, document.id);
-    expect(file.fileName).toBe(`Ete-grillage-test-${simulation.id}.pdf`);
+    expect(file.fileName).toBe(`Ete-grillage-test-${simulation.id.slice(-6)}.pdf`);
   });
 
   it("signale un document dont le fichier a disparu", async () => {

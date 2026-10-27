@@ -2,7 +2,7 @@ import { PAYMENT_METHODS, PAYMENT_TYPES, SALE_STATUSES } from "@G-stock/core/enu
 import { sql } from "drizzle-orm";
 import { check, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import { createdAt, id, timestamp, updatedAt } from "../columns";
+import { createdAt, id, ref, timestamp, updatedAt } from "../columns";
 import { user } from "./auth";
 import { products } from "./catalog";
 import { stockLots } from "./stock";
@@ -27,7 +27,7 @@ export const sales = sqliteTable(
   {
     id: id(),
     reference: text("reference").notNull().unique(),
-    customerId: integer("customer_id")
+    customerId: ref("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "restrict" }),
     saleDate: timestamp("sale_date").notNull(),
@@ -56,10 +56,10 @@ export const saleItems = sqliteTable(
   "sale_items",
   {
     id: id(),
-    saleId: integer("sale_id")
+    saleId: ref("sale_id")
       .notNull()
       .references(() => sales.id, { onDelete: "cascade" }),
-    productId: integer("product_id")
+    productId: ref("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "restrict" }),
     qty: real("qty").notNull(),
@@ -79,10 +79,10 @@ export const saleItemLots = sqliteTable(
   "sale_item_lots",
   {
     id: id(),
-    saleItemId: integer("sale_item_id")
+    saleItemId: ref("sale_item_id")
       .notNull()
       .references(() => saleItems.id, { onDelete: "cascade" }),
-    lotId: integer("lot_id")
+    lotId: ref("lot_id")
       .notNull()
       .references(() => stockLots.id, { onDelete: "restrict" }),
     qty: real("qty").notNull(),
@@ -100,7 +100,7 @@ export const saleDiscounts = sqliteTable(
   "sale_discounts",
   {
     id: id(),
-    saleId: integer("sale_id")
+    saleId: ref("sale_id")
       .notNull()
       .references(() => sales.id, { onDelete: "cascade" }),
     discountDate: timestamp("discount_date").notNull(),
@@ -119,10 +119,10 @@ export const payments = sqliteTable(
   "payments",
   {
     id: id(),
-    customerId: integer("customer_id")
+    customerId: ref("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "restrict" }),
-    saleId: integer("sale_id").references(() => sales.id, { onDelete: "set null" }),
+    saleId: ref("sale_id").references(() => sales.id, { onDelete: "set null" }),
     paymentDate: timestamp("payment_date").notNull(),
     amountFcfa: integer("amount_fcfa").notNull(),
     method: text("method", { enum: PAYMENT_METHODS }).notNull().default("cash"),

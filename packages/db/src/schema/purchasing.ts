@@ -7,7 +7,7 @@ import {
 import { sql } from "drizzle-orm";
 import { check, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import { createdAt, id, timestamp, updatedAt } from "../columns";
+import { createdAt, id, ref, timestamp, updatedAt } from "../columns";
 import { products, suppliers } from "./catalog";
 
 export const purchaseOrders = sqliteTable(
@@ -15,7 +15,7 @@ export const purchaseOrders = sqliteTable(
   {
     id: id(),
     reference: text("reference").notNull().unique(),
-    supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "restrict" }),
+    supplierId: ref("supplier_id").references(() => suppliers.id, { onDelete: "restrict" }),
     orderDate: timestamp("order_date").notNull(),
     status: text("status", { enum: PURCHASE_ORDER_STATUSES }).notNull().default("draft"),
     // Taux figés à la commande : les modifier dans les réglages ne réécrit pas l'historique.
@@ -50,10 +50,10 @@ export const purchaseOrderItems = sqliteTable(
   "purchase_order_items",
   {
     id: id(),
-    orderId: integer("order_id")
+    orderId: ref("order_id")
       .notNull()
       .references(() => purchaseOrders.id, { onDelete: "cascade" }),
-    productId: integer("product_id")
+    productId: ref("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "restrict" }),
     // Quantité qui entre en stock, dans l'unité du produit.
@@ -82,7 +82,7 @@ export const purchaseOrderFees = sqliteTable(
   "purchase_order_fees",
   {
     id: id(),
-    orderId: integer("order_id")
+    orderId: ref("order_id")
       .notNull()
       .references(() => purchaseOrders.id, { onDelete: "cascade" }),
     label: text("label").notNull(),

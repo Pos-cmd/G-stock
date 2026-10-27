@@ -80,7 +80,7 @@ export const listProducts = async (executor: Executor, filters: ProductFilters) 
   return filters.status ? items.filter((item) => item.status === filters.status) : items;
 };
 
-export const getProduct = async (executor: Executor, id: number) => {
+export const getProduct = async (executor: Executor, id: string) => {
   const [row] = await selectProductsWithStock(executor, eq(products.id, id));
   if (!row) {
     throw new ORPCError("NOT_FOUND", { message: "Produit introuvable" });
@@ -88,7 +88,7 @@ export const getProduct = async (executor: Executor, id: number) => {
   return withStockStats(row);
 };
 
-const assertNameAvailable = async (executor: Executor, name: string, exceptId?: number) => {
+const assertNameAvailable = async (executor: Executor, name: string, exceptId?: string) => {
   const conditions: SQL[] = [sql`lower(${products.name}) = lower(${name})`];
   if (exceptId) {
     conditions.push(ne(products.id, exceptId));
@@ -113,7 +113,7 @@ export const createProduct = async (executor: Executor, input: ProductInput) => 
   return created;
 };
 
-export const updateProduct = async (executor: Executor, id: number, input: ProductInput) => {
+export const updateProduct = async (executor: Executor, id: string, input: ProductInput) => {
   await assertNameAvailable(executor, input.name, id);
   const [updated] = await executor
     .update(products)
@@ -126,7 +126,7 @@ export const updateProduct = async (executor: Executor, id: number, input: Produ
   return updated;
 };
 
-export const setProductArchived = async (executor: Executor, id: number, archived: boolean) => {
+export const setProductArchived = async (executor: Executor, id: string, archived: boolean) => {
   const [updated] = await executor
     .update(products)
     .set({ archivedAt: archived ? new Date() : null })
@@ -139,7 +139,7 @@ export const setProductArchived = async (executor: Executor, id: number, archive
 };
 
 /** Suppression définitive, réservée aux produits sans aucun historique de stock. */
-export const removeProduct = async (executor: Executor, id: number) => {
+export const removeProduct = async (executor: Executor, id: string) => {
   const [usage] = await executor
     .select({ lots: count() })
     .from(stockLots)
