@@ -7,7 +7,7 @@ import {
 import type { AllocationMethod, PricingBasis } from "@G-stock/core/enums";
 import { z } from "zod";
 
-import { idSchema, optionalText } from "./common";
+import { idSchema, optionalText, reasonSchema } from "./common";
 
 const MAX_ITEMS = 200;
 
@@ -124,3 +124,18 @@ export type PurchaseReceptionInput = z.output<typeof purchaseReceptionSchema>;
 /** Validation de la réception : la saisie, plus la date d'entrée en stock. */
 export const purchaseReceiveSchema = purchaseReceptionSchema.extend({ receivedAt: z.date() });
 export type PurchaseReceiveInput = z.output<typeof purchaseReceiveSchema>;
+
+export const supplierPaymentInputSchema = z.object({
+  amountFcfa: fcfaAmount.positive("Le montant doit être supérieur à zéro"),
+  /** FCFA pour 1 RMB obtenu ce jour-là ; vide = taux de la commande. */
+  fcfaPerRmb: exchangeRate.nullish(),
+  notes: optionalText(500),
+  orderId: idSchema,
+  paymentDate: z.date(),
+});
+export type SupplierPaymentInput = z.output<typeof supplierPaymentInputSchema>;
+
+export const supplierPaymentCancelSchema = z.object({
+  id: idSchema,
+  reason: reasonSchema,
+});

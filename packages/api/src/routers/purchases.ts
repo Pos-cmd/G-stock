@@ -7,8 +7,12 @@ import {
   purchaseReceiveSchema,
   purchaseReceptionSchema,
   purchaseStatusSchema,
+  supplierPaymentCancelSchema,
+  supplierPaymentInputSchema,
 } from "../schemas/purchases";
 import {
+  cancelSupplierPayment,
+  createSupplierPayment,
   createPurchaseOrder,
   getPurchaseOrder,
   listPurchaseOrders,
@@ -20,9 +24,19 @@ import {
 } from "../services/purchases";
 
 export const purchasesRouter = {
+  addPayment: protectedProcedure
+    .input(supplierPaymentInputSchema)
+    .handler(({ context, input }) =>
+      createSupplierPayment(context.db, input, context.session.user.id),
+    ),
+
   cancel: protectedProcedure
     .input(byIdSchema)
     .handler(({ context, input }) => setPurchaseStatus(context.db, input.id, "cancelled")),
+
+  cancelPayment: protectedProcedure
+    .input(supplierPaymentCancelSchema)
+    .handler(({ context, input }) => cancelSupplierPayment(context.db, input)),
 
   create: protectedProcedure
     .input(purchaseOrderInputSchema)

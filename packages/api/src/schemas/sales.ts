@@ -1,20 +1,13 @@
 import { PAYMENT_METHODS, PAYMENT_TYPES, SALE_STATUSES } from "@G-stock/core/enums";
 import { z } from "zod";
 
-import { idSchema, optionalText } from "./common";
+import { idSchema, optionalText, reasonSchema } from "./common";
 
 const MAX_LINES = 100;
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
 
 const fcfaAmount = z.number().int("Montant entier en FCFA");
-
-/** Motif obligatoire d'une annulation ou d'une remise. */
-const reasonSchema = z
-  .string()
-  .trim()
-  .min(3, "Indiquez le motif (3 caractères minimum)")
-  .max(500, "500 caractères maximum");
 
 export const saleLineSchema = z.object({
   productId: idSchema,

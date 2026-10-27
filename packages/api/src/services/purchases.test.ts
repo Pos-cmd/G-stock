@@ -10,7 +10,9 @@ import type { PurchaseFeeInput, PurchaseOrderInput } from "../schemas/purchases"
 import { useTestDatabase } from "../testing/database";
 import { createProduct, getProduct, setProductArchived } from "./products";
 import {
+  cancelSupplierPayment,
   createPurchaseOrder,
+  createSupplierPayment,
   getPurchaseOrder,
   listPurchaseOrders,
   receivePurchaseOrder,
@@ -20,7 +22,7 @@ import {
   updatePurchaseOrder,
 } from "./purchases";
 import { listLots } from "./stock";
-import { createSupplier, removeSupplier } from "./suppliers";
+import { createSupplier, listSuppliers, removeSupplier } from "./suppliers";
 
 let db: Database;
 const getDb = useTestDatabase();
@@ -444,5 +446,111 @@ describe("numérotation", () => {
     const second = await create(input);
     expect(first.reference).toBe("CF-2026-0001");
     expect(second.reference).toBe("CF-2026-0002");
+  });
+});
+
+describe("paiements fournisseur en plusieurs tranches", () => {
+  // Marchandise : 7 200 + 1 800 = 9 000 RMB (747 500 FCFA aux taux de la commande).
+  const pay = (orderId: string, amountFcfa: number, fcfaPerRmb: number | null = null) =>
+    createSupplierPayment(db, {
+      amountFcfa,
+      fcfaPerRmb,
+      notes: null,
+      orderId,
+      paymentDate: MARCH_1,
+    });
+
+  it("compte chaque versement à son taux et le reste au taux de la commande", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    // 380 000 FCFA à 80 FCFA/RMB = 4 750 RMB ; reste 4 250 RMB × 83,06 = 352 986 FCFA.
+    await pay(order.id, 380_000, 80);
+
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.payment.paidFcfa).toBe(380_000);
+    expect(detail.payment.paidRmb).toBeCloseTo(4750, 6);
+    expect(detail.payment.remainingRmb).toBeCloseTo(4250, 6);
+    expect(detail.payment.remainingFcfa).toBe(352_986);
+    expect(detail.payment.isPaid).toBe(false);
+    expect(detail.payment.exchangeDifferenceFcfa).toBeNull();
+    expect(detail.costs.goodsFcfa).toBe(732_986);
+    expect(detail.costs.totalFcfa).toBe(1_132_986);
+    // L'estimation de la commande reste aux taux de la commande.
+    expect(detail.estimate.totalFcfa).toBe(1_147_500);
+
+    const [row] = await listPurchaseOrders(db, {});
+    expect(row?.payment.paidFcfa).toBe(380_000);
+    expect(row?.payment.remainingRmb).toBeCloseTo(4250, 6);
+  });
+
+  it("fige le coût dans les lots à la réception, puis suit l'écart de change", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    await pay(order.id, 380_000, 80);
+    await receive(order.id);
+
+    // 732 986 FCFA de marchandise répartis 4:1, plus 300 000 / 100 000 de frais.
+    const lotCosts = async () =>
+      (await db.select().from(stockLots).orderBy(asc(stockLots.id))).map((lot) => lot.unitCostFcfa);
+    expect(await lotCosts()).toEqual([8864, 4932]);
+
+    // Le solde (4 250 RMB) part plus tard à 90 FCFA/RMB : 382 500 FCFA au lieu de 352 986.
+    await pay(order.id, 382_500, 90);
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.receivedGoodsFcfa).toBe(732_986);
+    expect(detail.costs.goodsFcfa).toBe(732_986);
+    expect(detail.payment.isPaid).toBe(true);
+    expect(detail.payment.goodsFcfa).toBe(762_500);
+    expect(detail.payment.exchangeDifferenceFcfa).toBe(29_514);
+    expect(await lotCosts()).toEqual([8864, 4932]);
+  });
+
+  it("annule un versement avec un motif, sans le supprimer", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    const payment = await pay(order.id, 100_000);
+    await cancelSupplierPayment(db, { id: payment?.id ?? "", reason: "Doublon" });
+
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.payments).toHaveLength(1);
+    expect(detail.payments[0]?.cancelReason).toBe("Doublon");
+    expect(detail.payment.paidFcfa).toBe(0);
+    expect(detail.payment.paymentCount).toBe(0);
+    expect(detail.costs.goodsFcfa).toBe(747_500);
+    await expect(
+      cancelSupplierPayment(db, { id: payment?.id ?? "", reason: "Encore" }),
+    ).rejects.toThrow("déjà annulé");
+  });
+
+  it("donne le reste à payer par fournisseur sur les commandes engagées", async () => {
+    const supplier = await createSupplier(db, {
+      contact: null,
+      country: "Chine",
+      name: "Yizhou",
+      notes: null,
+      phone: null,
+    });
+    const { input } = await orderInput({ supplierId: supplier.id });
+    const ordered = await create(input);
+    await setPurchaseStatus(db, ordered.id, "ordered");
+    await pay(ordered.id, 380_000, 80);
+    // Un simple brouillon sans versement n'est pas une dette.
+    await create({ ...input, items: input.items.slice(0, 1) });
+
+    const [row] = await listSuppliers(db);
+    expect(row?.paidFcfa).toBe(380_000);
+    expect(row?.remainingRmb).toBeCloseTo(4250, 6);
+    expect(row?.remainingFcfa).toBe(352_986);
+    expect(row?.unpaidOrderCount).toBe(1);
+  });
+
+  it("garde une commande qui a des versements et refuse d'en payer une annulée", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    await pay(order.id, 100_000);
+    await expect(removePurchaseOrder(db, order.id)).rejects.toThrow("versements");
+
+    await setPurchaseStatus(db, order.id, "cancelled");
+    await expect(pay(order.id, 100_000)).rejects.toThrow("annulée");
   });
 });

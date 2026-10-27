@@ -7,10 +7,11 @@ import type { SQL } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { supplierInputSchema } from "../schemas/suppliers";
+import { listPurchaseOrders } from "./purchases";
 
 type SupplierInput = z.output<typeof supplierInputSchema>;
 
-export const listSuppliers = (executor: Executor) =>
+const supplierRows = (executor: Executor) =>
   executor
     .select({
       contact: suppliers.contact,
@@ -27,6 +28,29 @@ export const listSuppliers = (executor: Executor) =>
     .leftJoin(purchaseOrders, eq(purchaseOrders.supplierId, suppliers.id))
     .groupBy(suppliers.id)
     .orderBy(asc(suppliers.name));
+
+/** Commandes engagées : passées au fournisseur, ou brouillons sur lesquels un versement est fait. */
+const isCommitted = (order: Awaited<ReturnType<typeof listPurchaseOrders>>[number]) =>
+  order.status !== "cancelled" && (order.status !== "draft" || order.payment.paymentCount > 0);
+
+/** Fournisseurs avec ce qu'il reste à leur payer sur les commandes engagées. */
+export const listSuppliers = async (executor: Executor) => {
+  const [rows, orders] = await Promise.all([
+    supplierRows(executor),
+    listPurchaseOrders(executor, {}),
+  ]);
+  const committed = Map.groupBy(orders.filter(isCommitted), (order) => order.supplierId);
+  return rows.map((row) => {
+    const supplierOrders = committed.get(row.id) ?? [];
+    return {
+      ...row,
+      paidFcfa: supplierOrders.reduce((sum, order) => sum + order.payment.paidFcfa, 0),
+      remainingFcfa: supplierOrders.reduce((sum, order) => sum + order.payment.remainingFcfa, 0),
+      remainingRmb: supplierOrders.reduce((sum, order) => sum + order.payment.remainingRmb, 0),
+      unpaidOrderCount: supplierOrders.filter((order) => !order.payment.isPaid).length,
+    };
+  });
+};
 
 const assertNameAvailable = async (executor: Executor, name: string, exceptId?: string) => {
   const conditions: SQL[] = [sql`lower(${suppliers.name}) = lower(${name})`];

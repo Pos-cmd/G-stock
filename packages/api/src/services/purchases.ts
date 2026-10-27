@@ -3,17 +3,21 @@ import {
   computeLandedCosts,
   computeLandedCostsFromFees,
   feeToFcfa,
+  totalGoodsRmb,
 } from "@G-stock/core/purchasing";
+import type { LandedCostItem } from "@G-stock/core/purchasing";
+import { paidGoodsFcfa, summarizeSupplierPayments } from "@G-stock/core/supplier-payments";
 import type { Executor } from "@G-stock/db";
 import { products, suppliers } from "@G-stock/db/schema/catalog";
 import {
   purchaseOrderFees,
   purchaseOrderItems,
   purchaseOrders,
+  supplierPayments,
 } from "@G-stock/db/schema/purchasing";
 import { stockLots } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type {
@@ -21,6 +25,7 @@ import type {
   PurchaseOrderInput,
   PurchaseReceiveInput,
   PurchaseReceptionInput,
+  SupplierPaymentInput,
 } from "../schemas/purchases";
 import { nextReference } from "./references";
 import { createLot } from "./stock";
@@ -28,6 +33,7 @@ import { createLot } from "./stock";
 type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
 type PurchaseItemRow = typeof purchaseOrderItems.$inferSelect;
 type PurchaseFeeRow = typeof purchaseOrderFees.$inferSelect;
+type SupplierPaymentRow = typeof supplierPayments.$inferSelect;
 
 const REFERENCE_PREFIX = "CF";
 const REFERENCE_DIGITS = 4;
@@ -39,18 +45,51 @@ const ratesOf = (order: PurchaseOrderRow) => ({
   rmbPerUsd: order.rmbPerUsd,
 });
 
-/** Prix de revient estimé à partir des frais saisis sur la commande. */
-const estimatedCostsOf = (order: PurchaseOrderRow, items: readonly PurchaseItemRow[]) =>
-  computeLandedCosts({ ...order, items, rates: ratesOf(order) });
+/** Versements d'une commande qui comptent (les annulés sont gardés pour la trace). */
+const activePayments = (payments: readonly SupplierPaymentRow[]) =>
+  payments.filter((payment) => !payment.cancelledAt);
 
-/** Prix de revient réel : frais saisis à la réception, coût réparti sur les quantités reçues. */
+/** Coût réel de la marchandise d'après les versements, `undefined` sans versement. */
+const goodsFcfaOf = (
+  order: PurchaseOrderRow,
+  items: readonly LandedCostItem[],
+  payments: readonly SupplierPaymentRow[],
+) =>
+  paidGoodsFcfa({
+    goodsRmb: totalGoodsRmb(items),
+    payments: activePayments(payments),
+    rates: ratesOf(order),
+  });
+
+/** Prix de revient estimé à partir des frais saisis sur la commande et des versements faits. */
+const estimatedCostsOf = (
+  order: PurchaseOrderRow,
+  items: readonly PurchaseItemRow[],
+  payments: readonly SupplierPaymentRow[],
+) =>
+  computeLandedCosts({
+    ...order,
+    goodsFcfa: goodsFcfaOf(order, items, payments),
+    items,
+    rates: ratesOf(order),
+  });
+
+/**
+ * Prix de revient réel : frais saisis à la réception, coût réparti sur les quantités reçues.
+ * Une commande reçue garde le coût de marchandise figé à la réception (celui des lots).
+ */
 const actualCostsOf = (
   order: PurchaseOrderRow,
   items: readonly PurchaseItemRow[],
   fees: readonly PurchaseFeeRow[],
+  payments: readonly SupplierPaymentRow[],
 ) =>
   computeLandedCostsFromFees({
     fees,
+    goodsFcfa:
+      order.status === "received"
+        ? (order.receivedGoodsFcfa ?? undefined)
+        : goodsFcfaOf(order, items, payments),
     items: items.map((item) => ({ ...item, receivedQty: item.qtyReceived })),
     rates: ratesOf(order),
   });
@@ -60,8 +99,35 @@ const displayedCostsOf = (
   order: PurchaseOrderRow,
   items: readonly PurchaseItemRow[],
   fees: readonly PurchaseFeeRow[],
+  payments: readonly SupplierPaymentRow[],
 ) =>
-  order.status === "received" ? actualCostsOf(order, items, fees) : estimatedCostsOf(order, items);
+  order.status === "received"
+    ? actualCostsOf(order, items, fees, payments)
+    : estimatedCostsOf(order, items, payments);
+
+/**
+ * Situation des paiements d'une commande. Pour une commande reçue, l'écart de change compare le
+ * coût réel de la marchandise (versements à leur taux) à celui figé dans les lots.
+ */
+const paymentSituationOf = (
+  order: PurchaseOrderRow,
+  items: readonly PurchaseItemRow[],
+  payments: readonly SupplierPaymentRow[],
+  receivedGoodsFcfa: number,
+) => {
+  const active = activePayments(payments);
+  const { lines: _lines, ...summary } = summarizeSupplierPayments({
+    goodsRmb: totalGoodsRmb(items),
+    payments: active,
+    rates: ratesOf(order),
+  });
+  const hasExchangeDifference = order.status === "received" && active.length > 0;
+  return {
+    ...summary,
+    exchangeDifferenceFcfa: hasExchangeDifference ? summary.goodsFcfa - receivedGoodsFcfa : null,
+    paymentCount: active.length,
+  };
+};
 
 const listOrderItems = (executor: Executor, orderId: string) =>
   executor
@@ -69,6 +135,15 @@ const listOrderItems = (executor: Executor, orderId: string) =>
     .from(purchaseOrderItems)
     .where(eq(purchaseOrderItems.orderId, orderId))
     .orderBy(asc(purchaseOrderItems.id));
+
+const listOrderPayments = (executor: Executor, orderIds: readonly string[]) =>
+  orderIds.length === 0
+    ? Promise.resolve([])
+    : executor
+        .select()
+        .from(supplierPayments)
+        .where(inArray(supplierPayments.orderId, orderIds))
+        .orderBy(asc(supplierPayments.paymentDate), asc(supplierPayments.id));
 
 const listOrderFees = (executor: Executor, orderId: string) =>
   executor
@@ -127,10 +202,21 @@ const orderValues = (input: PurchaseOrderInput) => ({
 });
 
 /** Enregistre les lignes avec leur part de frais et leur coût de revient unitaire. */
-const insertItems = async (executor: Executor, orderId: string, input: PurchaseOrderInput) => {
+const insertItems = async (
+  executor: Executor,
+  orderId: string,
+  input: PurchaseOrderInput,
+  payments: readonly SupplierPaymentRow[] = [],
+) => {
+  const rates = { fcfaPerUsd: input.fcfaPerUsd, rmbPerUsd: input.rmbPerUsd };
   const { lines } = computeLandedCosts({
     ...input,
-    rates: { fcfaPerUsd: input.fcfaPerUsd, rmbPerUsd: input.rmbPerUsd },
+    goodsFcfa: paidGoodsFcfa({
+      goodsRmb: totalGoodsRmb(input.items),
+      payments: activePayments(payments),
+      rates,
+    }),
+    rates,
   });
   await executor.insert(purchaseOrderItems).values(
     input.items.map((item, index) => ({
@@ -187,7 +273,7 @@ export const updatePurchaseOrder = async (
     .where(eq(purchaseOrders.id, id))
     .returning();
   await executor.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, id));
-  await insertItems(executor, id, input);
+  await insertItems(executor, id, input, await listOrderPayments(executor, [id]));
   return order;
 };
 
@@ -210,6 +296,13 @@ export const removePurchaseOrder = async (executor: Executor, id: string) => {
   if (!REMOVABLE_STATUSES.includes(order.status)) {
     throw new ORPCError("BAD_REQUEST", {
       message: "Seules les commandes en brouillon ou annulées peuvent être supprimées",
+    });
+  }
+  const payments = await listOrderPayments(executor, [id]);
+  if (payments.length > 0) {
+    throw new ORPCError("CONFLICT", {
+      message:
+        "Des versements au fournisseur sont enregistrés sur cette commande : elle est gardée pour la trace",
     });
   }
   await executor.delete(purchaseOrders).where(eq(purchaseOrders.id, id));
@@ -288,11 +381,13 @@ export interface ReceivePurchaseParams extends PurchaseReceiveInput {
 export const receivePurchaseOrder = async (executor: Executor, params: ReceivePurchaseParams) => {
   await saveReception(executor, params);
   const order = await getOrderRow(executor, params.id);
-  const [items, fees] = await Promise.all([
+  const [items, fees, payments] = await Promise.all([
     listOrderItems(executor, order.id),
     listOrderFees(executor, order.id),
+    listOrderPayments(executor, [order.id]),
   ]);
-  const costs = actualCostsOf(order, items, fees);
+  // Calculé avant le passage à « reçue » : versements faits à leur taux, reste au taux de la commande.
+  const costs = actualCostsOf(order, items, fees, payments);
 
   const received = items.flatMap((item, index) => {
     const line = costs.lines[index];
@@ -337,7 +432,11 @@ export const receivePurchaseOrder = async (executor: Executor, params: ReceivePu
 
   await executor
     .update(purchaseOrders)
-    .set({ receivedAt: params.receivedAt, status: "received" })
+    .set({
+      receivedAt: params.receivedAt,
+      receivedGoodsFcfa: costs.goodsFcfa,
+      status: "received",
+    })
     .where(eq(purchaseOrders.id, order.id));
 
   return { id: order.id, lotCount: lots.length, reference: order.reference };
@@ -393,14 +492,33 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
         orders.map(({ order }) => order.id),
       ),
     );
+  const payments = await listOrderPayments(
+    executor,
+    orders.map(({ order }) => order.id),
+  );
   const itemsByOrder = Map.groupBy(items, (item) => item.orderId);
   const feesByOrder = Map.groupBy(fees, (fee) => fee.orderId);
+  const paymentsByOrder = Map.groupBy(payments, (payment) => payment.orderId);
 
   return orders.map(({ order, supplierName }) => {
     const orderItems = itemsByOrder.get(order.id) ?? [];
-    const costs = displayedCostsOf(order, orderItems, feesByOrder.get(order.id) ?? []);
+    const orderPayments = paymentsByOrder.get(order.id) ?? [];
+    const costs = displayedCostsOf(
+      order,
+      orderItems,
+      feesByOrder.get(order.id) ?? [],
+      orderPayments,
+    );
+    const payment = paymentSituationOf(order, orderItems, orderPayments, costs.goodsFcfa);
     return {
       ...order,
+      payment: {
+        isPaid: payment.isPaid,
+        paidFcfa: payment.paidFcfa,
+        paymentCount: payment.paymentCount,
+        remainingFcfa: payment.remainingFcfa,
+        remainingRmb: payment.remainingRmb,
+      },
       feesFcfa: costs.feesFcfa,
       goodsFcfa: costs.goodsFcfa,
       goodsRmb: costs.goodsRmb,
@@ -438,10 +556,12 @@ export const getPurchaseOrder = async (executor: Executor, id: string) => {
     .orderBy(asc(purchaseOrderItems.id));
 
   const fees = await listOrderFees(executor, id);
+  const payments = await listOrderPayments(executor, [id]);
   const itemRows = rows.map(({ item }) => item);
-  const estimate = estimatedCostsOf(row.order, itemRows);
-  const actual = actualCostsOf(row.order, itemRows, fees);
-  const costs = row.order.status === "received" ? actual : estimate;
+  // L'estimation reste celle de la commande (taux de la commande, sans versements) : elle sert de
+  // référence pour mesurer l'écart avec les frais réels et les taux obtenus.
+  const estimate = estimatedCostsOf(row.order, itemRows, []);
+  const costs = displayedCostsOf(row.order, itemRows, fees, payments);
   const items = rows.map(({ item, ...extra }, index) => ({
     ...item,
     ...extra,
@@ -470,6 +590,49 @@ export const getPurchaseOrder = async (executor: Executor, id: string) => {
     fees,
     isLocked: LOCKED_STATUSES.includes(row.order.status),
     items,
+    payment: paymentSituationOf(row.order, itemRows, payments, costs.goodsFcfa),
+    /** Versements, annulés compris (barrés à l'écran), le plus ancien d'abord. */
+    payments,
     supplier: row.supplier,
   };
+};
+
+/** Versement au fournisseur, en FCFA au taux du jour. */
+export const createSupplierPayment = async (
+  executor: Executor,
+  input: SupplierPaymentInput,
+  userId?: string | null,
+) => {
+  const order = await getOrderRow(executor, input.orderId);
+  if (order.status === "cancelled") {
+    throw new ORPCError("BAD_REQUEST", { message: "Cette commande est annulée" });
+  }
+  const [payment] = await executor
+    .insert(supplierPayments)
+    .values({ ...input, createdBy: userId ?? null, fcfaPerRmb: input.fcfaPerRmb ?? null })
+    .returning();
+  return payment;
+};
+
+/** Un versement erroné est annulé avec un motif : il reste visible mais ne compte plus. */
+export const cancelSupplierPayment = async (
+  executor: Executor,
+  params: { id: string; reason: string },
+) => {
+  const [payment] = await executor
+    .select()
+    .from(supplierPayments)
+    .where(eq(supplierPayments.id, params.id));
+  if (!payment) {
+    throw new ORPCError("NOT_FOUND", { message: "Versement introuvable" });
+  }
+  if (payment.cancelledAt) {
+    throw new ORPCError("BAD_REQUEST", { message: "Ce versement est déjà annulé" });
+  }
+  const [updated] = await executor
+    .update(supplierPayments)
+    .set({ cancelReason: params.reason, cancelledAt: new Date() })
+    .where(and(eq(supplierPayments.id, payment.id), isNull(supplierPayments.cancelledAt)))
+    .returning();
+  return updated;
 };

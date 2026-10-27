@@ -13,3 +13,10 @@ export const optionalText = (maxLength: number) =>
 export const idSchema = z.uuid("Identifiant invalide");
 
 export const byIdSchema = z.object({ id: idSchema });
+
+/** Motif obligatoire d'une annulation ou d'une remise. */
+export const reasonSchema = z
+  .string()
+  .trim()
+  .min(3, "Indiquez le motif (3 caractères minimum)")
+  .max(500, "500 caractères maximum");
