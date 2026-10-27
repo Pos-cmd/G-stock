@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatDate, formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
-import { ALLOCATION_METHOD_LABELS } from "@G-stock/core/labels";
+import { ALLOCATION_METHOD_LABELS, PRICING_BASIS_LABELS } from "@G-stock/core/labels";
 import type { TableColumn } from "@nuxt/ui";
 
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
@@ -11,8 +11,11 @@ const { order } = defineProps<{ order: PurchaseOrderDetail }>();
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
   { accessorKey: "productName", header: "Produit" },
-  { accessorKey: "qty", header: "Quantité", meta: rightAligned },
-  { accessorKey: "unitPriceRmb", header: "Prix unit. (RMB)", meta: rightAligned },
+  { accessorKey: "qty", header: "Qté en stock", meta: rightAligned },
+  ...(order.items.some((item) => item.weightTons)
+    ? [{ accessorKey: "weightTons", header: "Poids", meta: rightAligned }]
+    : []),
+  { accessorKey: "unitPriceRmb", header: "Prix (RMB)", meta: rightAligned },
   ...(order.allocationMethod === "proportional"
     ? [{ accessorKey: "trips", header: "Voyages", meta: rightAligned }]
     : []),
@@ -75,8 +78,16 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
           formatQty(row.original.qty, row.original.productUnit)
         }}</span>
       </template>
+      <template #weightTons-cell="{ row }">
+        <span class="tabular-nums">{{
+          row.original.weightTons ? formatQty(row.original.weightTons, "T") : "—"
+        }}</span>
+      </template>
       <template #unitPriceRmb-cell="{ row }">
         <span class="tabular-nums">{{ formatRmb(row.original.unitPriceRmb) }}</span>
+        <span class="text-dimmed text-xs">
+          {{ PRICING_BASIS_LABELS[row.original.pricingBasis] }}</span
+        >
       </template>
       <template #trips-cell="{ row }">
         <span class="tabular-nums">{{ formatQty(row.original.trips) }}</span>
@@ -94,6 +105,9 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
         <span class="text-highlighted font-semibold tabular-nums">{{
           formatFcfa(row.original.unitCostFcfa)
         }}</span>
+        <p v-if="row.original.costPerTonFcfa" class="text-dimmed text-xs tabular-nums">
+          {{ formatFcfa(row.original.costPerTonFcfa) }} / T
+        </p>
       </template>
       <template #lotCode-cell="{ row }">
         <span v-if="row.original.lotCode" class="font-mono text-xs">{{

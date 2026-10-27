@@ -26,6 +26,9 @@ const feesRate = computed(() =>
           <span class="text-highlighted font-medium">{{ formatFcfa(costs.goodsFcfa) }}</span>
           <p class="text-dimmed text-xs">
             {{ formatRmb(costs.goodsRmb) }} · {{ formatUsd(costs.goodsUsd) }}
+            <template v-if="costs.totalWeightTons > 0">
+              · {{ formatQty(costs.totalWeightTons, "T") }}
+            </template>
           </p>
         </dd>
       </div>

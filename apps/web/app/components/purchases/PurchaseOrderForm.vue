@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { idSchema } from "@G-stock/api/schemas/common";
-import { purchaseItemSchema, purchaseOrderInputSchema } from "@G-stock/api/schemas/purchases";
-import type { AllocationMethod } from "@G-stock/core/enums";
+import {
+  checkWeights,
+  purchaseItemSchema,
+  purchaseOrderFieldsSchema,
+} from "@G-stock/api/schemas/purchases";
+import type { AllocationMethod, PricingBasis } from "@G-stock/core/enums";
 import { formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
-import { ALLOCATION_METHOD_LABELS } from "@G-stock/core/labels";
-import { computeLandedCosts } from "@G-stock/core/purchasing";
+import { ALLOCATION_METHOD_LABELS, PRICING_BASIS_LABELS } from "@G-stock/core/labels";
+import { computeLandedCosts, stockQtyFromWeight } from "@G-stock/core/purchasing";
 import type { FormSubmitEvent, RadioGroupItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
@@ -27,17 +31,19 @@ const notify = useNotify();
 const invalidatePurchases = useInvalidatePurchases();
 const settingsStore = useSettingsStore();
 
-const formSchema = purchaseOrderInputSchema.extend({
-  items: z
-    .array(purchaseItemSchema.extend({ productId: idSchema.optional() }))
-    .min(1, "Ajoutez au moins un produit")
-    .refine((items) => items.every((item) => item.productId !== undefined), {
-      message: "Choisissez un produit sur chaque ligne",
-    }),
-  notes: z.string().max(1000, "1000 caractères maximum"),
-  orderDate: z.iso.date("Date invalide"),
-  supplierId: idSchema.optional(),
-});
+const formSchema = purchaseOrderFieldsSchema
+  .extend({
+    items: z
+      .array(purchaseItemSchema.extend({ productId: idSchema.optional() }))
+      .min(1, "Ajoutez au moins un produit")
+      .refine((items) => items.every((item) => item.productId !== undefined), {
+        message: "Choisissez un produit sur chaque ligne",
+      }),
+    notes: z.string().max(1000, "1000 caractères maximum"),
+    orderDate: z.iso.date("Date invalide"),
+    supplierId: idSchema.optional(),
+  })
+  .superRefine(checkWeights);
 type FormOutput = z.output<typeof formSchema>;
 
 interface LineState {
@@ -46,6 +52,8 @@ interface LineState {
   qty: number;
   trips: number;
   unitPriceRmb: number;
+  pricingBasis: PricingBasis;
+  weightTons: number | null;
 }
 
 let nextLineKey = 0;
@@ -53,10 +61,12 @@ const newLine = (line: Partial<Omit<LineState, "key">> = {}): LineState => {
   nextLineKey += 1;
   return {
     key: nextLineKey,
+    pricingBasis: "unit",
     productId: undefined,
     qty: 1,
     trips: 1,
     unitPriceRmb: 0,
+    weightTons: null,
     ...line,
   };
 };
@@ -96,10 +106,12 @@ const stateFromOrder = (source: PurchaseOrderDetail): FormState => ({
   freightRatePerCbmFcfa: source.freightRatePerCbmFcfa,
   items: source.items.map((item) =>
     newLine({
+      pricingBasis: item.pricingBasis,
       productId: item.productId,
       qty: item.qty,
       trips: item.trips,
       unitPriceRmb: item.unitPriceRmb,
+      weightTons: item.weightTons,
     }),
   ),
   localTransportFcfa: source.localTransportFcfa,
@@ -181,7 +193,27 @@ const allocationItems: RadioGroupItem[] = [
     label: ALLOCATION_METHOD_LABELS.equal,
     value: "equal",
   },
+  {
+    description: "Chaque ligne paie selon son tonnage. Le poids de chaque ligne est requis.",
+    label: ALLOCATION_METHOD_LABELS.weight,
+    value: "weight",
+  },
 ];
+
+const pricingBasisItems = Object.entries(PRICING_BASIS_LABELS).map(([value, label]) => ({
+  label,
+  value,
+}));
+
+// La colonne Poids n'apparaît que si la commande utilise des tonnages.
+const showWeight = computed(
+  () =>
+    state.allocationMethod === "weight" ||
+    state.items.some((line) => line.pricingBasis === "weight" || line.weightTons),
+);
+const totalWeightTons = computed(() =>
+  state.items.reduce((sum, line) => sum + (line.weightTons || 0), 0),
+);
 
 // Lignes
 const addLine = (productId?: number) => {
@@ -202,6 +234,15 @@ const onProductChange = (line: LineState) => {
   }
 };
 
+/** Produit géré en tonnes ou en kg : la quantité de stock découle du poids. */
+const onWeightChange = (line: LineState) => {
+  const unit = line.productId ? productsById.value.get(line.productId)?.unit : undefined;
+  const qty = unit && line.weightTons ? stockQtyFromWeight(unit, line.weightTons) : null;
+  if (qty !== null) {
+    line.qty = qty;
+  }
+};
+
 // Calcul en direct, avec la même fonction que le serveur.
 const costs = computed(() =>
   computeLandedCosts({
@@ -209,9 +250,11 @@ const costs = computed(() =>
     freightCbm: state.freightCbm || 0,
     freightRatePerCbmFcfa: state.freightRatePerCbmFcfa || 0,
     items: state.items.map((line) => ({
+      pricingBasis: line.pricingBasis,
       qty: line.qty || 0,
       trips: line.trips || 0,
       unitPriceRmb: line.unitPriceRmb || 0,
+      weightTons: line.weightTons || null,
     })),
     localTransportFcfa: state.localTransportFcfa || 0,
     otherFeesFcfa: state.otherFeesFcfa || 0,
@@ -362,17 +405,19 @@ defineExpose({ saving });
       :ui="{ container: 'lg:grid-cols-[minmax(0,1fr)]', wrapper: 'min-w-0' }"
     >
       <template #description>
-        Prix fournisseur en RMB. Le coût de revient unitaire inclut la part des frais d'approche.
+        Prix fournisseur en RMB, à l'unité ou à la tonne. La quantité est celle qui entre en stock
+        (cartons, rouleaux…) ; le coût de revient unitaire inclut la part des frais d'approche.
       </template>
 
       <UFormField name="items">
         <div class="border-default overflow-x-auto rounded-lg border">
-          <table class="w-full min-w-[56rem] text-sm">
+          <table class="w-full min-w-[60rem] text-sm">
             <thead class="bg-elevated/50 text-muted text-left text-xs">
               <tr>
                 <th class="px-3 py-2 font-medium">Produit</th>
-                <th class="w-32 px-3 py-2 font-medium">Quantité</th>
-                <th class="w-32 px-3 py-2 font-medium">Prix unit. (RMB)</th>
+                <th class="w-32 px-3 py-2 font-medium">Qté en stock</th>
+                <th v-if="showWeight" class="w-28 px-3 py-2 font-medium">Poids (T)</th>
+                <th class="w-56 px-3 py-2 font-medium">Prix (RMB)</th>
                 <th
                   v-if="state.allocationMethod === 'proportional'"
                   class="w-24 px-3 py-2 font-medium"
@@ -414,15 +459,38 @@ defineExpose({ saving });
                     {{ productsById.get(line.productId)?.unit }}
                   </p>
                 </td>
-                <td class="px-3 py-2">
-                  <UFormField :name="`items.${index}.unitPriceRmb`">
+                <td v-if="showWeight" class="px-3 py-2">
+                  <UFormField :name="`items.${index}.weightTons`">
                     <UInputNumber
-                      v-model="line.unitPriceRmb"
+                      v-model="line.weightTons"
                       :min="0"
                       :step="0.5"
-                      :format-options="{ maximumFractionDigits: 2 }"
+                      :format-options="{ maximumFractionDigits: 3 }"
+                      placeholder="—"
                       class="w-full"
+                      @update:model-value="onWeightChange(line)"
                     />
+                  </UFormField>
+                </td>
+                <td class="px-3 py-2">
+                  <UFormField :name="`items.${index}.unitPriceRmb`">
+                    <div class="flex gap-1">
+                      <UInputNumber
+                        v-model="line.unitPriceRmb"
+                        :min="0"
+                        :step="0.5"
+                        :format-options="{ maximumFractionDigits: 2 }"
+                        :increment="false"
+                        :decrement="false"
+                        class="min-w-0 flex-1"
+                      />
+                      <USelect
+                        v-model="line.pricingBasis"
+                        :items="pricingBasisItems"
+                        :aria-label="`Base du prix, ligne ${index + 1}`"
+                        class="w-24 shrink-0"
+                      />
+                    </div>
                   </UFormField>
                 </td>
                 <td v-if="state.allocationMethod === 'proportional'" class="px-3 py-2">
@@ -445,8 +513,13 @@ defineExpose({ saving });
                 <td class="text-muted px-3 py-3 text-right tabular-nums">
                   {{ formatFcfa(costs.lines[index]?.transportShareFcfa ?? 0) }}
                 </td>
-                <td class="text-highlighted px-3 py-3 text-right font-semibold tabular-nums">
-                  {{ formatFcfa(costs.lines[index]?.unitCostFcfa ?? 0) }}
+                <td class="px-3 py-3 text-right tabular-nums">
+                  <span class="text-highlighted font-semibold">
+                    {{ formatFcfa(costs.lines[index]?.unitCostFcfa ?? 0) }}
+                  </span>
+                  <p v-if="costs.lines[index]?.costPerTonFcfa" class="text-dimmed text-xs">
+                    {{ formatFcfa(costs.lines[index]?.costPerTonFcfa ?? 0) }} / T
+                  </p>
                 </td>
                 <td class="px-1 py-2">
                   <UButton
@@ -478,6 +551,7 @@ defineExpose({ saving });
           ·
           {{ formatQty(state.items.reduce((sum, line) => sum + (line.qty || 0), 0)) }}
           unités
+          <template v-if="totalWeightTons > 0"> · {{ formatQty(totalWeightTons, "T") }}</template>
         </span>
       </div>
     </UPageCard>

@@ -75,6 +75,9 @@ const confirm = async () => {
                 <td class="text-highlighted px-3 py-2">{{ item.productName }}</td>
                 <td class="px-3 py-2 text-right tabular-nums">
                   {{ formatQty(item.qty, item.productUnit) }}
+                  <p v-if="item.weightTons" class="text-dimmed text-xs">
+                    {{ formatQty(item.weightTons, "T") }}
+                  </p>
                 </td>
                 <td class="px-3 py-2 text-right tabular-nums">
                   {{ formatFcfa(item.unitCostFcfa) }}

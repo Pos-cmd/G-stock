@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PurchaseOrderStatus } from "@G-stock/core/enums";
-import { formatDate, formatFcfa, formatRmb } from "@G-stock/core/format";
+import { formatDate, formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
 import { PURCHASE_ORDER_STATUS_LABELS } from "@G-stock/core/labels";
 import type { TableColumn } from "@nuxt/ui";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
@@ -144,7 +144,12 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
 
         <template #goodsRmb-cell="{ row }">
           <span class="tabular-nums">{{ formatRmb(row.original.goodsRmb) }}</span>
-          <p class="text-dimmed text-xs tabular-nums">{{ formatFcfa(row.original.goodsFcfa) }}</p>
+          <p class="text-dimmed text-xs tabular-nums">
+            {{ formatFcfa(row.original.goodsFcfa) }}
+            <template v-if="row.original.totalWeightTons > 0">
+              · {{ formatQty(row.original.totalWeightTons, "T") }}
+            </template>
+          </p>
         </template>
 
         <template #feesFcfa-cell="{ row }">
