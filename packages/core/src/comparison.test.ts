@@ -32,7 +32,9 @@ describe("compareValues", () => {
 
 describe("rapprochement des lignes", () => {
   it("rapproche par produit du catalogue, sinon par libellé normalisé", () => {
-    expect(comparisonKey({ label: "Fil galva", productId: 3 })).toBe("produit-3");
+    expect(
+      comparisonKey({ label: "Fil galva", productId: "0192aa00-0000-7000-8000-000000000003" }),
+    ).toBe("produit-0192aa00-0000-7000-8000-000000000003");
     expect(comparisonKey({ label: "  Barbelé   PVC " })).toBe(
       comparisonKey({ label: "barbele pvc" }),
     );

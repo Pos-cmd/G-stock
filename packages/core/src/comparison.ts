@@ -49,5 +49,5 @@ export const normalizeLabel = (label: string): string =>
  * Clé de rapprochement d'une ligne entre simulations et commandes : le produit du catalogue
  * s'il est connu, sinon le libellé normalisé.
  */
-export const comparisonKey = (line: { productId?: number | null; label: string }): string =>
+export const comparisonKey = (line: { productId?: string | null; label: string }): string =>
   line.productId ? `produit-${line.productId}` : `libelle-${normalizeLabel(line.label)}`;

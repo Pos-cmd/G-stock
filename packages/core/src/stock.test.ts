@@ -35,16 +35,16 @@ describe("weightedAverageCost", () => {
 
 describe("planFifo", () => {
   const lots = [
-    { id: 1, qtyRemaining: 5, unitCostFcfa: 1000 },
-    { id: 2, qtyRemaining: 0, unitCostFcfa: 9999 },
-    { id: 3, qtyRemaining: 10, unitCostFcfa: 1200 },
+    { id: "lot-1", qtyRemaining: 5, unitCostFcfa: 1000 },
+    { id: "lot-2", qtyRemaining: 0, unitCostFcfa: 9999 },
+    { id: "lot-3", qtyRemaining: 10, unitCostFcfa: 1200 },
   ];
 
   it("prélève sur les lots dans l'ordre et calcule le coût", () => {
     const plan = planFifo(lots, 8);
     expect(plan.allocations.map((a) => [a.lotId, a.qty, a.qtyLeft])).toEqual([
-      [1, 5, 0],
-      [3, 3, 7],
+      ["lot-1", 5, 0],
+      ["lot-3", 3, 7],
     ]);
     expect(plan.costFcfa).toBe(5 * 1000 + 3 * 1200);
     expect(plan.missingQty).toBe(0);

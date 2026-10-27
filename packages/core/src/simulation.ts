@@ -45,7 +45,7 @@ export const pricingRates = (unitCostFcfa: number, salePriceFcfa: number): Prici
 export interface SimulationLineInput extends LandedCostItem {
   label: string;
   unit: string;
-  productId?: number | null;
+  productId?: string | null;
   pricing: SalePricing;
 }
 

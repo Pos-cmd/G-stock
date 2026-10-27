@@ -33,13 +33,13 @@ export const weightedAverageCost = (
 };
 
 export interface FifoLot {
-  id: number;
+  id: string;
   qtyRemaining: number;
   unitCostFcfa: number;
 }
 
 export interface FifoAllocation {
-  lotId: number;
+  lotId: string;
   qty: number;
   unitCostFcfa: number;
   /** Quantité restante dans le lot après le prélèvement. */

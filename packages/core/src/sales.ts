@@ -6,14 +6,14 @@ export const lineAmountFcfa = (qty: number, unitPriceFcfa: number): number =>
   roundFcfa(qty * unitPriceFcfa);
 
 export interface DebtSale {
-  id: number;
+  id: string;
   date: Date;
   /** Montant net : total de la vente moins ses remises. */
   netFcfa: number;
 }
 
 export interface DebtPayment {
-  saleId?: number | null;
+  saleId?: string | null;
   amountFcfa: number;
 }
 
@@ -23,7 +23,7 @@ export interface SaleSettlement {
 }
 
 export interface PaymentAllocation {
-  sales: Map<number, SaleSettlement>;
+  sales: Map<string, SaleSettlement>;
   /** Somme des restes dus. */
   totalDueFcfa: number;
   /** Trop-perçu (paiements au-delà des ventes, ou remise accordée après paiement). */
@@ -40,8 +40,10 @@ export const allocatePayments = (
   sales: readonly DebtSale[],
   payments: readonly DebtPayment[],
 ): PaymentAllocation => {
-  const ordered = sales.toSorted((a, b) => a.date.getTime() - b.date.getTime() || a.id - b.id);
-  const settlements = new Map<number, SaleSettlement>(
+  const ordered = sales.toSorted(
+    (a, b) => a.date.getTime() - b.date.getTime() || a.id.localeCompare(b.id),
+  );
+  const settlements = new Map<string, SaleSettlement>(
     ordered.map((sale) => [sale.id, { dueFcfa: Math.max(sale.netFcfa, 0), paidFcfa: 0 }]),
   );
 
