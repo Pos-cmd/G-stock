@@ -15,6 +15,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@G-stock/core": "workspace:*",
     "@libsql/client": "catalog:",
     "drizzle-orm": "catalog:",
     "libsql": "catalog:",

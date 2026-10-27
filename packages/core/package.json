@@ -1,0 +1,16 @@
+{
+  "name": "@G-stock/core",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "check-types": "tsc -b",
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@G-stock/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

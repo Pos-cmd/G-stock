@@ -7,10 +7,12 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "check-types": "tsc -b"
+    "check-types": "tsc -b",
+    "test": "vp test run"
   },
   "dependencies": {
     "@G-stock/auth": "workspace:*",
+    "@G-stock/core": "workspace:*",
     "@G-stock/db": "workspace:*",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
