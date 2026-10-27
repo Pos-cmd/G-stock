@@ -6,6 +6,7 @@ import { formatFcfa, formatRmb, formatUsd } from "@G-stock/core/format";
 import type { FormSubmitEvent } from "@nuxt/ui";
 
 import PagePanel from "~/components/layout/PagePanel.vue";
+import BackupStatus from "~/components/settings/BackupStatus.vue";
 import { useSettingsStore } from "~/stores/settings";
 
 useHead({ title: "Paramètres" });
@@ -17,6 +18,8 @@ const notify = useNotify();
 const saving = ref(false);
 
 const state = reactive<AppSettings>({
+  backupFolder: "",
+  backupKeep: 0,
   companyAddress: "",
   companyName: "",
   companyPhone: "",
@@ -162,6 +165,28 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
             <UInput v-model="state.documentsFolder" icon="i-lucide-folder" class="w-full" />
           </UFormField>
         </div>
+      </UPageCard>
+
+      <UPageCard
+        title="Sauvegarde"
+        description="Une copie de la base est faite chaque jour, tant que G-stock tourne. Dans un dossier Google Drive, elle est aussi envoyée en ligne : vos données survivent à une panne ou un vol du PC."
+        variant="subtle"
+      >
+        <div class="grid gap-4 sm:grid-cols-[1fr_12rem]">
+          <UFormField label="Dossier des sauvegardes" name="backupFolder" required>
+            <UInput v-model="state.backupFolder" icon="i-lucide-folder-lock" class="w-full" />
+          </UFormField>
+          <UFormField
+            label="Sauvegardes conservées"
+            name="backupKeep"
+            required
+            help="Les plus anciennes sont supprimées."
+          >
+            <UInputNumber v-model="state.backupKeep" :min="1" :max="365" :step="1" class="w-full" />
+          </UFormField>
+        </div>
+
+        <BackupStatus :folder="state.backupFolder" @use-folder="state.backupFolder = $event" />
       </UPageCard>
 
       <div class="flex justify-end">

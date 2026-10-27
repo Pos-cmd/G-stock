@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatFcfa, formatQty } from "@G-stock/core/format";
+import { formatDateTime, formatFcfa, formatQty } from "@G-stock/core/format";
 import type { TableColumn } from "@nuxt/ui";
 import { useQuery } from "@tanstack/vue-query";
 
@@ -15,6 +15,27 @@ const { $orpc } = useNuxtApp();
 const summary = useQuery($orpc.stock.summary.queryOptions());
 const sales = useQuery($orpc.sales.summary.queryOptions());
 const products = useQuery($orpc.products.list.queryOptions({ input: {} }));
+const backups = useQuery($orpc.backups.status.queryOptions());
+
+const BACKUP_STALE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
+
+/** Rappel si la sauvegarde quotidienne échoue ou n'a pas tourné depuis plus de deux jours. */
+const backupWarning = computed(() => {
+  const status = backups.data.value;
+  if (!status) {
+    return null;
+  }
+  if (status.lastError) {
+    return status.lastError.message;
+  }
+  const latest = status.latestAt ? new Date(status.latestAt).getTime() : null;
+  if (latest === null) {
+    return "Aucune sauvegarde de la base n'a encore été faite.";
+  }
+  return Date.now() - latest > BACKUP_STALE_AFTER_MS
+    ? `Dernière sauvegarde le ${formatDateTime(latest)}.`
+    : null;
+});
 
 // Ruptures d'abord, puis le stock le plus faible.
 const STATUS_PRIORITY = { low: 1, ok: 2, out: 0 } as const;
@@ -39,6 +60,15 @@ const columns: TableColumn<ProductRow>[] = [
 <template>
   <PagePanel id="dashboard" title="Tableau de bord" icon="i-lucide-layout-dashboard">
     <div class="space-y-6">
+      <UAlert
+        v-if="backupWarning"
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-hard-drive"
+        title="Sauvegarde à vérifier"
+        :description="backupWarning"
+        :actions="[{ label: 'Voir la sauvegarde', color: 'warning', to: '/parametres' }]"
+      />
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Stock valorisé"
