@@ -6,6 +6,7 @@ import { PAYMENT_METHOD_LABELS } from "@G-stock/core/labels";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 /** Encaissement d'un client, rattaché ou non à une vente. */
 const { customer, saleId = null } = defineProps<{
@@ -81,7 +82,8 @@ watch(open, (isOpen) => {
     saleId: saleId ?? undefined,
   });
 });
-// Propose le reste dû de la vente choisie (ou du client).
+// Propose le reste dû de la vente choisie (ou du client). Après l'affichage : le champ montant,
+// monté à l'ouverture, écraserait sinon la valeur proposée.
 watch(
   [selectedDue, open],
   ([due, isOpen]) => {
@@ -89,7 +91,7 @@ watch(
       state.amountFcfa = due;
     }
   },
-  { immediate: true },
+  { flush: "post", immediate: true },
 );
 
 const methodItems = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
@@ -121,7 +123,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     title="Encaisser un paiement"
     :description="`${customer.name} · reste dû ${formatFcfa(customer.dueFcfa)}`"
@@ -190,5 +192,5 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>
