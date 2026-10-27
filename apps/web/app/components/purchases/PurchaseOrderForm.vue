@@ -416,7 +416,7 @@ defineExpose({ saving });
 
       <UFormField name="items">
         <div class="border-default overflow-x-auto rounded-lg border">
-          <table class="w-full min-w-[60rem] text-sm">
+          <table class="w-full min-w-240 text-sm">
             <thead class="bg-elevated/50 text-muted text-left text-xs">
               <tr>
                 <th class="px-3 py-2 font-medium">Produit</th>

@@ -8,6 +8,8 @@ const { $orpc } = useNuxtApp();
 const open = ref(false);
 
 const summary = useQuery($orpc.stock.summary.queryOptions());
+const sales = useQuery($orpc.sales.summary.queryOptions());
+const criticalDebtors = computed(() => sales.data.value?.criticalDebtorCount ?? 0);
 const alertCount = computed(() => {
   const data = summary.data.value;
   return data ? data.lowCount + data.outCount : 0;
@@ -36,14 +38,22 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
     type: "trigger",
   },
   {
+    children: [
+      { label: "Nouvelle vente", onSelect: closeOnMobile, to: "/ventes/nouvelle" },
+      { exact: true, label: "Historique", onSelect: closeOnMobile, to: "/ventes" },
+    ],
+    defaultOpen: true,
     icon: "i-lucide-shopping-cart",
     label: "Ventes",
-    onSelect: closeOnMobile,
-    to: "/ventes",
+    type: "trigger",
   },
   {
+    badge:
+      criticalDebtors.value > 0
+        ? { color: "error", label: String(criticalDebtors.value) }
+        : undefined,
     icon: "i-lucide-users",
-    label: "Clients débiteurs",
+    label: "Clients",
     onSelect: closeOnMobile,
     to: "/clients",
   },

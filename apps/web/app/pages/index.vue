@@ -13,6 +13,7 @@ useHead({ title: "Tableau de bord" });
 const { $orpc } = useNuxtApp();
 
 const summary = useQuery($orpc.stock.summary.queryOptions());
+const sales = useQuery($orpc.sales.summary.queryOptions());
 const products = useQuery($orpc.products.list.queryOptions({ input: {} }));
 
 // Ruptures d'abord, puis le stock le plus faible.
@@ -73,16 +74,76 @@ const columns: TableColumn<ProductRow>[] = [
         />
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-3">
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Chiffre d'affaires du jour"
           icon="i-lucide-trending-up"
-          value="—"
-          upcoming
+          :loading="sales.isPending.value"
+          :value="formatFcfa(sales.data.value?.revenue.day ?? 0)"
+          :hint="`Semaine : ${formatFcfa(sales.data.value?.revenue.week ?? 0)}`"
+          to="/ventes"
         />
-        <KpiCard label="Marge brute du mois" icon="i-lucide-percent" value="—" upcoming />
-        <KpiCard label="Créances en cours" icon="i-lucide-hand-coins" value="—" upcoming />
+        <KpiCard
+          label="Chiffre d'affaires du mois"
+          icon="i-lucide-calendar-range"
+          :loading="sales.isPending.value"
+          :value="formatFcfa(sales.data.value?.revenue.month ?? 0)"
+          :hint="`${sales.data.value?.monthSaleCount ?? 0} vente(s), remises déduites`"
+          to="/ventes"
+        />
+        <KpiCard
+          label="Marge brute du mois"
+          icon="i-lucide-piggy-bank"
+          color="success"
+          :loading="sales.isPending.value"
+          :value="formatFcfa(sales.data.value?.monthMarginFcfa ?? 0)"
+          :hint="
+            formatMarginRate(
+              sales.data.value?.monthMarginFcfa ?? 0,
+              sales.data.value?.revenue.month ?? 0,
+            ) ?? 'Prix de vente − coût des lots vendus'
+          "
+        />
+        <KpiCard
+          label="Créances en cours"
+          icon="i-lucide-hand-coins"
+          :color="(sales.data.value?.criticalDebtorCount ?? 0) > 0 ? 'error' : 'warning'"
+          :loading="sales.isPending.value"
+          :value="formatFcfa(sales.data.value?.receivablesFcfa ?? 0)"
+          :hint="`${sales.data.value?.debtorCount ?? 0} débiteur(s), dont ${sales.data.value?.criticalDebtorCount ?? 0} critique(s)`"
+          to="/clients?debiteurs"
+        />
       </div>
+
+      <UPageCard
+        title="Meilleures ventes du mois"
+        description="Produits classés par chiffre d'affaires (avant remises)."
+        variant="subtle"
+      >
+        <p v-if="(sales.data.value?.topProducts ?? []).length === 0" class="text-muted text-sm">
+          Aucune vente ce mois-ci.
+        </p>
+        <ul v-else class="divide-default divide-y text-sm">
+          <li
+            v-for="product in sales.data.value?.topProducts"
+            :key="product.productId"
+            class="flex items-center justify-between gap-4 py-2"
+          >
+            <NuxtLink
+              :to="`/produits/${product.productId}`"
+              class="text-highlighted min-w-0 truncate font-medium hover:underline"
+            >
+              {{ product.productName }}
+            </NuxtLink>
+            <span class="text-muted whitespace-nowrap tabular-nums">
+              {{ formatQty(product.qty, product.productUnit) }} ·
+              <span class="text-highlighted font-medium">{{
+                formatFcfa(product.revenueFcfa)
+              }}</span>
+            </span>
+          </li>
+        </ul>
+      </UPageCard>
 
       <UPageCard
         title="À réapprovisionner"
