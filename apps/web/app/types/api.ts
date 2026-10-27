@@ -17,3 +17,5 @@ export type SaleRow = Outputs["sales"]["list"]["items"][number];
 export type SaleDetail = Outputs["sales"]["get"];
 export type ProductSalesRow = Outputs["sales"]["productSummary"][number];
 export type PaymentRow = Outputs["payments"]["list"][number];
+export type SimulationRow = Outputs["simulations"]["list"][number];
+export type SimulationDetail = Outputs["simulations"]["get"];
