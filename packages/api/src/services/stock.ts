@@ -10,7 +10,7 @@ import { ORPCError } from "@orpc/server";
 import { and, asc, count, desc, eq, getColumns, gt, gte, lte, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
-import type { MovementFilters } from "../schemas/stock";
+import type { MovementFilters, UnpackInput } from "../schemas/stock";
 
 export interface CreateLotParams {
   productId: string;
@@ -324,4 +324,102 @@ export const listMovements = async (executor: Executor, filters: MovementFilters
   ]);
 
   return { items, total: totals?.total ?? 0 };
+};
+
+/** Produit « pièce » d'un carton : celui déjà lié, sinon « <nom> (pièce) », créé au besoin. */
+const ensurePieceProduct = async (
+  executor: Executor,
+  pack: typeof products.$inferSelect,
+  piecesPerUnit: number,
+) => {
+  if (pack.pieceProductId) {
+    return getActiveProduct(executor, pack.pieceProductId);
+  }
+  const name = `${pack.name} (pièce)`;
+  const [existing] = await executor
+    .select()
+    .from(products)
+    .where(sql`lower(${products.name}) = lower(${name})`);
+  const piece =
+    existing ??
+    (
+      await executor
+        .insert(products)
+        .values({
+          alertThreshold: 0,
+          category: pack.category,
+          name,
+          notes: `Pièces issues de « ${pack.name} » (${piecesPerUnit} par ${pack.unit}).`,
+          suggestedSalePriceFcfa:
+            pack.suggestedSalePriceFcfa === null
+              ? null
+              : Math.round(pack.suggestedSalePriceFcfa / piecesPerUnit),
+          unit: "pièce",
+        })
+        .returning()
+    )[0];
+  if (!piece) {
+    throw new Error("La création du produit pièce n'a renvoyé aucune ligne");
+  }
+  if (piece.archivedAt) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `Le produit « ${piece.name} » est archivé : restaurez-le avant d'ouvrir un carton`,
+    });
+  }
+  await executor.update(products).set({ pieceProductId: piece.id }).where(eq(products.id, pack.id));
+  return piece;
+};
+
+/**
+ * Ouvre des cartons (cas exceptionnels de vente au détail) : les cartons sortent du stock en
+ * FIFO et leurs pièces entrent dans le produit « pièce », chaque lot de pièces gardant le coût
+ * de revient de son carton divisé par le nombre de pièces. À appeler dans une transaction.
+ */
+export const unpackProduct = async (
+  executor: Executor,
+  params: UnpackInput & { userId?: string | null },
+) => {
+  const pack = await getActiveProduct(executor, params.productId);
+  const { piecesPerUnit } = pack;
+  if (!piecesPerUnit || piecesPerUnit < 2) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `Indiquez d'abord le nombre de pièces par ${pack.unit} dans la fiche du produit`,
+    });
+  }
+  const piece = await ensurePieceProduct(executor, pack, piecesPerUnit);
+  const pieceCount = params.qty * piecesPerUnit;
+  const allocations = await consumeFifo(executor, {
+    productId: pack.id,
+    qty: params.qty,
+    reason: `Ouverture : ${pieceCount} pièces vers « ${piece.name} »`,
+    referenceId: piece.id,
+    referenceType: "unpack",
+    userId: params.userId,
+  });
+
+  const receivedAt = new Date();
+  const lots = [];
+  for (const allocation of allocations) {
+    // Séquentiel : un lot de pièces par lot de cartons ouvert, dans l'ordre FIFO.
+    // oxlint-disable-next-line no-await-in-loop
+    const lot = await createLot(executor, {
+      notes: `Ouverture de ${allocation.qty} ${pack.unit} de « ${pack.name} »`,
+      productId: piece.id,
+      qty: allocation.qty * piecesPerUnit,
+      receivedAt,
+      referenceId: pack.id,
+      referenceType: "unpack",
+      source: "unpack",
+      unitCostFcfa: Math.round(allocation.unitCostFcfa / piecesPerUnit),
+      userId: params.userId,
+    });
+    lots.push(lot);
+  }
+
+  return {
+    lotCount: lots.length,
+    pieceCount,
+    pieceProductId: piece.id,
+    pieceProductName: piece.name,
+  };
 };

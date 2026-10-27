@@ -8,6 +8,13 @@ export const productInputSchema = z.object({
   category: optionalText(60),
   name: z.string().trim().min(1, "Le nom est obligatoire").max(120, "120 caractères maximum"),
   notes: optionalText(1000),
+  /** Pièces dans une unité de stock (ex. 5 fils par carton) : permet d'ouvrir un carton. */
+  piecesPerUnit: z
+    .number()
+    .int("Nombre entier de pièces")
+    .min(2, "Au moins 2 pièces")
+    .max(10_000, "10 000 pièces maximum")
+    .nullish(),
   reference: optionalText(60),
   referencePriceRmb: z.number().min(0, "Le prix ne peut pas être négatif").nullish(),
   suggestedSalePriceFcfa: z

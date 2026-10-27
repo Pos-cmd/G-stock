@@ -4,9 +4,10 @@ import {
   lotEntrySchema,
   lotListSchema,
   movementListSchema,
+  unpackSchema,
 } from "../schemas/stock";
 import { getStockSummary } from "../services/products";
-import { adjustLot, createLot, listLots, listMovements } from "../services/stock";
+import { adjustLot, createLot, listLots, listMovements, unpackProduct } from "../services/stock";
 
 export const stockRouter = {
   lots: {
@@ -40,4 +41,12 @@ export const stockRouter = {
   },
 
   summary: protectedProcedure.handler(({ context }) => getStockSummary(context.db)),
+
+  unpack: protectedProcedure
+    .input(unpackSchema)
+    .handler(({ context, input }) =>
+      context.db.transaction((tx) =>
+        unpackProduct(tx, { ...input, userId: context.session.user.id }),
+      ),
+    ),
 };

@@ -22,6 +22,13 @@ export const lotAdjustSchema = z.object({
 });
 export type LotAdjustInput = z.input<typeof lotAdjustSchema>;
 
+/** Ouvrir des cartons : leurs pièces passent dans le produit « pièce ». */
+export const unpackSchema = z.object({
+  productId: idSchema,
+  qty: z.number().int("Nombre entier de cartons").positive("Au moins un carton"),
+});
+export type UnpackInput = z.output<typeof unpackSchema>;
+
 export const lotListSchema = z.object({
   includeEmpty: z.boolean().default(true),
   productId: idSchema,

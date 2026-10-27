@@ -43,6 +43,8 @@ const selectProductsWithStock = (executor: Executor, where: SQL | undefined) =>
       lotCount: count(stockLots.id),
       name: products.name,
       notes: products.notes,
+      pieceProductId: products.pieceProductId,
+      piecesPerUnit: products.piecesPerUnit,
       reference: products.reference,
       referencePriceRmb: products.referencePriceRmb,
       stockQty: stockQtySql,
@@ -85,7 +87,17 @@ export const getProduct = async (executor: Executor, id: string) => {
   if (!row) {
     throw new ORPCError("NOT_FOUND", { message: "Produit introuvable" });
   }
-  return withStockStats(row);
+  const related = { id: products.id, name: products.name, unit: products.unit };
+  // Le produit « pièce » de ce carton, et les cartons dont ce produit reçoit les pièces.
+  const [pieceProduct] = row.pieceProductId
+    ? await executor.select(related).from(products).where(eq(products.id, row.pieceProductId))
+    : [];
+  const packProducts = await executor
+    .select({ ...related, piecesPerUnit: products.piecesPerUnit })
+    .from(products)
+    .where(eq(products.pieceProductId, id))
+    .orderBy(asc(products.name));
+  return { ...withStockStats(row), packProducts, pieceProduct: pieceProduct ?? null };
 };
 
 const assertNameAvailable = async (executor: Executor, name: string, exceptId?: string) => {
