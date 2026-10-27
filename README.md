@@ -15,16 +15,16 @@ Ouvrez http://localhost:3001 et créez un compte. Au démarrage, le serveur cré
 
 ## État des modules
 
-| Module              | État                                                                                                            |
-| ------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Stock & Produits    | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, historique, alertes de stock bas             |
-| Tableau de bord     | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes                        |
-| Paramètres          | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances                                            |
-| Achats fournisseurs | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock              |
-| Ventes              | ✅ Vente comptant ou à crédit (acompte), sortie FIFO, marge, remise et annulation tracées                       |
-| Clients             | ✅ Solde, avoir, ancienneté des créances, historique filtrable, achats par produit, paiements                   |
-| Simulateur          | ✅ Simulations enregistrées : prix de revient, prix de vente (3 modes), marges, PDF, transformation en commande |
-| Documents           | ✅ PDF (reçus, fiches de commande, simulations) rangés dans Documents/G-stock, liste et téléchargement          |
+| Module              | État                                                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stock & Produits    | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, historique, alertes de stock bas                                            |
+| Tableau de bord     | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes                                                       |
+| Paramètres          | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances                                                                           |
+| Achats fournisseurs | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock                                             |
+| Ventes              | ✅ Vente comptant ou à crédit (acompte), sortie FIFO, marge, remise et annulation tracées                                                      |
+| Clients             | ✅ Solde, avoir, ancienneté des créances, historique filtrable, achats par produit, paiements                                                  |
+| Simulateur          | ✅ Simulations : revient, prix de vente (3 modes), marges, PDF, comparaison avec d'autres simulations et commandes, transformation en commande |
+| Documents           | ✅ PDF (reçus, fiches de commande, simulations) rangés dans Documents/G-stock, liste et téléchargement                                         |
 
 ## Architecture
 
@@ -73,6 +73,7 @@ Cycle d'une commande : Brouillon → Commandée → En transit → **Réceptionn
 
 - Une simulation garde ses données (taux, fret CBM, frais libres, lignes, prix de vente) en JSON ; `computeSimulation` (`packages/core/src/simulation.ts`) recalcule tout, à l'écran comme dans le PDF. Le prix de vente d'une ligne se fixe par un % sur le prix de revient, un % du prix de vente, ou un prix saisi ; les deux taux sont toujours affichés.
 - « Créer la commande » produit une commande en brouillon : les lignes sans produit du catalogue sont rattachées au produit de même nom, ou le créent avec le prix simulé comme prix conseillé ; les frais libres deviennent des « autres frais ».
+- **Comparer** (`/simulateur/comparer?elements=s1,s2,c3`) : jusqu'à 4 simulations et commandes passées côte à côte, la première servant de référence. Vue d'ensemble (marchandise, frais, revient total et par tonne, fret par CBM, taux, CA et marge prévus), puis produit par produit (rapprochés par produit du catalogue ou par nom) et frais par frais. Une commande reçue est comparée sur ses coûts réels, une commande en cours sur son estimation.
 - Les PDF sont générés côté serveur (`packages/api/src/pdf/`, pdfmake 0.3) avec une charte commune, écrits dans le dossier des documents (Paramètres, par défaut `Documents/G-stock`) : `Ventes/`, `Simulations/`, `Commandes/<référence>/`. Regénérer un document remplace son fichier. Le reçu remis au client ne montre ni coût ni marge.
 - `GET /api/documents/<id>` sert un PDF (connexion requise) ; `?telecharger` le propose en téléchargement.
 
