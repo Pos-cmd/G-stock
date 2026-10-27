@@ -53,6 +53,10 @@ const businessRelations = defineRelations(schema, (r) => ({
       from: r.purchaseOrders.id,
       to: r.purchaseOrderFees.orderId,
     }),
+    payments: r.many.supplierPayments({
+      from: r.purchaseOrders.id,
+      to: r.supplierPayments.orderId,
+    }),
     items: r.many.purchaseOrderItems({
       from: r.purchaseOrders.id,
       to: r.purchaseOrderItems.orderId,
@@ -138,6 +142,13 @@ const businessRelations = defineRelations(schema, (r) => ({
     product: r.one.products({
       from: r.stockMovements.productId,
       to: r.products.id,
+      optional: false,
+    }),
+  },
+  supplierPayments: {
+    order: r.one.purchaseOrders({
+      from: r.supplierPayments.orderId,
+      to: r.purchaseOrders.id,
       optional: false,
     }),
   },

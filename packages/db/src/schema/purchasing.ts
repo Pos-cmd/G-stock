@@ -8,6 +8,7 @@ import { sql } from "drizzle-orm";
 import { check, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 import { createdAt, id, ref, timestamp, updatedAt } from "../columns";
+import { user } from "./auth";
 import { products, suppliers } from "./catalog";
 
 export const purchaseOrders = sqliteTable(
@@ -35,6 +36,9 @@ export const purchaseOrders = sqliteTable(
     billOfLading: text("bill_of_lading"),
     forwarder: text("forwarder"),
     receivedAt: timestamp("received_at"),
+    // Coût de la marchandise figé dans les lots à la réception (versements à leur taux, reste au
+    // taux de la commande). Les versements suivants donnent un écart de change, pas un nouveau coût.
+    receivedGoodsFcfa: integer("received_goods_fcfa"),
     notes: text("notes"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -96,5 +100,37 @@ export const purchaseOrderFees = sqliteTable(
   (table) => [
     index("purchase_order_fees_order_idx").on(table.orderId),
     check("purchase_order_fees_amount_non_negative", sql`${table.amount} >= 0`),
+  ],
+);
+
+/**
+ * Versements au fournisseur pour une commande : envoyés en FCFA, la marchandise étant payée en
+ * RMB au taux obtenu ce jour-là. Un versement erroné est annulé (tracé), jamais supprimé.
+ */
+export const supplierPayments = sqliteTable(
+  "supplier_payments",
+  {
+    id: id(),
+    orderId: ref("order_id")
+      .notNull()
+      .references(() => purchaseOrders.id, { onDelete: "restrict" }),
+    paymentDate: timestamp("payment_date").notNull(),
+    amountFcfa: integer("amount_fcfa").notNull(),
+    // FCFA pour 1 RMB ; null = taux de la commande.
+    fcfaPerRmb: real("fcfa_per_rmb"),
+    notes: text("notes"),
+    cancelledAt: timestamp("cancelled_at"),
+    cancelReason: text("cancel_reason"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("supplier_payments_order_idx").on(table.orderId),
+    index("supplier_payments_date_idx").on(table.paymentDate),
+    check("supplier_payments_amount_positive", sql`${table.amountFcfa} > 0`),
+    check(
+      "supplier_payments_rate_positive",
+      sql`${table.fcfaPerRmb} is null or ${table.fcfaPerRmb} > 0`,
+    ),
   ],
 );
