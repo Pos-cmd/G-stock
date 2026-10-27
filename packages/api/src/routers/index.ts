@@ -1,6 +1,7 @@
 import type { RouterClient } from "@orpc/server";
 
 import { customersRouter } from "./customers";
+import { documentsRouter } from "./documents";
 import { productsRouter } from "./products";
 import { purchasesRouter } from "./purchases";
 import { paymentsRouter, salesRouter } from "./sales";
@@ -11,6 +12,7 @@ import { suppliersRouter } from "./suppliers";
 
 export const appRouter = {
   customers: customersRouter,
+  documents: documentsRouter,
   payments: paymentsRouter,
   products: productsRouter,
   purchases: purchasesRouter,
