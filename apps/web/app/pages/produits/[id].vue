@@ -12,6 +12,7 @@ import StockStatusBadge from "~/components/products/StockStatusBadge.vue";
 import LotAdjustModal from "~/components/stock/LotAdjustModal.vue";
 import LotEntryModal from "~/components/stock/LotEntryModal.vue";
 import MovementsTable from "~/components/stock/MovementsTable.vue";
+import UnpackModal from "~/components/stock/UnpackModal.vue";
 import { useSettingsStore } from "~/stores/settings";
 import type { StockLot } from "~/types/api";
 
@@ -62,6 +63,11 @@ const percentFormatter = new Intl.NumberFormat("fr-FR", {
 
 const formOpen = ref(false);
 const entryOpen = ref(false);
+const unpackOpen = ref(false);
+const canUnpack = computed(() => {
+  const data = product.data.value;
+  return Boolean(data?.piecesPerUnit && data.stockQty >= 1 && !data.archivedAt);
+});
 const adjustOpen = ref(false);
 const adjustedLot = ref<StockLot | null>(null);
 
@@ -137,6 +143,15 @@ const lotColumns: TableColumn<StockLot>[] = [
         @click="formOpen = true"
       />
       <UButton
+        v-if="product.data.value?.piecesPerUnit"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-package-open"
+        :label="`Ouvrir des ${product.data.value.unit}s`"
+        :disabled="!canUnpack"
+        @click="unpackOpen = true"
+      />
+      <UButton
         icon="i-lucide-package-plus"
         label="Entrée de stock"
         :disabled="!product.data.value || isArchived"
@@ -162,6 +177,32 @@ const lotColumns: TableColumn<StockLot>[] = [
         title="Produit archivé"
         description="Il n'apparaît plus dans les listes et son stock ne peut plus être mouvementé."
       />
+
+      <div
+        v-if="product.data.value?.pieceProduct || product.data.value?.packProducts.length"
+        class="bg-elevated/50 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-3 py-2 text-sm"
+      >
+        <UIcon name="i-lucide-package-open" class="text-muted size-4" />
+        <template v-if="product.data.value.pieceProduct">
+          <span class="text-muted">
+            {{ product.data.value.piecesPerUnit }} pièces par {{ product.data.value.unit }}, vendues
+            au détail sous
+          </span>
+          <ULink
+            :to="`/produits/${product.data.value.pieceProduct.id}`"
+            class="text-highlighted font-medium"
+          >
+            {{ product.data.value.pieceProduct.name }}
+          </ULink>
+        </template>
+        <template v-for="pack in product.data.value.packProducts" :key="pack.id">
+          <span class="text-muted">Pièces issues de l'ouverture de</span>
+          <ULink :to="`/produits/${pack.id}`" class="text-highlighted font-medium">
+            {{ pack.name }}
+          </ULink>
+          <span class="text-dimmed">({{ pack.piecesPerUnit }} par {{ pack.unit }})</span>
+        </template>
+      </div>
 
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -344,6 +385,11 @@ const lotColumns: TableColumn<StockLot>[] = [
       </UTabs>
     </div>
 
+    <UnpackModal
+      v-if="product.data.value"
+      v-model:open="unpackOpen"
+      :product="product.data.value"
+    />
     <ProductFormModal v-model:open="formOpen" :product="product.data.value ?? null" />
     <LotEntryModal v-model:open="entryOpen" :product="product.data.value ?? null" />
     <LotAdjustModal

@@ -17,7 +17,7 @@ Ouvrez http://localhost:3001 et créez un compte. Au démarrage, le serveur cré
 
 | Module              | État                                                                                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stock & Produits    | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, historique, alertes de stock bas                                            |
+| Stock & Produits    | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, ouverture de cartons, historique, alertes de stock bas                      |
 | Tableau de bord     | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes                                                       |
 | Paramètres          | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances, sauvegarde quotidienne                                                   |
 | Achats fournisseurs | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock                                             |
@@ -88,6 +88,7 @@ Cycle d'une commande : Brouillon → Commandée → En transit → **Réceptionn
 - Numéros lisibles (`CF-2026-0001`, `V-2026-00001`) : un compteur par série et par année (`reference_sequences`) qui ne recule jamais ; le numéro d'une commande supprimée n'est pas réutilisé.
 - Montants en FCFA : entiers. Prix en RMB et taux de change : décimaux. Quantités : décimales (kg, mètres), arrondies au millième.
 - Le stock d'un produit est la somme des `qty_remaining` de ses lots. Toute variation passe par une transaction qui écrit aussi une ligne `stock_movements`.
+- **Ouvrir des cartons** (vente au détail exceptionnelle) : un produit peut indiquer ses pièces par unité (`pieces_per_unit`, ex. 5 fils par carton). « Ouvrir des cartons » sort les cartons en FIFO et crée, dans le produit « <nom> (pièce) » (créé à la première ouverture puis lié par `piece_product_id`), un lot de pièces par lot de cartons ouvert, au coût du carton divisé par le nombre de pièces. Les mouvements sont tracés (`reference_type = unpack`).
 - Un produit qui a un historique de stock s'archive au lieu de se supprimer.
 - Le solde dû d'un client est calculé (ventes à crédit − paiements), il n'est pas stocké.
 

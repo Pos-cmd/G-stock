@@ -34,6 +34,7 @@ const emptyState = (): ProductFormState => ({
   category: "",
   name: "",
   notes: "",
+  piecesPerUnit: null,
   reference: "",
   referencePriceRmb: null,
   suggestedSalePriceFcfa: null,
@@ -56,6 +57,7 @@ watch(open, async (isOpen) => {
           category: product.category ?? "",
           name: product.name,
           notes: product.notes ?? "",
+          piecesPerUnit: product.piecesPerUnit,
           reference: product.reference ?? "",
           referencePriceRmb: product.referencePriceRmb,
           suggestedSalePriceFcfa: product.suggestedSalePriceFcfa,
@@ -175,6 +177,22 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof productInputSchem
             :format-options="{ maximumFractionDigits: 0 }"
             placeholder="Facultatif"
             class="w-full"
+          />
+        </UFormField>
+
+        <UFormField
+          :label="`Pièces par ${state.unit || 'unité'}`"
+          name="piecesPerUnit"
+          help="Pour ouvrir un carton et vendre au détail, ex. 5 fils de galva par carton."
+          class="sm:col-span-2"
+        >
+          <UInputNumber
+            :model-value="state.piecesPerUnit ?? undefined"
+            :min="0"
+            :step="1"
+            placeholder="Facultatif"
+            class="w-full sm:w-48"
+            @update:model-value="state.piecesPerUnit = $event || null"
           />
         </UFormField>
 
