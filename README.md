@@ -79,6 +79,8 @@ Cycle d'une commande : Brouillon → Commandée → En transit → **Réceptionn
 
 ### Conventions de données
 
+- Identifiants : UUID v7 en texte (`uuidv7()`, `packages/core/src/ids.ts`), générés sans compteur, donc sans doublon possible même entre plusieurs postes, et triés par date de création. Les codes de lot prennent la fin aléatoire de l'UUID (`LOT-20261027-1BAF8D`).
+- Numéros lisibles (`CF-2026-0001`, `V-2026-00001`) : un compteur par série et par année (`reference_sequences`) qui ne recule jamais ; le numéro d'une commande supprimée n'est pas réutilisé.
 - Montants en FCFA : entiers. Prix en RMB et taux de change : décimaux. Quantités : décimales (kg, mètres), arrondies au millième.
 - Le stock d'un produit est la somme des `qty_remaining` de ses lots. Toute variation passe par une transaction qui écrit aussi une ligne `stock_movements`.
 - Un produit qui a un historique de stock s'archive au lieu de se supprimer.
