@@ -65,6 +65,7 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
   { accessorKey: "goodsRmb", header: "Marchandise", meta: rightAligned },
   { accessorKey: "feesFcfa", header: "Frais", meta: rightAligned },
   { accessorKey: "totalFcfa", header: "Prix de revient", meta: rightAligned },
+  { id: "payment", header: "Paiement", meta: rightAligned },
 ];
 </script>
 
@@ -161,6 +162,30 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
           <span class="text-highlighted font-semibold tabular-nums">{{
             formatFcfa(row.original.totalFcfa)
           }}</span>
+        </template>
+
+        <template #payment-cell="{ row }">
+          <template v-if="row.original.status === 'cancelled'">
+            <span class="text-dimmed">—</span>
+          </template>
+          <UBadge
+            v-else-if="row.original.payment.isPaid"
+            color="success"
+            variant="subtle"
+            label="Soldée"
+          />
+          <template v-else>
+            <span class="tabular-nums"
+              >Reste {{ formatRmb(row.original.payment.remainingRmb) }}</span
+            >
+            <p class="text-dimmed text-xs tabular-nums">
+              {{
+                row.original.payment.paidFcfa > 0
+                  ? `${formatFcfa(row.original.payment.paidFcfa)} versés`
+                  : "Aucun versement"
+              }}
+            </p>
+          </template>
         </template>
 
         <template #empty>

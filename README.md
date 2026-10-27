@@ -59,6 +59,10 @@ Ces frais de commande sont une **estimation**. La page de réception (`/achats/<
 
 La saisie peut être enregistrée sans toucher au stock (la douane se note dès qu'elle est payée). La validation fige le coût de revient réel et crée les lots. Une commande reçue affiche ce coût réel et l'écart avec l'estimation.
 
+**Paiement du fournisseur en plusieurs tranches.** Sur la fiche d'une commande, chaque versement est noté en FCFA (ce qui est envoyé), avec le taux obtenu ce jour-là en FCFA pour 1 RMB ; sans taux, c'est celui de la commande (`fcfa_per_usd ÷ rmb_per_usd`). `summarizeSupplierPayments` (`packages/core/src/supplier-payments.ts`) en déduit les RMB payés, le reste à payer et le **coût réel de la marchandise** : versements à leur taux + reste au taux de la commande (une avance au-delà du prix n'est pas comptée). Ce coût remplace la conversion aux taux dans le prix de revient, réparti entre les lignes selon leur valeur en RMB.
+
+À la réception, ce coût est figé dans les lots (`purchase_orders.received_goods_fcfa`). Les versements suivants ne recalculent pas les lots déjà vendus : la fiche affiche un **gain ou une perte de change**. Un versement erroné s'annule avec un motif (il reste visible, barré). La liste des commandes indique le reste à payer, celle des fournisseurs le total dû par fournisseur. Une commande avec des versements ne peut plus être supprimée.
+
 Cycle d'une commande : Brouillon → Commandée → En transit → **Réceptionnée** (un lot par ligne reçue, au coût réel ; la commande est alors verrouillée) ou Annulée. Seuls les brouillons et les commandes annulées peuvent être supprimés. Numérotation automatique : `CF-2026-0001`.
 
 ### Ventes et clients

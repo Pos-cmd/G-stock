@@ -8,7 +8,8 @@ import {
   FEE_CURRENCY_LABELS,
   SUGGESTED_FEE_LABELS,
 } from "@G-stock/core/labels";
-import { computeLandedCostsFromFees, feeToFcfa } from "@G-stock/core/purchasing";
+import { computeLandedCostsFromFees, feeToFcfa, totalGoodsRmb } from "@G-stock/core/purchasing";
+import { paidGoodsFcfa } from "@G-stock/core/supplier-payments";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
@@ -180,19 +181,28 @@ const rates = computed(() => ({
 const feeAmountsFcfa = computed(() =>
   state.fees.map((fee) => feeToFcfa(fee.amount || 0, fee.currency, rates.value)),
 );
-const costs = computed(() =>
-  computeLandedCostsFromFees({
+const activePayments = computed(() =>
+  (data.value?.payments ?? []).filter((payment) => !payment.cancelledAt),
+);
+const costs = computed(() => {
+  const items = (data.value?.items ?? []).map((item, index) => ({
+    ...item,
+    receivedQty: state.items[index]?.qtyReceived ?? item.qty,
+  }));
+  return computeLandedCostsFromFees({
     fees: state.fees.map((fee, index) => ({
       allocationMethod: fee.allocationMethod,
       amountFcfa: feeAmountsFcfa.value[index] ?? 0,
     })),
-    items: (data.value?.items ?? []).map((item, index) => ({
-      ...item,
-      receivedQty: state.items[index]?.qtyReceived ?? item.qty,
-    })),
+    goodsFcfa: paidGoodsFcfa({
+      goodsRmb: totalGoodsRmb(items),
+      payments: activePayments.value,
+      rates: rates.value,
+    }),
+    items,
     rates: rates.value,
-  }),
-);
+  });
+});
 const feeLines = computed(() =>
   receptionFeeLines(
     state.fees.map((fee, index) => ({
@@ -373,6 +383,7 @@ const confirmDescription = computed(
           title="Prix de revient réel"
           :costs="costs"
           :fee-lines="feeLines"
+          :goods-hint="activePayments.length > 0 ? PAID_GOODS_HINT : null"
           :estimate-total-fcfa="data.estimate.totalFcfa"
           class="lg:self-start"
         />

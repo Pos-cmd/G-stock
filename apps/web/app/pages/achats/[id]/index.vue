@@ -11,6 +11,7 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseOrderForm from "~/components/purchases/PurchaseOrderForm.vue";
 import PurchaseOrderView from "~/components/purchases/PurchaseOrderView.vue";
 import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue";
+import SupplierPaymentsCard from "~/components/purchases/SupplierPaymentsCard.vue";
 
 type EditableStatus = (typeof EDITABLE_PURCHASE_STATUSES)[number];
 
@@ -241,6 +242,11 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         />
         <PurchaseOrderForm ref="form" v-model:dirty="dirty" :order="data" />
       </template>
+
+      <SupplierPaymentsCard
+        v-if="data.status !== 'cancelled' || data.payments.length > 0"
+        :order="data"
+      />
     </div>
 
     <ConfirmDialog

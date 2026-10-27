@@ -9,6 +9,12 @@ import type { PurchaseOrderDetail, PurchaseOrderItemRow } from "~/types/api";
 const { order } = defineProps<{ order: PurchaseOrderDetail }>();
 
 const isReceived = computed(() => order.status === "received");
+const goodsHint = computed(() => {
+  if (isReceived.value) {
+    return order.receivedGoodsFcfa === null ? null : "Figée à la réception";
+  }
+  return order.payment.paymentCount > 0 ? PAID_GOODS_HINT : null;
+});
 const feeLines = computed(() =>
   isReceived.value ? receptionFeeLines(order.fees) : estimateFeeLines(order),
 );
@@ -84,6 +90,7 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
         :costs="order.costs"
         :fee-lines="feeLines"
         :estimate-total-fcfa="isReceived ? order.estimate.totalFcfa : null"
+        :goods-hint="goodsHint"
         class="lg:self-start"
       />
     </div>

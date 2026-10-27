@@ -9,7 +9,8 @@ import {
 import type { AllocationMethod, PricingBasis } from "@G-stock/core/enums";
 import { formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
 import { ALLOCATION_METHOD_LABELS, PRICING_BASIS_LABELS } from "@G-stock/core/labels";
-import { computeLandedCosts, stockQtyFromWeight } from "@G-stock/core/purchasing";
+import { computeLandedCosts, stockQtyFromWeight, totalGoodsRmb } from "@G-stock/core/purchasing";
+import { paidGoodsFcfa } from "@G-stock/core/supplier-payments";
 import type { FormSubmitEvent, RadioGroupItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
@@ -247,27 +248,39 @@ const onWeightChange = (line: LineState) => {
   }
 };
 
+// Versements déjà faits au fournisseur : la marchandise est comptée à leur taux.
+const activePayments = computed(() =>
+  (order?.payments ?? []).filter((payment) => !payment.cancelledAt),
+);
+
 // Calcul en direct, avec la même fonction que le serveur.
-const costs = computed(() =>
-  computeLandedCosts({
+const costs = computed(() => {
+  const items = state.items.map((line) => ({
+    pricingBasis: line.pricingBasis,
+    qty: line.qty || 0,
+    trips: line.trips || 0,
+    unitPriceRmb: line.unitPriceRmb || 0,
+    weightTons: line.weightTons || null,
+  }));
+  const rates = {
+    fcfaPerUsd: state.fcfaPerUsd > 0 ? state.fcfaPerUsd : 1,
+    rmbPerUsd: state.rmbPerUsd > 0 ? state.rmbPerUsd : 1,
+  };
+  return computeLandedCosts({
     allocationMethod: state.allocationMethod,
     freightCbm: state.freightCbm || 0,
     freightRatePerCbmFcfa: state.freightRatePerCbmFcfa || 0,
-    items: state.items.map((line) => ({
-      pricingBasis: line.pricingBasis,
-      qty: line.qty || 0,
-      trips: line.trips || 0,
-      unitPriceRmb: line.unitPriceRmb || 0,
-      weightTons: line.weightTons || null,
-    })),
+    goodsFcfa: paidGoodsFcfa({
+      goodsRmb: totalGoodsRmb(items),
+      payments: activePayments.value,
+      rates,
+    }),
+    items,
     localTransportFcfa: state.localTransportFcfa || 0,
     otherFeesFcfa: state.otherFeesFcfa || 0,
-    rates: {
-      fcfaPerUsd: state.fcfaPerUsd > 0 ? state.fcfaPerUsd : 1,
-      rmbPerUsd: state.rmbPerUsd > 0 ? state.rmbPerUsd : 1,
-    },
-  }),
-);
+    rates,
+  });
+});
 
 const fees = computed(() => ({
   freightCbm: state.freightCbm || 0,
@@ -623,6 +636,7 @@ defineExpose({ saving });
         title="Prix de revient estimé"
         :costs="costs"
         :fee-lines="estimateFeeLines(fees)"
+        :goods-hint="activePayments.length > 0 ? PAID_GOODS_HINT : null"
         class="lg:self-start"
       />
     </div>

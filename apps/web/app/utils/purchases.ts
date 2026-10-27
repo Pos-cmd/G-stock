@@ -52,3 +52,6 @@ export const receptionFeeLines = (
       .join(" · "),
     label: fee.label || "Frais",
   }));
+
+/** Sous « Marchandise » quand des versements au fournisseur sont enregistrés. */
+export const PAID_GOODS_HINT = "Versements à leur taux, reste au taux de la commande";

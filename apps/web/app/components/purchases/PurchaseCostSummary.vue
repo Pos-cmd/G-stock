@@ -7,6 +7,7 @@ const {
   costs,
   estimateTotalFcfa = null,
   feeLines,
+  goodsHint = null,
   title = "Prix de revient",
 } = defineProps<{
   costs: {
@@ -20,6 +21,8 @@ const {
   feeLines: FeeLineDisplay[];
   /** Total estimé à la commande, affiché pour comparaison avec les frais réels. */
   estimateTotalFcfa?: number | null;
+  /** Origine du coût de la marchandise quand il ne vient pas des seuls taux de la commande. */
+  goodsHint?: string | null;
   title?: string;
 }>();
 
@@ -41,7 +44,10 @@ const estimateGap = computed(() =>
   <UPageCard variant="subtle" :title="title" icon="i-lucide-calculator">
     <dl class="space-y-2 text-sm">
       <div class="flex justify-between gap-4">
-        <dt class="text-muted">Marchandise</dt>
+        <dt class="text-muted">
+          Marchandise
+          <p v-if="goodsHint" class="text-dimmed text-xs">{{ goodsHint }}</p>
+        </dt>
         <dd class="text-right tabular-nums">
           <span class="text-highlighted font-medium">{{ formatFcfa(costs.goodsFcfa) }}</span>
           <p class="text-dimmed text-xs">
