@@ -3,9 +3,10 @@ import { QTY_EPSILON, roundQty } from "@G-stock/core/stock";
 import type { Executor } from "@G-stock/db";
 import { user } from "@G-stock/db/schema/auth";
 import { products } from "@G-stock/db/schema/catalog";
+import { purchaseOrderItems, purchaseOrders } from "@G-stock/db/schema/purchasing";
 import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
-import { and, asc, count, desc, eq, gt, gte, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, getColumns, gt, gte, lte } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 import type { MovementFilters } from "../schemas/stock";
@@ -233,8 +234,14 @@ export const listLots = (executor: Executor, productId: number, includeEmpty: bo
     conditions.push(gt(stockLots.qtyRemaining, QTY_EPSILON));
   }
   return executor
-    .select()
+    .select({
+      ...getColumns(stockLots),
+      orderId: purchaseOrders.id,
+      orderReference: purchaseOrders.reference,
+    })
     .from(stockLots)
+    .leftJoin(purchaseOrderItems, eq(purchaseOrderItems.id, stockLots.orderItemId))
+    .leftJoin(purchaseOrders, eq(purchaseOrders.id, purchaseOrderItems.orderId))
     .where(and(...conditions))
     .orderBy(desc(stockLots.receivedAt), desc(stockLots.id));
 };
