@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const positiveRate = z.number().positive("Le taux doit être supérieur à zéro");
+const COUNTRY_CODE = /^\+?\d{0,4}$/u;
 const days = z.number().int().min(1, "Au moins 1 jour");
 
 export const appSettingsSchema = z
@@ -27,6 +28,8 @@ export const appSettingsSchema = z
       .min(1, "Indiquez un dossier")
       .max(500, "500 caractères maximum"),
     fcfaPerUsd: positiveRate,
+    /** Indicatif ajouté aux numéros locaux des clients pour WhatsApp (ex. 228). */
+    phoneCountryCode: z.string().trim().regex(COUNTRY_CODE, "Indicatif en chiffres, ex. 228"),
     receivableAlertDays: days,
     receivableCriticalDays: days,
     receivableWarningDays: days,

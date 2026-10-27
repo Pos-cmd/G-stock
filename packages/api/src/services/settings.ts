@@ -29,6 +29,7 @@ const TEXT_KEYS = {
   companyName: "company_name",
   companyPhone: "company_phone",
   documentsFolder: "documents_folder",
+  phoneCountryCode: "phone_country_code",
 } as const satisfies Record<TextSetting, string>;
 
 /** Nombre de sauvegardes conservées par défaut : un mois de sauvegardes quotidiennes. */
@@ -64,6 +65,7 @@ const defaultSettings = (): AppSettings => ({
   companyPhone: "",
   documentsFolder: defaultDocumentsFolder(),
   fcfaPerUsd: DEFAULT_EXCHANGE_RATES.fcfaPerUsd,
+  phoneCountryCode: "",
   receivableAlertDays: 60,
   receivableCriticalDays: 90,
   receivableWarningDays: 30,

@@ -10,6 +10,7 @@ import type { SQL } from "drizzle-orm";
 import type { TDocumentDefinitions } from "pdfmake/interfaces";
 
 import { purchaseOrderDocument, saleReceiptDocument, simulationDocument } from "../pdf/documents";
+import { saleReceiptMobileDocument } from "../pdf/receipt-mobile";
 import { renderPdf } from "../pdf/render";
 import type { DocumentFilters, GeneratedDocumentType } from "../schemas/documents";
 import { getPurchaseOrder } from "./purchases";
@@ -61,6 +62,17 @@ const prepare = async (
       folder: "Simulations",
       referenceType: "simulation",
       title: `Simulation — ${simulation.name}`,
+    };
+  }
+  if (type === "receipt_mobile") {
+    const sale = await getSale(executor, referenceId);
+    return {
+      definition: saleReceiptMobileDocument(sale, company),
+      // Nom vu par le client quand le fichier lui est envoyé.
+      fileName: `Recu-${sale.reference}.pdf`,
+      folder: "Ventes",
+      referenceType: "sale",
+      title: `Reçu téléphone ${sale.reference} — ${sale.customer.name}`,
     };
   }
   if (type === "receipt") {

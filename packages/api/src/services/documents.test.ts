@@ -105,6 +105,29 @@ describe("generateDocument", () => {
     expect(listed[0]?.exists).toBe(true);
   });
 
+  it("produit aussi un reçu au format téléphone, rangé à part", async () => {
+    const { customer, product } = await seed();
+    const sale = await db.transaction((tx) =>
+      createSale(tx, {
+        customerId: customer.id,
+        lines: [{ productId: product.id, qty: 3, unitPriceFcfa: 9000 }],
+        notes: null,
+        paidFcfa: 10_000,
+        paymentMethod: "mobile_money",
+        paymentType: "credit",
+        saleDate: new Date(2026, 2, 1),
+      }),
+    );
+    const mobile = await generateDocument(db, { referenceId: sale.id, type: "receipt_mobile" });
+    expect(mobile.filePath).toBe(path.join(folder, "Ventes", "Recu-V-2026-00001.pdf"));
+    expect(isPdf(mobile.filePath)).toBe(true);
+    expect(mobile.type).toBe("receipt_mobile");
+
+    const a4 = await generateDocument(db, { referenceId: sale.id, type: "receipt" });
+    expect(a4.id).not.toBe(mobile.id);
+    expect(await listDocuments(db, { type: "receipt_mobile" })).toHaveLength(1);
+  });
+
   it("range la fiche d'une commande dans son propre dossier", async () => {
     const { product } = await seed();
     const order = await db.transaction((tx) =>
