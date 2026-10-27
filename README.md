@@ -48,7 +48,15 @@ packages/auth/   Authentification Better Auth (e-mail + mot de passe)
 
 Pour un produit géré en tonnes ou en kg, saisir le poids remplit la quantité de stock automatiquement.
 
-Cycle d'une commande : Brouillon → Commandée → En transit → **Réceptionnée** (un lot par ligne, au coût calculé ; la commande est alors verrouillée) ou Annulée. Seuls les brouillons et les commandes annulées peuvent être supprimés. Numérotation automatique : `CF-2026-0001`.
+Ces frais de commande sont une **estimation**. La page de réception (`/achats/<id>/reception`) enregistre les **frais réels**, qui la remplacent :
+
+- une liste libre de frais (fret, douane, transit…), chacun en FCFA, USD ou RMB (converti aux taux de la commande) et avec sa propre répartition : voyages, poids, valeur de la marchandise ou parts égales ;
+- l'arrivée : date au port, n° de conteneur, n° de BL, transitaire ;
+- les quantités reçues : en cas de manquant ou de casse, le coût de la ligne est réparti sur la quantité reçue ; une ligne à 0 ne crée pas de lot.
+
+La saisie peut être enregistrée sans toucher au stock (la douane se note dès qu'elle est payée). La validation fige le coût de revient réel et crée les lots. Une commande reçue affiche ce coût réel et l'écart avec l'estimation.
+
+Cycle d'une commande : Brouillon → Commandée → En transit → **Réceptionnée** (un lot par ligne reçue, au coût réel ; la commande est alors verrouillée) ou Annulée. Seuls les brouillons et les commandes annulées peuvent être supprimés. Numérotation automatique : `CF-2026-0001`.
 
 ### Conventions de données
 
