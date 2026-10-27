@@ -1,4 +1,4 @@
-import { ALLOCATION_METHODS, PURCHASE_ORDER_STATUSES } from "@G-stock/core/enums";
+import { ALLOCATION_METHODS, PRICING_BASES, PURCHASE_ORDER_STATUSES } from "@G-stock/core/enums";
 import { sql } from "drizzle-orm";
 import { check, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
@@ -46,8 +46,13 @@ export const purchaseOrderItems = sqliteTable(
     productId: integer("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "restrict" }),
+    // Quantité qui entre en stock, dans l'unité du produit.
     qty: real("qty").notNull(),
+    // Par unité de stock, ou par tonne si pricing_basis = 'weight'.
     unitPriceRmb: real("unit_price_rmb").notNull(),
+    pricingBasis: text("pricing_basis", { enum: PRICING_BASES }).notNull().default("unit"),
+    // Base du prix à la tonne et de la répartition des frais au poids.
+    weightTons: real("weight_tons"),
     // Base de la répartition proportionnelle des frais de transport.
     trips: real("trips").notNull().default(1),
     transportShareFcfa: integer("transport_share_fcfa").notNull().default(0),

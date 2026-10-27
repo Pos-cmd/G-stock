@@ -101,12 +101,14 @@ const insertItems = async (executor: Executor, orderId: number, input: PurchaseO
   await executor.insert(purchaseOrderItems).values(
     input.items.map((item, index) => ({
       orderId,
+      pricingBasis: item.pricingBasis,
       productId: item.productId,
       qty: item.qty,
       transportShareFcfa: lines[index]?.transportShareFcfa ?? 0,
       trips: item.trips,
       unitCostFcfa: lines[index]?.unitCostFcfa ?? 0,
       unitPriceRmb: item.unitPriceRmb,
+      weightTons: item.weightTons ?? null,
     })),
   );
 };
@@ -278,6 +280,7 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
       itemCount: orderItems.length,
       supplierName,
       totalFcfa: costs.totalFcfa,
+      totalWeightTons: costs.totalWeightTons,
     };
   });
 };
@@ -314,6 +317,7 @@ export const getPurchaseOrder = async (executor: Executor, id: number) => {
   const items = rows.map(({ item, ...extra }, index) => ({
     ...item,
     ...extra,
+    costPerTonFcfa: costs.lines[index]?.costPerTonFcfa ?? null,
     goodsFcfa: costs.lines[index]?.goodsFcfa ?? 0,
     goodsRmb: costs.lines[index]?.goodsRmb ?? 0,
     totalFcfa: costs.lines[index]?.totalFcfa ?? 0,
@@ -328,6 +332,7 @@ export const getPurchaseOrder = async (executor: Executor, id: number) => {
       goodsRmb: costs.goodsRmb,
       goodsUsd: costs.goodsUsd,
       totalFcfa: costs.totalFcfa,
+      totalWeightTons: costs.totalWeightTons,
     },
     isLocked: LOCKED_STATUSES.includes(row.order.status),
     items,

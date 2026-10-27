@@ -3,6 +3,7 @@ import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
+import { purchaseOrderInputSchema } from "../schemas/purchases";
 import type { PurchaseOrderInput } from "../schemas/purchases";
 import { useTestDatabase } from "../testing/database";
 import { createProduct, getProduct, setProductArchived } from "./products";
@@ -205,5 +206,89 @@ describe("suppliers", () => {
     await expect(removeSupplier(db, supplier.id)).resolves.toEqual({
       id: supplier.id,
     });
+  });
+});
+
+describe("commande à la tonne", () => {
+  // Bon Yiwu : fil galva 800 cartons = 8 T à 4 450 RMB/T ; pointes 80 cartons = 2 T à 5 100 RMB/T.
+  const tonnageInput = async (): Promise<PurchaseOrderInput> => {
+    const { input, wax, bazin } = await orderInput();
+    return {
+      ...input,
+      allocationMethod: "weight",
+      freightCbm: 10,
+      freightRatePerCbmFcfa: 100_000,
+      items: [
+        {
+          pricingBasis: "weight",
+          productId: wax.id,
+          qty: 800,
+          trips: 1,
+          unitPriceRmb: 4450,
+          weightTons: 8,
+        },
+        {
+          pricingBasis: "weight",
+          productId: bazin.id,
+          qty: 80,
+          trips: 1,
+          unitPriceRmb: 5100,
+          weightTons: 2,
+        },
+      ],
+      localTransportFcfa: 0,
+    };
+  };
+
+  it("enregistre le poids et réceptionne en cartons au coût de revient par carton", async () => {
+    const order = await create(await tonnageInput());
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.costs.goodsRmb).toBe(45_800);
+    expect(detail.costs.totalWeightTons).toBe(10);
+    // Galva : 35 600 RMB = 2 956 778 FCFA + 800 000 FCFA de frais (8/10 de 1 000 000).
+    expect(detail.items[0]).toMatchObject({
+      pricingBasis: "weight",
+      transportShareFcfa: 800_000,
+      unitCostFcfa: 4696,
+      weightTons: 8,
+    });
+
+    await receive(order.id);
+    const lots = await db.select().from(stockLots).orderBy(asc(stockLots.id));
+    expect(lots.map((lot) => [lot.qtyInitial, lot.unitCostFcfa])).toEqual([
+      [800, 4696],
+      [80, 13_090],
+    ]);
+  });
+
+  it("exige le poids d'une ligne à la tonne ou d'une répartition au poids", async () => {
+    const input = await tonnageInput();
+    const [first, second] = input.items;
+    if (!first || !second) {
+      throw new Error("Jeu de données incomplet");
+    }
+    const missingWeight = purchaseOrderInputSchema.safeParse({
+      ...input,
+      items: [{ ...first, weightTons: null }, second],
+    });
+    expect(missingWeight.error?.issues[0]?.path).toEqual(["items", 0, "weightTons"]);
+    expect(missingWeight.error?.issues[0]?.message).toBe(
+      "Indiquez le poids pour un prix à la tonne",
+    );
+
+    const unitLineWithoutWeight = purchaseOrderInputSchema.safeParse({
+      ...input,
+      items: [first, { ...second, pricingBasis: "unit", weightTons: null }],
+    });
+    expect(unitLineWithoutWeight.error?.issues[0]?.message).toBe(
+      "Poids requis pour répartir les frais au poids",
+    );
+
+    const unitOrder = purchaseOrderInputSchema.safeParse({
+      ...input,
+      allocationMethod: "equal",
+      items: [first, { ...second, pricingBasis: "unit", weightTons: null }],
+    });
+    expect(unitOrder.success).toBe(true);
   });
 });
