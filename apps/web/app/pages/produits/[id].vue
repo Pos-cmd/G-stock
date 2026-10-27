@@ -279,7 +279,14 @@ const lotColumns: TableColumn<StockLot>[] = [
                 {{ formatDate(row.original.receivedAt) }}
               </template>
               <template #source-cell="{ row }">
-                <span class="text-muted">{{ LOT_SOURCE_LABELS[row.original.source] }}</span>
+                <ULink
+                  v-if="row.original.orderId"
+                  :to="`/achats/${row.original.orderId}`"
+                  class="font-mono text-xs"
+                >
+                  {{ row.original.orderReference }}
+                </ULink>
+                <span v-else class="text-muted">{{ LOT_SOURCE_LABELS[row.original.source] }}</span>
               </template>
               <template #qtyInitial-cell="{ row }">
                 <span class="text-muted tabular-nums">{{

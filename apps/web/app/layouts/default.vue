@@ -48,10 +48,14 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
     to: "/clients",
   },
   {
+    children: [
+      { label: "Commandes", onSelect: closeOnMobile, to: "/achats", exact: true },
+      { label: "Fournisseurs", onSelect: closeOnMobile, to: "/achats/fournisseurs" },
+    ],
+    defaultOpen: true,
     icon: "i-lucide-ship",
     label: "Achats",
-    onSelect: closeOnMobile,
-    to: "/achats",
+    type: "trigger",
   },
   {
     icon: "i-lucide-calculator",

@@ -23,12 +23,10 @@ const formSchema = lotEntrySchema.omit({ productId: true, receivedAt: true }).ex
 });
 type FormState = Omit<z.input<typeof formSchema>, "notes"> & { notes: string };
 
-const today = () => new Date().toISOString().slice(0, 10);
-
 const state = reactive<FormState>({
   notes: "",
   qty: 1,
-  receivedAt: today(),
+  receivedAt: toDateInputValue(),
   unitCostFcfa: 0,
 });
 const converter = reactive({ feesPerUnitFcfa: 0, priceRmb: null as number | null });
@@ -38,7 +36,7 @@ watch(open, async (isOpen) => {
     return;
   }
   await settingsStore.load();
-  Object.assign(state, { notes: "", qty: 1, receivedAt: today(), unitCostFcfa: 0 });
+  Object.assign(state, { notes: "", qty: 1, receivedAt: toDateInputValue(), unitCostFcfa: 0 });
   Object.assign(converter, { feesPerUnitFcfa: 0, priceRmb: null });
 });
 
@@ -66,8 +64,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
     const lot = await mutation.mutateAsync({
       ...event.data,
       productId: product.id,
-      // Midi local : évite qu'un décalage horaire fasse changer de jour.
-      receivedAt: new Date(`${event.data.receivedAt}T12:00:00`),
+      receivedAt: fromDateInputValue(event.data.receivedAt),
     });
     await invalidateStock();
     notify.success(
