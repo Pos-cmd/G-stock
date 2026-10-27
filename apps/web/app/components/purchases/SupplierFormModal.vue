@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/vue-query";
 import type { z } from "zod";
 
 import type { SupplierRow } from "~/types/api";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const { supplier = null } = defineProps<{ supplier?: SupplierRow | null }>();
 const emit = defineEmits<{ saved: [id: string] }>();
@@ -66,7 +67,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof supplierInputSche
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     :title="supplier ? 'Modifier le fournisseur' : 'Nouveau fournisseur'"
     description="Coordonnées du fournisseur ou de l'usine."
@@ -114,5 +115,5 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof supplierInputSche
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

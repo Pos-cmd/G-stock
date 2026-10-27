@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
+
 const MIN_REASON_LENGTH = 3;
 
 const {
@@ -40,7 +42,7 @@ const confirm = () => {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="title" :description="description">
+  <ResponsiveModal v-model:open="open" :title="title" :description="description">
     <template #body>
       <UFormField
         label="Motif"
@@ -57,5 +59,5 @@ const confirm = () => {
         <UButton :color="confirmColor" :label="confirmLabel" :loading="loading" @click="confirm" />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

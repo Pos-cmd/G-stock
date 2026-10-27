@@ -8,6 +8,7 @@ import { useMutation } from "@tanstack/vue-query";
 import type { z } from "zod";
 
 import type { StockLot } from "~/types/api";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const { lot, unit } = defineProps<{ lot: StockLot | null; unit: string }>();
 const open = defineModel<boolean>("open", { required: true });
@@ -44,7 +45,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof lotAdjustSchema>>
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     title="Ajuster un lot"
     :description="
@@ -101,5 +102,5 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof lotAdjustSchema>>
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

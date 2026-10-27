@@ -4,6 +4,7 @@ import { formatFcfa } from "@G-stock/core/format";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation } from "@tanstack/vue-query";
 import { z } from "zod";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 /** Remise accordée après la vente : montant et motif obligatoire, tracés dans l'historique. */
 const { sale } = defineProps<{
@@ -58,7 +59,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     title="Accorder une remise"
     :description="`${sale.reference} · montant net actuel ${formatFcfa(sale.netFcfa)}. Si la vente est déjà payée, la remise devient un avoir du client.`"
@@ -116,5 +117,5 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

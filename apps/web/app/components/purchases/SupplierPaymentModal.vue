@@ -4,6 +4,7 @@ import { formatFcfa, formatRmb } from "@G-stock/core/format";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation } from "@tanstack/vue-query";
 import { z } from "zod";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 /** Versement au fournisseur : montant envoyé en FCFA, taux du jour facultatif. */
 const { order } = defineProps<{
@@ -91,7 +92,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     title="Versement au fournisseur"
     :description="`${order.reference} · reste ${formatRmb(order.payment.remainingRmb)}`"
@@ -191,5 +192,5 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

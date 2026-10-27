@@ -3,6 +3,7 @@ import { formatFcfa, formatQty } from "@G-stock/core/format";
 import { useMutation } from "@tanstack/vue-query";
 
 import type { ProductDetail } from "~/types/api";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 /** Ouvrir des cartons pour vendre au détail : leurs pièces passent dans le produit « pièce ». */
 const { product } = defineProps<{ product: ProductDetail }>();
@@ -50,7 +51,7 @@ const submit = async () => {
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     :title="`Ouvrir des ${product.unit}s`"
     :description="`${piecesPerUnit} pièces par ${product.unit} · ${formatQty(product.stockQty, product.unit)} en stock`"
@@ -100,5 +101,5 @@ const submit = async () => {
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

@@ -10,6 +10,7 @@ import type { z } from "zod";
 
 import { useSettingsStore } from "~/stores/settings";
 import type { ProductDetail, ProductRow } from "~/types/api";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const { product = null } = defineProps<{ product?: ProductRow | ProductDetail | null }>();
 const emit = defineEmits<{ saved: [id: string] }>();
@@ -95,7 +96,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof productInputSchem
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     :title="isEdit ? 'Modifier le produit' : 'Nouveau produit'"
     description="Informations générales et seuil d'alerte de stock."
@@ -213,5 +214,5 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof productInputSchem
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

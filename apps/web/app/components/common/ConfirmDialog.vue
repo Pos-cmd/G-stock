@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
+
 const {
   confirmColor = "error",
   confirmLabel = "Confirmer",
@@ -17,7 +19,7 @@ const open = defineModel<boolean>("open", { required: true });
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="title" :description="description">
+  <ResponsiveModal v-model:open="open" :title="title" :description="description">
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton color="neutral" variant="ghost" label="Annuler" @click="open = false" />
@@ -29,5 +31,5 @@ const open = defineModel<boolean>("open", { required: true });
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

@@ -4,6 +4,7 @@ import type { CustomerInput } from "@G-stock/api/schemas/customers";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation } from "@tanstack/vue-query";
 import type { z } from "zod";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const { customer = null } = defineProps<{
   customer?: {
@@ -69,7 +70,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof customerInputSche
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     :title="customer ? 'Modifier le client' : 'Nouveau client'"
     description="Coordonnées du client ; son solde se calcule à partir de ses ventes et paiements."
@@ -114,5 +115,5 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof customerInputSche
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>

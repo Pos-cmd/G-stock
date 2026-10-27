@@ -7,6 +7,7 @@ import { useMutation } from "@tanstack/vue-query";
 import { z } from "zod";
 
 import { useSettingsStore } from "~/stores/settings";
+import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const { product } = defineProps<{
   product: { id: string; name: string; unit: string } | null;
@@ -79,7 +80,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
 </script>
 
 <template>
-  <UModal
+  <ResponsiveModal
     v-model:open="open"
     title="Entrée de stock"
     :description="product ? `Nouveau lot pour « ${product.name} »` : undefined"
@@ -209,5 +210,5 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
         />
       </div>
     </template>
-  </UModal>
+  </ResponsiveModal>
 </template>
