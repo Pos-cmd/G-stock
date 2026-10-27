@@ -125,6 +125,14 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         icon="i-lucide-arrow-left"
         label="Commandes"
       />
+      <UButton
+        v-if="data"
+        color="neutral"
+        variant="ghost"
+        icon="i-lucide-git-compare"
+        label="Comparer"
+        :to="comparisonLink([{ id: data.id, type: 'purchase_order' }])"
+      />
       <UTooltip v-if="data" :text="SAVE_FIRST_HINT" :disabled="!dirty">
         <UButton
           color="neutral"

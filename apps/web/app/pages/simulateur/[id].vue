@@ -71,6 +71,11 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
       label: "Dupliquer pour comparer",
       onSelect: duplicate,
     },
+    {
+      icon: "i-lucide-git-compare",
+      label: "Comparer avec…",
+      to: comparisonLink([{ id: simulationId.value, type: "simulation" }]),
+    },
   ],
 ]);
 </script>

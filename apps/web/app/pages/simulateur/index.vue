@@ -15,6 +15,18 @@ const queryClient = useQueryClient();
 
 const simulations = useQuery($orpc.simulations.list.queryOptions());
 
+// Simulations cochées pour être comparées.
+const selected = ref<number[]>([]);
+const toggleSelected = (id: number, checked: boolean | "indeterminate") => {
+  selected.value =
+    checked === true
+      ? [...selected.value, id]
+      : selected.value.filter((selectedId) => selectedId !== id);
+};
+const compareSelected = computed(() =>
+  comparisonLink(selected.value.map((id) => ({ id, type: "simulation" as const }))),
+);
+
 const deleteOpen = ref(false);
 const deleted = ref<SimulationRow | null>(null);
 
@@ -53,8 +65,13 @@ const rowActions = (simulation: SimulationRow): DropdownMenuItem[][] => [
     { icon: "i-lucide-pencil", label: "Ouvrir", to: `/simulateur/${simulation.id}` },
     {
       icon: "i-lucide-copy",
-      label: "Dupliquer pour comparer",
+      label: "Dupliquer",
       onSelect: () => duplicate(simulation),
+    },
+    {
+      icon: "i-lucide-git-compare",
+      label: "Comparer avec…",
+      to: comparisonLink([{ id: simulation.id, type: "simulation" }]),
     },
   ],
   [
@@ -74,6 +91,7 @@ const percent = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1, style
 
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns: TableColumn<SimulationRow>[] = [
+  { header: "", id: "select" },
   { accessorKey: "name", header: "Simulation" },
   { accessorKey: "updatedAt", header: "Modifiée" },
   { accessorKey: "totalCostFcfa", header: "Prix de revient", meta: rightAligned },
@@ -87,6 +105,13 @@ const columns: TableColumn<SimulationRow>[] = [
 <template>
   <PagePanel id="simulator" title="Simulateur" icon="i-lucide-calculator">
     <template #actions>
+      <UButton
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-git-compare"
+        :label="selected.length > 0 ? `Comparer (${selected.length})` : 'Comparer'"
+        :to="compareSelected"
+      />
       <UButton to="/simulateur/nouvelle" icon="i-lucide-plus" label="Nouvelle simulation" />
     </template>
 
@@ -96,6 +121,14 @@ const columns: TableColumn<SimulationRow>[] = [
       :loading="simulations.isFetching.value"
       class="border-default rounded-lg border"
     >
+      <template #select-cell="{ row }">
+        <UCheckbox
+          :model-value="selected.includes(row.original.id)"
+          :disabled="!selected.includes(row.original.id) && selected.length >= 4"
+          :aria-label="`Comparer ${row.original.name}`"
+          @update:model-value="toggleSelected(row.original.id, $event)"
+        />
+      </template>
       <template #name-cell="{ row }">
         <NuxtLink :to="`/simulateur/${row.original.id}`" class="group block">
           <span class="text-highlighted font-medium group-hover:underline">

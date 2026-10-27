@@ -68,10 +68,14 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
     type: "trigger",
   },
   {
+    children: [
+      { exact: true, label: "Simulations", onSelect: closeOnMobile, to: "/simulateur" },
+      { label: "Comparer", onSelect: closeOnMobile, to: "/simulateur/comparer" },
+    ],
+    defaultOpen: true,
     icon: "i-lucide-calculator",
     label: "Simulateur",
-    onSelect: closeOnMobile,
-    to: "/simulateur",
+    type: "trigger",
   },
   {
     icon: "i-lucide-file-text",
