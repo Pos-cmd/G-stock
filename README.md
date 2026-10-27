@@ -15,13 +15,15 @@ Ouvrez http://localhost:3001 et créez un compte. Au démarrage, le serveur cré
 
 ## État des modules
 
-| Module                                 | État                                                                                                |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Stock & Produits                       | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, historique, alertes de stock bas |
-| Tableau de bord                        | 🟡 Indicateurs de stock ; CA, marges et créances arriveront avec les ventes                         |
-| Paramètres                             | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances                                |
-| Achats fournisseurs                    | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock  |
-| Ventes, Clients, Simulateur, Documents | ⏳ Schéma en base prêt, écrans « Bientôt disponible »                                               |
+| Module                | État                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| Stock & Produits      | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, historique, alertes de stock bas |
+| Tableau de bord       | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes            |
+| Paramètres            | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances                                |
+| Achats fournisseurs   | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock  |
+| Ventes                | ✅ Vente comptant ou à crédit (acompte), sortie FIFO, marge, remise et annulation tracées           |
+| Clients               | ✅ Solde, avoir, ancienneté des créances, historique filtrable, achats par produit, paiements       |
+| Simulateur, Documents | ⏳ Écrans « Bientôt disponible »                                                                    |
 
 ## Architecture
 
@@ -58,6 +60,14 @@ La saisie peut être enregistrée sans toucher au stock (la douane se note dès 
 
 Cycle d'une commande : Brouillon → Commandée → En transit → **Réceptionnée** (un lot par ligne reçue, au coût réel ; la commande est alors verrouillée) ou Annulée. Seuls les brouillons et les commandes annulées peuvent être supprimés. Numérotation automatique : `CF-2026-0001`.
 
+### Ventes et clients
+
+- Une vente a toujours un client. Chaque ligne sort du stock en FIFO (lots les plus anciens d'abord) ; les lots prélevés et leur coût sont figés sur la ligne (`sale_item_lots`), d'où la marge réelle. Le formulaire affiche ce coût à l'avance (`sales.quote`), avec une alerte si un prix est sous le coût de revient (autorisé).
+- Comptant : le total est encaissé à la vente. À crédit : un acompte facultatif est encaissé.
+- **Remise après la vente** : montant et motif obligatoires, tracée (date, auteur) ; elle réduit le montant net. Sur une vente déjà payée, elle devient un avoir du client.
+- **Annulation** : motif obligatoire ; le stock revient dans les lots d'origine, les paiements de la vente sont annulés, la vente reste dans l'historique. Un paiement peut aussi être annulé seul, avec son motif.
+- **Solde client** (calculé, jamais stocké) : ventes validées nettes de remises − paiements non annulés. Un paiement rattaché à une vente la règle en priorité ; les autres soldent les ventes les plus anciennes d'abord. L'ancienneté de la plus vieille vente impayée donne le niveau de créance (seuils dans les Paramètres).
+
 ### Conventions de données
 
 - Montants en FCFA : entiers. Prix en RMB et taux de change : décimaux. Quantités : décimales (kg, mètres), arrondies au millième.
@@ -79,8 +89,8 @@ La migration est appliquée au prochain démarrage du serveur. `pnpm run db:stud
 
 ```bash
 pnpm run check                       # formatage, lint, types de tous les paquets
-pnpm --filter @G-stock/core test     # tests unitaires (devises, statuts de stock, prix de revient)
-pnpm --filter @G-stock/api test      # tests d'intégration (stock, achats) sur des bases SQLite temporaires
+pnpm --filter @G-stock/core test     # tests unitaires (devises, stock, prix de revient, créances)
+pnpm --filter @G-stock/api test      # tests d'intégration (stock, achats, ventes) sur des bases SQLite temporaires
 ```
 
 Le lint suit le preset Ultracite (`oxlint.config.ts`), avec deux dérogations ciblées : l'ordre des colonnes du schéma Drizzle n'est pas trié alphabétiquement, et les noms de fichiers suivent les conventions Nuxt.
