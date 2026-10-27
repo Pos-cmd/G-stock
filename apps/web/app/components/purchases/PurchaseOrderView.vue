@@ -8,6 +8,20 @@ import type { PurchaseOrderDetail, PurchaseOrderItemRow } from "~/types/api";
 
 const { order } = defineProps<{ order: PurchaseOrderDetail }>();
 
+const isReceived = computed(() => order.status === "received");
+const feeLines = computed(() =>
+  isReceived.value ? receptionFeeLines(order.fees) : estimateFeeLines(order),
+);
+const arrivalInfo = computed(() =>
+  [
+    { label: "Arrivée au port", value: order.arrivedAt ? formatDate(order.arrivedAt) : null },
+    { label: "Entrée en stock", value: order.receivedAt ? formatDate(order.receivedAt) : null },
+    { label: "N° conteneur", value: order.containerNumber },
+    { label: "N° BL", value: order.billOfLading },
+    { label: "Transitaire", value: order.forwarder },
+  ].filter((info) => info.value),
+);
+
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
   { accessorKey: "productName", header: "Produit" },
@@ -54,6 +68,10 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
               {{ ALLOCATION_METHOD_LABELS[order.allocationMethod] }}
             </dd>
           </div>
+          <div v-for="info in arrivalInfo" :key="info.label">
+            <dt class="text-muted">{{ info.label }}</dt>
+            <dd class="text-highlighted mt-1">{{ info.value }}</dd>
+          </div>
           <div v-if="order.notes" class="sm:col-span-2">
             <dt class="text-muted">Notes</dt>
             <dd class="text-highlighted mt-1 whitespace-pre-line">{{ order.notes }}</dd>
@@ -61,7 +79,13 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
         </dl>
       </UPageCard>
 
-      <PurchaseCostSummary :costs="order.costs" :fees="order" class="lg:self-start" />
+      <PurchaseCostSummary
+        :title="isReceived ? 'Prix de revient réel' : 'Prix de revient estimé'"
+        :costs="order.costs"
+        :fee-lines="feeLines"
+        :estimate-total-fcfa="isReceived ? order.estimate.totalFcfa : null"
+        class="lg:self-start"
+      />
     </div>
 
     <UTable :data="order.items" :columns="columns" class="border-default rounded-lg border">
@@ -75,8 +99,14 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
       </template>
       <template #qty-cell="{ row }">
         <span class="tabular-nums">{{
-          formatQty(row.original.qty, row.original.productUnit)
+          formatQty(row.original.qtyReceived ?? row.original.qty, row.original.productUnit)
         }}</span>
+        <p
+          v-if="row.original.qtyReceived !== null && row.original.qtyReceived !== row.original.qty"
+          class="text-warning text-xs tabular-nums"
+        >
+          sur {{ formatQty(row.original.qty) }} commandé(s)
+        </p>
       </template>
       <template #weightTons-cell="{ row }">
         <span class="tabular-nums">{{
@@ -85,7 +115,7 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
       </template>
       <template #unitPriceRmb-cell="{ row }">
         <span class="tabular-nums">{{ formatRmb(row.original.unitPriceRmb) }}</span>
-        <span class="text-dimmed text-xs">
+        <span class="text-dimmed ms-1 text-xs">
           {{ PRICING_BASIS_LABELS[row.original.pricingBasis] }}</span
         >
       </template>

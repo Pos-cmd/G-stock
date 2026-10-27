@@ -198,6 +198,11 @@ const allocationItems: RadioGroupItem[] = [
     label: ALLOCATION_METHOD_LABELS.weight,
     value: "weight",
   },
+  {
+    description: "Chaque ligne paie selon la valeur de sa marchandise.",
+    label: ALLOCATION_METHOD_LABELS.value,
+    value: "value",
+  },
 ];
 
 const pricingBasisItems = Object.entries(PRICING_BASIS_LABELS).map(([value, label]) => ({
@@ -609,13 +614,18 @@ defineExpose({ saving });
               v-model="state.allocationMethod"
               :items="allocationItems"
               variant="card"
-              orientation="horizontal"
+              :ui="{ fieldset: 'grid gap-2 sm:grid-cols-2' }"
             />
           </UFormField>
         </div>
       </UPageCard>
 
-      <PurchaseCostSummary :costs="costs" :fees="fees" class="lg:self-start" />
+      <PurchaseCostSummary
+        title="Prix de revient estimé"
+        :costs="costs"
+        :fee-lines="estimateFeeLines(fees)"
+        class="lg:self-start"
+      />
     </div>
 
     <UFormField label="Notes" name="notes">

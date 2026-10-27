@@ -1,8 +1,14 @@
 <script setup lang="ts">
-const { confirmLabel = "Confirmer", loading = false } = defineProps<{
+const {
+  confirmColor = "error",
+  confirmLabel = "Confirmer",
+  loading = false,
+} = defineProps<{
   title: string;
   description: string;
   confirmLabel?: string;
+  /** Rouge par défaut (action destructive). */
+  confirmColor?: "error" | "primary" | "success";
   loading?: boolean;
 }>();
 
@@ -15,7 +21,12 @@ const open = defineModel<boolean>("open", { required: true });
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton color="neutral" variant="ghost" label="Annuler" @click="open = false" />
-        <UButton color="error" :label="confirmLabel" :loading="loading" @click="emit('confirm')" />
+        <UButton
+          :color="confirmColor"
+          :label="confirmLabel"
+          :loading="loading"
+          @click="emit('confirm')"
+        />
       </div>
     </template>
   </UModal>

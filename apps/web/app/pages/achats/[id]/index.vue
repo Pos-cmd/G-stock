@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { EDITABLE_PURCHASE_STATUSES } from "@G-stock/api/schemas/purchases";
 import type { PurchaseOrderStatus } from "@G-stock/core/enums";
-import { formatDate } from "@G-stock/core/format";
+import { formatDate, formatFcfa } from "@G-stock/core/format";
 import { PURCHASE_ORDER_STATUS_LABELS } from "@G-stock/core/labels";
 import type { DropdownMenuItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
@@ -11,7 +11,6 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseOrderForm from "~/components/purchases/PurchaseOrderForm.vue";
 import PurchaseOrderView from "~/components/purchases/PurchaseOrderView.vue";
 import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue";
-import ReceiveOrderModal from "~/components/purchases/ReceiveOrderModal.vue";
 
 type EditableStatus = (typeof EDITABLE_PURCHASE_STATUSES)[number];
 
@@ -33,7 +32,6 @@ useHead({ title: () => data.value?.reference ?? "Commande" });
 
 const form = useTemplateRef<InstanceType<typeof PurchaseOrderForm>>("form");
 const dirty = ref(false);
-const receiveOpen = ref(false);
 const cancelOpen = ref(false);
 const deleteOpen = ref(false);
 
@@ -81,6 +79,12 @@ const confirmDelete = async () => {
     notify.error("Suppression impossible", error);
   }
 };
+
+// Une saisie de réception a déjà été enregistrée (frais réels, conteneur…).
+const receptionStarted = computed(() => {
+  const order = data.value;
+  return Boolean(order && (order.fees.length > 0 || order.containerNumber || order.arrivedAt));
+});
 
 const moreActions = computed<DropdownMenuItem[][]>(() => [
   [
@@ -154,7 +158,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
             icon="i-lucide-package-check"
             label="Réceptionner"
             :disabled="dirty"
-            @click="receiveOpen = true"
+            :to="`/achats/${orderId}/reception`"
           />
         </UTooltip>
         <UButton
@@ -198,9 +202,24 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         <PurchaseOrderView :order="data" />
       </template>
 
-      <PurchaseOrderForm v-else ref="form" v-model:dirty="dirty" :order="data" />
-
-      <ReceiveOrderModal v-model:open="receiveOpen" :order="data" />
+      <template v-else>
+        <UAlert
+          v-if="receptionStarted"
+          color="info"
+          variant="subtle"
+          icon="i-lucide-truck"
+          title="Réception en préparation"
+          :description="`Frais réels saisis : ${formatFcfa(data.fees.reduce((sum, fee) => sum + fee.amountFcfa, 0))}. Le stock ne bouge qu'à la validation de la réception.`"
+          :actions="[
+            {
+              label: 'Continuer la réception',
+              to: `/achats/${orderId}/reception`,
+              trailingIcon: 'i-lucide-arrow-right',
+            },
+          ]"
+        />
+        <PurchaseOrderForm ref="form" v-model:dirty="dirty" :order="data" />
+      </template>
     </div>
 
     <ConfirmDialog
