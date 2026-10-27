@@ -1,12 +1,12 @@
 import type { LotSource, MovementReferenceType } from "@G-stock/core/enums";
-import { QTY_EPSILON, roundQty } from "@G-stock/core/stock";
+import { QTY_EPSILON, planFifo, roundQty } from "@G-stock/core/stock";
 import type { Executor } from "@G-stock/db";
 import { user } from "@G-stock/db/schema/auth";
 import { products } from "@G-stock/db/schema/catalog";
 import { purchaseOrderItems, purchaseOrders } from "@G-stock/db/schema/purchasing";
 import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
-import { and, asc, count, desc, eq, getColumns, gt, gte, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, getColumns, gt, gte, lte, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 import type { MovementFilters } from "../schemas/stock";
@@ -155,6 +155,51 @@ export const adjustLot = async (executor: Executor, params: AdjustLotParams) => 
   return { delta, lotId: lot.id, qtyRemaining: newQty };
 };
 
+/** Lots d'un produit qui ont encore du stock, du plus ancien au plus récent (ordre FIFO). */
+export const listAvailableLots = (executor: Executor, productId: number) =>
+  executor
+    .select()
+    .from(stockLots)
+    .where(and(eq(stockLots.productId, productId), gt(stockLots.qtyRemaining, QTY_EPSILON)))
+    .orderBy(asc(stockLots.receivedAt), asc(stockLots.id));
+
+export interface ReturnToLotsParams {
+  productId: number;
+  allocations: readonly { lotId: number; qty: number; unitCostFcfa: number }[];
+  referenceType: MovementReferenceType;
+  referenceId?: number | null;
+  reason: string;
+  userId?: string | null;
+}
+
+/** Remet des quantités dans les lots d'où elles étaient sorties (annulation d'une vente). */
+export const returnToLots = async (executor: Executor, params: ReturnToLotsParams) => {
+  if (params.allocations.length === 0) {
+    return;
+  }
+  await Promise.all(
+    params.allocations.map((allocation) =>
+      executor
+        .update(stockLots)
+        .set({ qtyRemaining: sql`round(${stockLots.qtyRemaining} + ${allocation.qty}, 3)` })
+        .where(eq(stockLots.id, allocation.lotId)),
+    ),
+  );
+  await executor.insert(stockMovements).values(
+    params.allocations.map((allocation) => ({
+      createdBy: params.userId ?? null,
+      lotId: allocation.lotId,
+      productId: params.productId,
+      qty: allocation.qty,
+      reason: params.reason,
+      referenceId: params.referenceId ?? null,
+      referenceType: params.referenceType,
+      type: "in" as const,
+      unitCostFcfa: allocation.unitCostFcfa,
+    })),
+  );
+};
+
 /**
  * Prélève une quantité sur les lots les plus anciens (FIFO) et trace chaque sortie.
  * Rien n'est écrit si le stock est insuffisant.
@@ -170,30 +215,11 @@ export const consumeFifo = async (
     });
   }
 
-  const lots = await executor
-    .select()
-    .from(stockLots)
-    .where(and(eq(stockLots.productId, params.productId), gt(stockLots.qtyRemaining, QTY_EPSILON)))
-    .orderBy(asc(stockLots.receivedAt), asc(stockLots.id));
+  const lots = await listAvailableLots(executor, params.productId);
+  const { allocations, missingQty } = planFifo(lots, requested);
 
-  const allocations: (LotAllocation & { qtyLeft: number })[] = [];
-  let missing = requested;
-  for (const lot of lots) {
-    if (missing <= QTY_EPSILON) {
-      break;
-    }
-    const taken = roundQty(Math.min(lot.qtyRemaining, missing));
-    allocations.push({
-      lotId: lot.id,
-      qty: taken,
-      qtyLeft: roundQty(lot.qtyRemaining - taken),
-      unitCostFcfa: lot.unitCostFcfa,
-    });
-    missing = roundQty(missing - taken);
-  }
-
-  if (missing > QTY_EPSILON) {
-    const available = roundQty(requested - missing);
+  if (missingQty > QTY_EPSILON) {
+    const available = roundQty(requested - missingQty);
     throw new ORPCError("BAD_REQUEST", {
       message: `Stock insuffisant : ${available} disponible(s) pour ${requested} demandé(s)`,
     });

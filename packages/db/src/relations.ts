@@ -62,11 +62,29 @@ const businessRelations = defineRelations(schema, (r) => ({
       to: r.suppliers.id,
     }),
   },
-  saleItems: {
+  saleDiscounts: {
+    sale: r.one.sales({
+      from: r.saleDiscounts.saleId,
+      to: r.sales.id,
+      optional: false,
+    }),
+  },
+  saleItemLots: {
+    item: r.one.saleItems({
+      from: r.saleItemLots.saleItemId,
+      to: r.saleItems.id,
+      optional: false,
+    }),
     lot: r.one.stockLots({
-      from: r.saleItems.lotId,
+      from: r.saleItemLots.lotId,
       to: r.stockLots.id,
       optional: false,
+    }),
+  },
+  saleItems: {
+    lots: r.many.saleItemLots({
+      from: r.saleItems.id,
+      to: r.saleItemLots.saleItemId,
     }),
     product: r.one.products({
       from: r.saleItems.productId,
@@ -80,7 +98,12 @@ const businessRelations = defineRelations(schema, (r) => ({
     }),
   },
   sales: {
-    customer: r.one.customers({ from: r.sales.customerId, to: r.customers.id }),
+    customer: r.one.customers({
+      from: r.sales.customerId,
+      to: r.customers.id,
+      optional: false,
+    }),
+    discounts: r.many.saleDiscounts({ from: r.sales.id, to: r.saleDiscounts.saleId }),
     items: r.many.saleItems({ from: r.sales.id, to: r.saleItems.saleId }),
     payments: r.many.payments({ from: r.sales.id, to: r.payments.saleId }),
   },
