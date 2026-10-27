@@ -41,10 +41,12 @@ packages/auth/   Authentification Better Auth (e-mail + mot de passe)
 
 `computeLandedCosts` (`packages/core/src/purchasing.ts`) est la seule implémentation du calcul : le formulaire l'utilise pour l'aperçu en direct, le serveur pour enregistrer les coûts.
 
-1. Marchandise de chaque ligne : quantité × prix RMB, convertie RMB → USD → FCFA avec les **taux figés sur la commande** (repris des Paramètres à la création, modifiables ensuite).
+1. Marchandise de chaque ligne, prix **à l'unité** (quantité × prix) ou **à la tonne** (poids × prix par tonne), convertie RMB → USD → FCFA avec les **taux figés sur la commande** (repris des Paramètres à la création, modifiables ensuite).
 2. Frais d'approche : CBM × coût par CBM + transport local + autres frais.
-3. Répartition des frais entre les lignes : **au prorata des voyages** de chaque ligne, ou **à parts égales**. Les parts sont arrondies au FCFA sans perte (leur somme égale toujours le total des frais).
-4. Coût de revient unitaire = (marchandise + part des frais) ÷ quantité.
+3. Répartition des frais entre les lignes : **au prorata des voyages**, **au prorata du poids** ou **à parts égales**. Les parts sont arrondies au FCFA sans perte (leur somme égale toujours le total des frais).
+4. Coût de revient unitaire = (marchandise + part des frais) ÷ quantité qui entre en stock, dans l'unité du produit (cartons, rouleaux…). Si le poids de la ligne est connu, le coût par tonne est aussi affiché.
+
+Pour un produit géré en tonnes ou en kg, saisir le poids remplit la quantité de stock automatiquement.
 
 Cycle d'une commande : Brouillon → Commandée → En transit → **Réceptionnée** (un lot par ligne, au coût calculé ; la commande est alors verrouillée) ou Annulée. Seuls les brouillons et les commandes annulées peuvent être supprimés. Numérotation automatique : `CF-2026-0001`.
 
