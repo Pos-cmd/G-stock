@@ -3,10 +3,10 @@
 export const MOVEMENT_TYPES = ["in", "out", "adjustment"] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 
-export const LOT_SOURCES = ["purchase", "initial", "adjustment"] as const;
+export const LOT_SOURCES = ["purchase", "initial", "adjustment", "unpack"] as const;
 export type LotSource = (typeof LOT_SOURCES)[number];
 
-export const MOVEMENT_REFERENCE_TYPES = ["purchase_order", "sale", "manual"] as const;
+export const MOVEMENT_REFERENCE_TYPES = ["purchase_order", "sale", "manual", "unpack"] as const;
 export type MovementReferenceType = (typeof MOVEMENT_REFERENCE_TYPES)[number];
 
 export const STOCK_STATUSES = ["ok", "low", "out"] as const;

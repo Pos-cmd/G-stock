@@ -36,6 +36,7 @@ export const LOT_SOURCE_LABELS: Record<LotSource, string> = {
   adjustment: "Ajustement",
   initial: "Entrée manuelle",
   purchase: "Commande fournisseur",
+  unpack: "Ouverture de carton",
 };
 
 export const STOCK_STATUS_LABELS: Record<StockStatus, string> = {
