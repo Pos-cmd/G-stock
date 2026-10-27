@@ -1,18 +1,32 @@
 import type { PurchaseOrderStatus } from "@G-stock/core/enums";
-import { computeLandedCosts } from "@G-stock/core/purchasing";
+import {
+  computeLandedCosts,
+  computeLandedCostsFromFees,
+  feeToFcfa,
+} from "@G-stock/core/purchasing";
 import type { Executor } from "@G-stock/db";
 import { products, suppliers } from "@G-stock/db/schema/catalog";
-import { purchaseOrderItems, purchaseOrders } from "@G-stock/db/schema/purchasing";
+import {
+  purchaseOrderFees,
+  purchaseOrderItems,
+  purchaseOrders,
+} from "@G-stock/db/schema/purchasing";
 import { stockLots } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
 import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
-import type { PurchaseOrderFilters, PurchaseOrderInput } from "../schemas/purchases";
+import type {
+  PurchaseOrderFilters,
+  PurchaseOrderInput,
+  PurchaseReceiveInput,
+  PurchaseReceptionInput,
+} from "../schemas/purchases";
 import { createLot } from "./stock";
 
 type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
 type PurchaseItemRow = typeof purchaseOrderItems.$inferSelect;
+type PurchaseFeeRow = typeof purchaseOrderFees.$inferSelect;
 
 const REFERENCE_PREFIX = "CF";
 const LOCKED_STATUSES: readonly PurchaseOrderStatus[] = ["received", "cancelled"];
@@ -36,12 +50,48 @@ const nextOrderReference = async (executor: Executor, orderDate: Date): Promise<
   return buildOrderReference(year, (row?.last ?? 0) + 1);
 };
 
-const costsOf = (order: PurchaseOrderRow, items: readonly PurchaseItemRow[]) =>
-  computeLandedCosts({
-    ...order,
-    items,
-    rates: { fcfaPerUsd: order.fcfaPerUsd, rmbPerUsd: order.rmbPerUsd },
+const ratesOf = (order: PurchaseOrderRow) => ({
+  fcfaPerUsd: order.fcfaPerUsd,
+  rmbPerUsd: order.rmbPerUsd,
+});
+
+/** Prix de revient estimé à partir des frais saisis sur la commande. */
+const estimatedCostsOf = (order: PurchaseOrderRow, items: readonly PurchaseItemRow[]) =>
+  computeLandedCosts({ ...order, items, rates: ratesOf(order) });
+
+/** Prix de revient réel : frais saisis à la réception, coût réparti sur les quantités reçues. */
+const actualCostsOf = (
+  order: PurchaseOrderRow,
+  items: readonly PurchaseItemRow[],
+  fees: readonly PurchaseFeeRow[],
+) =>
+  computeLandedCostsFromFees({
+    fees,
+    items: items.map((item) => ({ ...item, receivedQty: item.qtyReceived })),
+    rates: ratesOf(order),
   });
+
+/** Une commande reçue affiche ses coûts réels, les autres leur estimation. */
+const displayedCostsOf = (
+  order: PurchaseOrderRow,
+  items: readonly PurchaseItemRow[],
+  fees: readonly PurchaseFeeRow[],
+) =>
+  order.status === "received" ? actualCostsOf(order, items, fees) : estimatedCostsOf(order, items);
+
+const listOrderItems = (executor: Executor, orderId: number) =>
+  executor
+    .select()
+    .from(purchaseOrderItems)
+    .where(eq(purchaseOrderItems.orderId, orderId))
+    .orderBy(asc(purchaseOrderItems.id));
+
+const listOrderFees = (executor: Executor, orderId: number) =>
+  executor
+    .select()
+    .from(purchaseOrderFees)
+    .where(eq(purchaseOrderFees.orderId, orderId))
+    .orderBy(asc(purchaseOrderFees.id));
 
 const getOrderRow = async (executor: Executor, id: number): Promise<PurchaseOrderRow> => {
   const [order] = await executor.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
@@ -177,42 +227,120 @@ export const removePurchaseOrder = async (executor: Executor, id: number) => {
   return { id };
 };
 
-export interface ReceivePurchaseParams {
-  id: number;
-  receivedAt: Date;
+/**
+ * Enregistre la saisie de réception (arrivée, frais réels, quantités reçues) sans toucher au
+ * stock : on peut noter la douane dès qu'elle est payée et valider la réception plus tard.
+ * À appeler dans une transaction.
+ */
+export const saveReception = async (executor: Executor, input: PurchaseReceptionInput) => {
+  const order = await getOrderRow(executor, input.id);
+  assertEditable(order);
+  const items = await listOrderItems(executor, order.id);
+
+  const itemIds = new Set(items.map((item) => item.id));
+  const inputIds = new Set(input.items.map((item) => item.id));
+  const sameLines =
+    itemIds.size === inputIds.size && [...inputIds].every((itemId) => itemIds.has(itemId));
+  if (!sameLines) {
+    throw new ORPCError("CONFLICT", {
+      message: "Les lignes de la commande ont changé : rechargez la page de réception",
+    });
+  }
+  const usesWeight = input.fees.some((fee) => fee.allocationMethod === "weight");
+  if (usesWeight && items.some((item) => !item.weightTons)) {
+    throw new ORPCError("BAD_REQUEST", {
+      message:
+        "Répartition au poids : indiquez le poids de chaque ligne sur la commande, ou choisissez une autre méthode",
+    });
+  }
+
+  await executor
+    .update(purchaseOrders)
+    .set({
+      arrivedAt: input.arrivedAt ?? null,
+      billOfLading: input.billOfLading,
+      containerNumber: input.containerNumber,
+      forwarder: input.forwarder,
+    })
+    .where(eq(purchaseOrders.id, order.id));
+
+  await executor.delete(purchaseOrderFees).where(eq(purchaseOrderFees.orderId, order.id));
+  if (input.fees.length > 0) {
+    await executor.insert(purchaseOrderFees).values(
+      input.fees.map((fee) => ({
+        ...fee,
+        amountFcfa: feeToFcfa(fee.amount, fee.currency, ratesOf(order)),
+        orderId: order.id,
+      })),
+    );
+  }
+
+  await Promise.all(
+    input.items.map((item) =>
+      executor
+        .update(purchaseOrderItems)
+        .set({ qtyReceived: item.qtyReceived })
+        .where(eq(purchaseOrderItems.id, item.id)),
+    ),
+  );
+
+  return { id: order.id };
+};
+
+export interface ReceivePurchaseParams extends PurchaseReceiveInput {
   userId?: string | null;
 }
 
 /**
- * Réceptionne la marchandise : un lot par ligne, au coût de revient calculé, et la commande
- * passe à « reçue ». À appeler dans une transaction : tout ou rien.
+ * Réceptionne la marchandise : enregistre la saisie, fige le coût de revient réel de chaque
+ * ligne et crée un lot par ligne reçue. La commande passe à « reçue ».
+ * À appeler dans une transaction : tout ou rien.
  */
 export const receivePurchaseOrder = async (executor: Executor, params: ReceivePurchaseParams) => {
+  await saveReception(executor, params);
   const order = await getOrderRow(executor, params.id);
-  assertEditable(order);
-  const items = await executor
-    .select()
-    .from(purchaseOrderItems)
-    .where(eq(purchaseOrderItems.orderId, order.id))
-    .orderBy(asc(purchaseOrderItems.id));
-  if (items.length === 0) {
-    throw new ORPCError("BAD_REQUEST", { message: "La commande ne contient aucun produit" });
+  const [items, fees] = await Promise.all([
+    listOrderItems(executor, order.id),
+    listOrderFees(executor, order.id),
+  ]);
+  const costs = actualCostsOf(order, items, fees);
+
+  const received = items.flatMap((item, index) => {
+    const line = costs.lines[index];
+    return line && item.qtyReceived && item.qtyReceived > 0 ? [{ item, line }] : [];
+  });
+  if (received.length === 0) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Aucune quantité reçue : rien à mettre en stock",
+    });
   }
 
+  await Promise.all(
+    items.map((item, index) =>
+      executor
+        .update(purchaseOrderItems)
+        .set({
+          transportShareFcfa: costs.lines[index]?.transportShareFcfa ?? 0,
+          unitCostFcfa: costs.lines[index]?.unitCostFcfa ?? 0,
+        })
+        .where(eq(purchaseOrderItems.id, item.id)),
+    ),
+  );
+
   const lots = [];
-  for (const item of items) {
+  for (const { item, line } of received) {
     // Séquentiel : les numéros de lot suivent l'ordre des lignes de la commande.
     // oxlint-disable-next-line no-await-in-loop
     const lot = await createLot(executor, {
       notes: `Commande ${order.reference}`,
       orderItemId: item.id,
       productId: item.productId,
-      qty: item.qty,
+      qty: item.qtyReceived ?? item.qty,
       receivedAt: params.receivedAt,
       referenceId: order.id,
       referenceType: "purchase_order",
       source: "purchase",
-      unitCostFcfa: item.unitCostFcfa,
+      unitCostFcfa: line.unitCostFcfa,
       userId: params.userId,
     });
     lots.push(lot);
@@ -267,11 +395,21 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
       ),
     )
     .orderBy(asc(purchaseOrderItems.id));
+  const fees = await executor
+    .select()
+    .from(purchaseOrderFees)
+    .where(
+      inArray(
+        purchaseOrderFees.orderId,
+        orders.map(({ order }) => order.id),
+      ),
+    );
   const itemsByOrder = Map.groupBy(items, (item) => item.orderId);
+  const feesByOrder = Map.groupBy(fees, (fee) => fee.orderId);
 
   return orders.map(({ order, supplierName }) => {
     const orderItems = itemsByOrder.get(order.id) ?? [];
-    const costs = costsOf(order, orderItems);
+    const costs = displayedCostsOf(order, orderItems, feesByOrder.get(order.id) ?? []);
     return {
       ...order,
       feesFcfa: costs.feesFcfa,
@@ -310,10 +448,11 @@ export const getPurchaseOrder = async (executor: Executor, id: number) => {
     .where(eq(purchaseOrderItems.orderId, id))
     .orderBy(asc(purchaseOrderItems.id));
 
-  const costs = costsOf(
-    row.order,
-    rows.map(({ item }) => item),
-  );
+  const fees = await listOrderFees(executor, id);
+  const itemRows = rows.map(({ item }) => item);
+  const estimate = estimatedCostsOf(row.order, itemRows);
+  const actual = actualCostsOf(row.order, itemRows, fees);
+  const costs = row.order.status === "received" ? actual : estimate;
   const items = rows.map(({ item, ...extra }, index) => ({
     ...item,
     ...extra,
@@ -327,13 +466,19 @@ export const getPurchaseOrder = async (executor: Executor, id: number) => {
     ...row.order,
     costs: {
       feesFcfa: costs.feesFcfa,
-      freightFcfa: costs.freightFcfa,
       goodsFcfa: costs.goodsFcfa,
       goodsRmb: costs.goodsRmb,
       goodsUsd: costs.goodsUsd,
       totalFcfa: costs.totalFcfa,
       totalWeightTons: costs.totalWeightTons,
     },
+    /** Estimation de la commande, pour la comparer aux frais réels. */
+    estimate: {
+      feesFcfa: estimate.feesFcfa,
+      freightFcfa: estimate.freightFcfa,
+      totalFcfa: estimate.totalFcfa,
+    },
+    fees,
     isLocked: LOCKED_STATUSES.includes(row.order.status),
     items,
     supplier: row.supplier,

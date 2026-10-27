@@ -3,8 +3,10 @@ import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
+import { computeLandedCostsFromFees } from "@G-stock/core/purchasing";
+
 import { purchaseOrderInputSchema } from "../schemas/purchases";
-import type { PurchaseOrderInput } from "../schemas/purchases";
+import type { PurchaseFeeInput, PurchaseOrderInput } from "../schemas/purchases";
 import { useTestDatabase } from "../testing/database";
 import { createProduct, getProduct, setProductArchived } from "./products";
 import {
@@ -13,6 +15,7 @@ import {
   listPurchaseOrders,
   receivePurchaseOrder,
   removePurchaseOrder,
+  saveReception,
   setPurchaseStatus,
   updatePurchaseOrder,
 } from "./purchases";
@@ -68,8 +71,39 @@ const orderInput = async (overrides: Partial<PurchaseOrderInput> = {}) => {
 const create = (input: PurchaseOrderInput) =>
   db.transaction((tx) => createPurchaseOrder(tx, input));
 
-const receive = (id: number) =>
-  db.transaction((tx) => receivePurchaseOrder(tx, { id, receivedAt: APRIL_15 }));
+interface ReceptionOptions {
+  fees?: PurchaseFeeInput[];
+  qtyReceived?: (qty: number, index: number) => number;
+}
+
+/** Par défaut, réception « comme prévu » : frais réels = estimation, tout est reçu. */
+const receptionInput = async (id: number, options: ReceptionOptions = {}) => {
+  const detail = await getPurchaseOrder(db, id);
+  return {
+    arrivedAt: null,
+    billOfLading: null,
+    containerNumber: null,
+    fees: options.fees ?? [
+      {
+        allocationMethod: detail.allocationMethod,
+        amount: detail.estimate.feesFcfa,
+        currency: "fcfa" as const,
+        label: "Frais",
+      },
+    ],
+    forwarder: null,
+    id,
+    items: detail.items.map((item, index) => ({
+      id: item.id,
+      qtyReceived: options.qtyReceived?.(item.qty, index) ?? item.qty,
+    })),
+  };
+};
+
+const receive = async (id: number, options?: ReceptionOptions) => {
+  const input = await receptionInput(id, options);
+  return db.transaction((tx) => receivePurchaseOrder(tx, { ...input, receivedAt: APRIL_15 }));
+};
 
 describe("createPurchaseOrder", () => {
   it("numérote les commandes par année et calcule le coût de revient de chaque ligne", async () => {
@@ -290,5 +324,114 @@ describe("commande à la tonne", () => {
       items: [first, { ...second, pricingBasis: "unit", weightTons: null }],
     });
     expect(unitOrder.success).toBe(true);
+  });
+});
+
+describe("réception avec frais réels", () => {
+  // Wax : 100 × 72 RMB (598 000 FCFA), 3 T ; Bazin : 50 × 36 RMB (149 500 FCFA), 1 T.
+  const weightedOrder = async () => {
+    const { input } = await orderInput();
+    const [wax, bazin] = input.items;
+    if (!wax || !bazin) {
+      throw new Error("Jeu de données incomplet");
+    }
+    return create({
+      ...input,
+      items: [
+        { ...wax, weightTons: 3 },
+        { ...bazin, weightTons: 1 },
+      ],
+    });
+  };
+
+  const actualFees: PurchaseFeeInput[] = [
+    { allocationMethod: "weight", amount: 1000, currency: "usd", label: "Fret maritime" },
+    { allocationMethod: "value", amount: 200_000, currency: "fcfa", label: "Douane" },
+  ];
+
+  it("enregistre la saisie sans toucher au stock", async () => {
+    const order = await weightedOrder();
+    const input = await receptionInput(order.id, { fees: actualFees });
+    await db.transaction((tx) =>
+      saveReception(tx, {
+        ...input,
+        arrivedAt: APRIL_15,
+        billOfLading: "MEDU1234567",
+        containerNumber: "MSCU7654321",
+        forwarder: "Bolloré Transit",
+      }),
+    );
+
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.status).toBe("draft");
+    expect(detail).toMatchObject({
+      billOfLading: "MEDU1234567",
+      containerNumber: "MSCU7654321",
+      forwarder: "Bolloré Transit",
+    });
+    // 1 000 $ × 598 = 598 000 FCFA.
+    expect(detail.fees.map((fee) => [fee.label, fee.amountFcfa])).toEqual([
+      ["Fret maritime", 598_000],
+      ["Douane", 200_000],
+    ]);
+    expect(await db.select().from(stockLots)).toHaveLength(0);
+  });
+
+  it("calcule le coût de revient réel et met en stock les quantités reçues", async () => {
+    const order = await weightedOrder();
+    // 98 rouleaux de wax reçus sur 100 ; Bazin non livré.
+    await receive(order.id, {
+      fees: actualFees,
+      qtyReceived: (qty, index) => (index === 0 ? 98 : 0),
+    });
+
+    const expected = computeLandedCostsFromFees({
+      fees: [
+        { allocationMethod: "weight", amountFcfa: 598_000 },
+        { allocationMethod: "value", amountFcfa: 200_000 },
+      ],
+      items: [
+        { qty: 100, receivedQty: 98, trips: 3, unitPriceRmb: 72, weightTons: 3 },
+        { qty: 50, receivedQty: 0, trips: 1, unitPriceRmb: 36, weightTons: 1 },
+      ],
+      rates: { fcfaPerUsd: 598, rmbPerUsd: 7.2 },
+    });
+    const lots = await db.select().from(stockLots);
+    expect(lots.map((lot) => [lot.qtyInitial, lot.unitCostFcfa])).toEqual([
+      [98, expected.lines[0]?.unitCostFcfa],
+    ]);
+
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.status).toBe("received");
+    expect(detail.costs.totalFcfa).toBe(747_500 + 798_000);
+    expect(detail.estimate.totalFcfa).toBe(1_147_500);
+    expect(detail.items.map((item) => item.unitCostFcfa)).toEqual(
+      expected.lines.map((line) => line.unitCostFcfa),
+    );
+    const [listed] = await listPurchaseOrders(db, {});
+    expect(listed?.totalFcfa).toBe(747_500 + 798_000);
+  });
+
+  it("refuse une réception sans aucune quantité reçue", async () => {
+    const order = await weightedOrder();
+    await expect(receive(order.id, { qtyReceived: () => 0 })).rejects.toThrow(
+      "Aucune quantité reçue",
+    );
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.status).toBe("draft");
+  });
+
+  it("exige le poids de chaque ligne pour un frais réparti au poids", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    await expect(receive(order.id, { fees: actualFees })).rejects.toThrow("Répartition au poids");
+  });
+
+  it("refuse une saisie dont les lignes ne correspondent plus à la commande", async () => {
+    const order = await weightedOrder();
+    const input = await receptionInput(order.id);
+    await expect(
+      db.transaction((tx) => saveReception(tx, { ...input, items: input.items.slice(0, 1) })),
+    ).rejects.toThrow("rechargez la page");
   });
 });

@@ -5,6 +5,7 @@ import {
   purchaseOrderListSchema,
   purchaseOrderUpdateSchema,
   purchaseReceiveSchema,
+  purchaseReceptionSchema,
   purchaseStatusSchema,
 } from "../schemas/purchases";
 import {
@@ -13,6 +14,7 @@ import {
   listPurchaseOrders,
   receivePurchaseOrder,
   removePurchaseOrder,
+  saveReception,
   setPurchaseStatus,
   updatePurchaseOrder,
 } from "../services/purchases";
@@ -47,6 +49,10 @@ export const purchasesRouter = {
   remove: protectedProcedure
     .input(byIdSchema)
     .handler(({ context, input }) => removePurchaseOrder(context.db, input.id)),
+
+  saveReception: protectedProcedure
+    .input(purchaseReceptionSchema)
+    .handler(({ context, input }) => context.db.transaction((tx) => saveReception(tx, input))),
 
   setStatus: protectedProcedure
     .input(purchaseStatusSchema)

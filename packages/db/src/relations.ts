@@ -41,7 +41,18 @@ const businessRelations = defineRelations(schema, (r) => ({
       optional: false,
     }),
   },
+  purchaseOrderFees: {
+    order: r.one.purchaseOrders({
+      from: r.purchaseOrderFees.orderId,
+      to: r.purchaseOrders.id,
+      optional: false,
+    }),
+  },
   purchaseOrders: {
+    fees: r.many.purchaseOrderFees({
+      from: r.purchaseOrders.id,
+      to: r.purchaseOrderFees.orderId,
+    }),
     items: r.many.purchaseOrderItems({
       from: r.purchaseOrders.id,
       to: r.purchaseOrderItems.orderId,

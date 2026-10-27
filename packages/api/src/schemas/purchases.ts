@@ -1,4 +1,9 @@
-import { ALLOCATION_METHODS, PRICING_BASES, PURCHASE_ORDER_STATUSES } from "@G-stock/core/enums";
+import {
+  ALLOCATION_METHODS,
+  FEE_CURRENCIES,
+  PRICING_BASES,
+  PURCHASE_ORDER_STATUSES,
+} from "@G-stock/core/enums";
 import type { AllocationMethod, PricingBasis } from "@G-stock/core/enums";
 import { z } from "zod";
 
@@ -87,7 +92,35 @@ export const purchaseStatusSchema = z.object({
   status: z.enum(EDITABLE_PURCHASE_STATUSES),
 });
 
-export const purchaseReceiveSchema = z.object({
-  id: idSchema,
-  receivedAt: z.date(),
+export const purchaseFeeSchema = z.object({
+  allocationMethod: z.enum(ALLOCATION_METHODS),
+  amount: z.number().min(0, "Le montant ne peut pas être négatif"),
+  currency: z.enum(FEE_CURRENCIES),
+  label: z.string().trim().min(1, "Indiquez le libellé du frais").max(80, "80 caractères maximum"),
 });
+export type PurchaseFeeInput = z.input<typeof purchaseFeeSchema>;
+
+const MAX_FEES = 30;
+
+/** Saisie de la réception : arrivée, frais réels et quantités reçues. */
+export const purchaseReceptionSchema = z.object({
+  arrivedAt: z.date().nullish(),
+  billOfLading: optionalText(60),
+  containerNumber: optionalText(40),
+  fees: z.array(purchaseFeeSchema).max(MAX_FEES, `${MAX_FEES} frais maximum`),
+  forwarder: optionalText(120),
+  id: idSchema,
+  items: z
+    .array(
+      z.object({
+        id: idSchema,
+        qtyReceived: z.number().min(0, "La quantité ne peut pas être négative"),
+      }),
+    )
+    .min(1),
+});
+export type PurchaseReceptionInput = z.output<typeof purchaseReceptionSchema>;
+
+/** Validation de la réception : la saisie, plus la date d'entrée en stock. */
+export const purchaseReceiveSchema = purchaseReceptionSchema.extend({ receivedAt: z.date() });
+export type PurchaseReceiveInput = z.output<typeof purchaseReceiveSchema>;
