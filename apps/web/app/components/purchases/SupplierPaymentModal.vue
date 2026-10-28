@@ -6,6 +6,8 @@ import { useMutation } from "@tanstack/vue-query";
 import { z } from "zod";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
+const icons = useIcons();
+
 /** Versement au fournisseur : montant envoyé en FCFA, taux du jour facultatif. */
 const { order } = defineProps<{
   order: {
@@ -162,7 +164,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
           <UButton
             v-else-if="order.payment.remainingRmb > 0"
             label="Solder la commande à ce taux"
-            icon="i-lucide-check-check"
+            :icon="icons.payInFull"
             size="xs"
             color="neutral"
             variant="link"
@@ -186,7 +188,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
         <UButton
           type="submit"
           form="supplier-payment-form"
-          icon="i-lucide-send"
+          :icon="icons.supplierPayment"
           label="Enregistrer le versement"
           :loading="mutation.isPending.value"
         />

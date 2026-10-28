@@ -7,6 +7,8 @@ import KpiCard from "~/components/common/KpiCard.vue";
 import SaleStatusBadge from "~/components/sales/SaleStatusBadge.vue";
 import type { SaleRow } from "~/types/api";
 
+const icons = useIcons();
+
 /** Historique paginé des ventes, avec les totaux de la sélection. */
 const {
   customerId = null,
@@ -77,14 +79,14 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <KpiCard
         label="Chiffre d'affaires"
-        icon="i-lucide-trending-up"
+        :icon="icons.revenue"
         :loading="sales.isPending.value"
         :value="formatFcfa(totals?.netFcfa ?? 0)"
         :hint="`${totals?.count ?? 0} vente(s), remises déduites`"
       />
       <KpiCard
         label="Marge brute"
-        icon="i-lucide-piggy-bank"
+        :icon="icons.profit"
         color="success"
         :loading="sales.isPending.value"
         :value="formatFcfa(totals?.marginFcfa ?? 0)"
@@ -92,7 +94,7 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
       />
       <KpiCard
         label="Coût de revient"
-        icon="i-lucide-package"
+        :icon="icons.product"
         color="neutral"
         :loading="sales.isPending.value"
         :value="formatFcfa(totals?.costFcfa ?? 0)"
@@ -100,7 +102,7 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
       />
       <KpiCard
         label="Reste à encaisser"
-        icon="i-lucide-hourglass"
+        :icon="icons.pending"
         color="warning"
         :loading="sales.isPending.value"
         :value="formatFcfa(totals?.dueFcfa ?? 0)"
@@ -163,7 +165,7 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
       </template>
       <template #empty>
         <div class="flex flex-col items-center gap-2 py-10 text-center">
-          <UIcon name="i-lucide-receipt" class="text-dimmed size-10" />
+          <UIcon :name="icons.sale" class="text-dimmed size-10" />
           <p class="text-muted">Aucune vente ne correspond à ces critères.</p>
         </div>
       </template>

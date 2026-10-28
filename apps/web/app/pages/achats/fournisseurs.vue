@@ -8,6 +8,8 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import SupplierFormModal from "~/components/purchases/SupplierFormModal.vue";
 import type { SupplierRow } from "~/types/api";
 
+const icons = useIcons();
+
 useHead({ title: "Fournisseurs" });
 
 const { $orpc } = useNuxtApp();
@@ -45,7 +47,7 @@ const confirmDelete = async () => {
 const rowActions = (supplier: SupplierRow): DropdownMenuItem[][] => [
   [
     {
-      icon: "i-lucide-pencil",
+      icon: icons.edit,
       label: "Modifier",
       onSelect: () => {
         editedSupplier.value = supplier;
@@ -58,7 +60,7 @@ const rowActions = (supplier: SupplierRow): DropdownMenuItem[][] => [
         [
           {
             color: "error" as const,
-            icon: "i-lucide-trash-2",
+            icon: icons.trash,
             label: "Supprimer",
             onSelect: () => {
               deletedSupplier.value = supplier;
@@ -83,16 +85,16 @@ const columns: TableColumn<SupplierRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="suppliers" title="Fournisseurs" icon="i-lucide-factory">
+  <PagePanel id="suppliers" title="Fournisseurs" :icon="icons.suppliers">
     <template #actions>
       <UButton
         to="/achats"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Commandes"
       />
-      <UButton icon="i-lucide-plus" label="Nouveau fournisseur" @click="openCreate" />
+      <UButton :icon="icons.plus" label="Nouveau fournisseur" @click="openCreate" />
     </template>
 
     <UTable
@@ -143,7 +145,7 @@ const columns: TableColumn<SupplierRow>[] = [
       <template #actions-cell="{ row }">
         <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
           <UButton
-            icon="i-lucide-ellipsis-vertical"
+            :icon="icons.moreActions"
             color="neutral"
             variant="ghost"
             :aria-label="`Actions pour ${row.original.name}`"
@@ -152,11 +154,11 @@ const columns: TableColumn<SupplierRow>[] = [
       </template>
       <template #empty>
         <div class="flex flex-col items-center gap-3 py-10 text-center">
-          <UIcon name="i-lucide-factory" class="text-dimmed size-10" />
+          <UIcon :name="icons.suppliers" class="text-dimmed size-10" />
           <p class="text-muted">Aucun fournisseur enregistré.</p>
           <UButton
             variant="soft"
-            icon="i-lucide-plus"
+            :icon="icons.plus"
             label="Ajouter un fournisseur"
             @click="openCreate"
           />

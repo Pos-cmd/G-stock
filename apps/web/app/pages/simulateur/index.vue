@@ -7,6 +7,8 @@ import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import type { SimulationRow } from "~/types/api";
 
+const icons = useIcons();
+
 useHead({ title: "Simulateur" });
 
 const { $orpc } = useNuxtApp();
@@ -62,14 +64,14 @@ const confirmDelete = async () => {
 
 const rowActions = (simulation: SimulationRow): DropdownMenuItem[][] => [
   [
-    { icon: "i-lucide-pencil", label: "Ouvrir", to: `/simulateur/${simulation.id}` },
+    { icon: icons.edit, label: "Ouvrir", to: `/simulateur/${simulation.id}` },
     {
-      icon: "i-lucide-copy",
+      icon: icons.copy,
       label: "Dupliquer",
       onSelect: () => duplicate(simulation),
     },
     {
-      icon: "i-lucide-git-compare",
+      icon: icons.compare,
       label: "Comparer avec…",
       to: comparisonLink([{ id: simulation.id, type: "simulation" }]),
     },
@@ -77,7 +79,7 @@ const rowActions = (simulation: SimulationRow): DropdownMenuItem[][] => [
   [
     {
       color: "error",
-      icon: "i-lucide-trash-2",
+      icon: icons.trash,
       label: "Supprimer",
       onSelect: () => {
         deleted.value = simulation;
@@ -103,16 +105,16 @@ const columns: TableColumn<SimulationRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="simulator" title="Simulateur" icon="i-lucide-calculator">
+  <PagePanel id="simulator" title="Simulateur" :icon="icons.simulations">
     <template #actions>
       <UButton
         color="neutral"
         variant="outline"
-        icon="i-lucide-git-compare"
+        :icon="icons.compare"
         :label="selected.length > 0 ? `Comparer (${selected.length})` : 'Comparer'"
         :to="compareSelected"
       />
-      <UButton to="/simulateur/nouvelle" icon="i-lucide-plus" label="Nouvelle simulation" />
+      <UButton to="/simulateur/nouvelle" :icon="icons.plus" label="Nouvelle simulation" />
     </template>
 
     <UTable
@@ -172,7 +174,7 @@ const columns: TableColumn<SimulationRow>[] = [
       <template #actions-cell="{ row }">
         <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
           <UButton
-            icon="i-lucide-ellipsis-vertical"
+            :icon="icons.moreActions"
             color="neutral"
             variant="ghost"
             :aria-label="`Actions pour ${row.original.name}`"
@@ -181,7 +183,7 @@ const columns: TableColumn<SimulationRow>[] = [
       </template>
       <template #empty>
         <div class="flex flex-col items-center gap-3 py-10 text-center">
-          <UIcon name="i-lucide-calculator" class="text-dimmed size-10" />
+          <UIcon :name="icons.simulations" class="text-dimmed size-10" />
           <p class="text-muted">
             Aucune simulation. Calcule le prix de revient d'un import et fixe tes prix de vente
             avant de commander.
@@ -189,7 +191,7 @@ const columns: TableColumn<SimulationRow>[] = [
           <UButton
             to="/simulateur/nouvelle"
             variant="soft"
-            icon="i-lucide-plus"
+            :icon="icons.plus"
             label="Nouvelle simulation"
           />
         </div>

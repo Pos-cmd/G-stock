@@ -8,6 +8,8 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import { useSettingsStore } from "~/stores/settings";
 import type { DocumentRow } from "~/types/api";
 
+const icons = useIcons();
+
 useHead({ title: "Documents" });
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -21,10 +23,10 @@ onMounted(async () => {
 });
 
 const TYPE_LABELS: Record<GeneratedDocumentType, { label: string; icon: string }> = {
-  cost_sheet: { icon: "i-lucide-ship", label: "Fiche de commande" },
-  receipt: { icon: "i-lucide-receipt", label: "Reçu de vente" },
-  receipt_mobile: { icon: "i-lucide-smartphone", label: "Reçu téléphone" },
-  simulation: { icon: "i-lucide-calculator", label: "Simulation" },
+  cost_sheet: { icon: icons.purchases, label: "Fiche de commande" },
+  receipt: { icon: icons.sale, label: "Reçu de vente" },
+  receipt_mobile: { icon: icons.receiptMobile, label: "Reçu téléphone" },
+  simulation: { icon: icons.simulations, label: "Simulation" },
 };
 
 const search = ref("");
@@ -85,18 +87,18 @@ const columns: TableColumn<DocumentRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="documents" title="Documents" icon="i-lucide-file-text">
+  <PagePanel id="documents" title="Documents" :icon="icons.documents">
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
         <UInput
           v-model="search"
-          icon="i-lucide-search"
+          :icon="icons.search"
           placeholder="Référence, client, simulation…"
           class="w-full sm:w-72"
         />
         <USelect v-model="type" :items="typeItems" class="w-48" />
         <span v-if="settingsStore.settings" class="text-muted ms-auto truncate text-xs">
-          <UIcon name="i-lucide-folder" class="me-1 align-middle" />
+          <UIcon :name="icons.folder" class="me-1 align-middle" />
           {{ settingsStore.settings.documentsFolder }}
         </span>
       </div>
@@ -159,7 +161,7 @@ const columns: TableColumn<DocumentRow>[] = [
             external
             color="neutral"
             variant="ghost"
-            icon="i-lucide-external-link"
+            :icon="icons.external"
             :aria-label="`Ouvrir ${row.original.title}`"
           />
           <UButton
@@ -167,14 +169,14 @@ const columns: TableColumn<DocumentRow>[] = [
             external
             color="neutral"
             variant="ghost"
-            icon="i-lucide-download"
+            :icon="icons.download"
             :aria-label="`Télécharger ${row.original.title}`"
           />
         </div>
       </template>
       <template #empty>
         <div class="flex flex-col items-center gap-2 py-10 text-center">
-          <UIcon name="i-lucide-file-text" class="text-dimmed size-10" />
+          <UIcon :name="icons.documents" class="text-dimmed size-10" />
           <p class="text-muted">
             Aucun document. Les boutons « PDF » des ventes, commandes et simulations en créent.
           </p>

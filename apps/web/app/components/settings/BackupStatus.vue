@@ -2,6 +2,8 @@
 import { formatDateTime } from "@G-stock/core/format";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
+const icons = useIcons();
+
 /** Dossier en cours de saisie dans le formulaire, pour proposer Google Drive s'il diffère. */
 const { folder } = defineProps<{ folder: string }>();
 const emit = defineEmits<{ useFolder: [folder: string] }>();
@@ -50,7 +52,7 @@ const formatSize = (bytes: number): string => {
       v-if="suggestedDrive"
       color="info"
       variant="subtle"
-      icon="i-lucide-cloud"
+      :icon="icons.cloud"
       title="Google Drive détecté"
       :description="`Les sauvegardes peuvent aller dans ${suggestedDrive} : elles seront copiées en ligne automatiquement.`"
       :actions="[
@@ -65,7 +67,7 @@ const formatSize = (bytes: number): string => {
       v-else-if="status.data.value && !status.data.value.driveFolder"
       color="neutral"
       variant="subtle"
-      icon="i-lucide-cloud-off"
+      :icon="icons.cloudOff"
       title="Google Drive n'est pas installé sur ce PC"
       description="Installez « Google Drive pour ordinateur » : un dossier Mon Drive apparaît et sera proposé ici. En attendant, les sauvegardes restent sur ce PC."
     />
@@ -74,7 +76,7 @@ const formatSize = (bytes: number): string => {
       v-if="status.data.value?.lastError"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="La dernière sauvegarde a échoué"
       :description="status.data.value.lastError.message"
     />
@@ -84,7 +86,7 @@ const formatSize = (bytes: number): string => {
     >
       <div class="flex items-center gap-2 text-sm">
         <UIcon
-          :name="isStale ? 'i-lucide-triangle-alert' : 'i-lucide-shield-check'"
+          :name="isStale ? icons.warning : icons.backupOk"
           :class="isStale ? 'text-warning' : 'text-success'"
           class="size-4 shrink-0"
         />
@@ -96,7 +98,7 @@ const formatSize = (bytes: number): string => {
         <span v-else>Aucune sauvegarde pour l'instant.</span>
       </div>
       <UButton
-        icon="i-lucide-hard-drive-download"
+        :icon="icons.backupNow"
         label="Sauvegarder maintenant"
         color="neutral"
         variant="outline"
@@ -120,7 +122,7 @@ const formatSize = (bytes: number): string => {
           <UButton
             :to="`/api/sauvegardes/${backup.fileName}`"
             external
-            icon="i-lucide-download"
+            :icon="icons.download"
             color="neutral"
             variant="ghost"
             size="xs"

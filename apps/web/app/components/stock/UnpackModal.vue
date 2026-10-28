@@ -5,6 +5,8 @@ import { useMutation } from "@tanstack/vue-query";
 import type { ProductDetail } from "~/types/api";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
+const icons = useIcons();
+
 /** Ouvrir des cartons pour vendre au détail : leurs pièces passent dans le produit « pièce ». */
 const { product } = defineProps<{ product: ProductDetail }>();
 const open = defineModel<boolean>("open", { required: true });
@@ -94,7 +96,7 @@ const submit = async () => {
         <UButton
           type="submit"
           form="unpack-form"
-          icon="i-lucide-package-open"
+          :icon="icons.unpack"
           :label="`Ouvrir ${qty || 0} ${product.unit}${qty > 1 ? 's' : ''}`"
           :disabled="!valid"
           :loading="mutation.isPending.value"

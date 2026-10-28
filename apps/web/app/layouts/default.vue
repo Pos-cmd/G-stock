@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/vue-query";
 
 import UserMenu from "~/components/layout/UserMenu.vue";
 
+const icons = useIcons();
+
 const { $orpc } = useNuxtApp();
 const open = ref(false);
 
@@ -21,7 +23,7 @@ const closeOnMobile = () => {
 
 const mainLinks = computed<NavigationMenuItem[]>(() => [
   {
-    icon: "i-lucide-layout-dashboard",
+    icon: icons.dashboard,
     label: "Tableau de bord",
     onSelect: closeOnMobile,
     to: "/",
@@ -33,7 +35,7 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
       { label: "Mouvements", onSelect: closeOnMobile, to: "/stock/mouvements" },
     ],
     defaultOpen: true,
-    icon: "i-lucide-boxes",
+    icon: icons.products,
     label: "Stock & Produits",
     type: "trigger",
   },
@@ -43,7 +45,7 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
       { exact: true, label: "Historique", onSelect: closeOnMobile, to: "/ventes" },
     ],
     defaultOpen: true,
-    icon: "i-lucide-shopping-cart",
+    icon: icons.sales,
     label: "Ventes",
     type: "trigger",
   },
@@ -52,7 +54,7 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
       criticalDebtors.value > 0
         ? { color: "error", label: String(criticalDebtors.value) }
         : undefined,
-    icon: "i-lucide-users",
+    icon: icons.customers,
     label: "Clients",
     onSelect: closeOnMobile,
     to: "/clients",
@@ -63,7 +65,7 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
       { label: "Fournisseurs", onSelect: closeOnMobile, to: "/achats/fournisseurs" },
     ],
     defaultOpen: true,
-    icon: "i-lucide-ship",
+    icon: icons.purchases,
     label: "Achats",
     type: "trigger",
   },
@@ -73,12 +75,12 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
       { label: "Comparer", onSelect: closeOnMobile, to: "/simulateur/comparer" },
     ],
     defaultOpen: true,
-    icon: "i-lucide-calculator",
+    icon: icons.simulations,
     label: "Simulateur",
     type: "trigger",
   },
   {
-    icon: "i-lucide-file-text",
+    icon: icons.documents,
     label: "Documents",
     onSelect: closeOnMobile,
     to: "/documents",
@@ -87,7 +89,7 @@ const mainLinks = computed<NavigationMenuItem[]>(() => [
 
 const secondaryLinks: NavigationMenuItem[] = [
   {
-    icon: "i-lucide-settings",
+    icon: icons.settings,
     label: "Paramètres",
     onSelect: closeOnMobile,
     to: "/parametres",
@@ -107,7 +109,7 @@ const secondaryLinks: NavigationMenuItem[] = [
     >
       <template #header="{ collapsed }">
         <NuxtLink to="/" class="text-highlighted flex items-center gap-2 px-1">
-          <UIcon name="i-lucide-boxes" class="text-primary size-6 shrink-0" />
+          <UIcon :name="icons.logo" class="text-primary size-6 shrink-0" />
           <span v-if="!collapsed" class="text-lg font-semibold tracking-tight">G-stock</span>
         </NuxtLink>
       </template>

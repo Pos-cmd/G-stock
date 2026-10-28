@@ -9,6 +9,8 @@ import { z } from "zod";
 import { useSettingsStore } from "~/stores/settings";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
+const icons = useIcons();
+
 const { product } = defineProps<{
   product: { id: string; name: string; unit: string } | null;
 }>();
@@ -132,8 +134,8 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
             color="neutral"
             variant="ghost"
             block
-            icon="i-lucide-calculator"
-            trailing-icon="i-lucide-chevron-down"
+            :icon="icons.calculate"
+            :trailing-icon="icons.chevronDown"
             label="Calculer depuis un prix en RMB"
             class="justify-start"
             :ui="{ trailingIcon: 'ms-auto' }"

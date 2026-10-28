@@ -2,6 +2,8 @@
 import type { AuthFormField, FormSubmitEvent } from "@nuxt/ui";
 import { z } from "zod";
 
+const icons = useIcons();
+
 defineEmits<{ switchToSignUp: [] }>();
 
 const { $authClient } = useNuxtApp();
@@ -57,7 +59,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
       :schema="schema"
       :fields="fields"
       title="Connexion"
-      icon="i-lucide-log-in"
+      :icon="icons.signIn"
       :submit="{ label: 'Se connecter', loading }"
       @submit="onSubmit"
     >

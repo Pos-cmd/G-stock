@@ -2,6 +2,8 @@
 import { SALE_STATUS_LABELS } from "@G-stock/core/labels";
 import { useQuery } from "@tanstack/vue-query";
 
+const icons = useIcons();
+
 /** Filtres de l'historique : recherche, période (avec raccourcis), produit, statut, paiement. */
 const {
   periodOnly = false,
@@ -59,7 +61,7 @@ const hasFilters = computed(() => {
     <UInput
       v-if="showSearch && !periodOnly"
       v-model="filters.search"
-      icon="i-lucide-search"
+      :icon="icons.search"
       placeholder="N° de vente, client…"
       class="w-full sm:w-56"
     />
@@ -74,7 +76,7 @@ const hasFilters = computed(() => {
         }))
       "
     >
-      <UButton color="neutral" variant="outline" icon="i-lucide-calendar-range" label="Période" />
+      <UButton color="neutral" variant="outline" :icon="icons.period" label="Période" />
     </UDropdownMenu>
     <USelectMenu
       v-if="!periodOnly"
@@ -97,7 +99,7 @@ const hasFilters = computed(() => {
       v-if="hasFilters"
       color="neutral"
       variant="ghost"
-      icon="i-lucide-x"
+      :icon="icons.close"
       label="Réinitialiser"
       @click="filters = emptySalesFilters()"
     />

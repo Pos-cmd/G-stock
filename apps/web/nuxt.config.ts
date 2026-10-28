@@ -56,6 +56,11 @@ export default defineNuxtConfig({
       );
     },
   },
+  icon: {
+    // Sans SSR, une icône absente du bundle client est demandée à api.iconify.design : on embarque
+    // toutes celles déclarées dans app.config.ts pour que l'application marche hors ligne.
+    clientBundle: { scan: { globInclude: ["app/app.config.ts"] } },
+  },
   modules: ["@varlock/nuxt-integration", "@nuxt/ui", "@pinia/nuxt", "@vueuse/nuxt"],
   nitro: {
     externals: { traceInclude: libsqlBindings },

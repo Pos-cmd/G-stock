@@ -16,6 +16,8 @@ import UnpackModal from "~/components/stock/UnpackModal.vue";
 import { useSettingsStore } from "~/stores/settings";
 import type { StockLot } from "~/types/api";
 
+const icons = useIcons();
+
 const route = useRoute();
 const productId = computed(() => String(route.params.id));
 
@@ -95,8 +97,8 @@ const toggleArchive = async () => {
 };
 
 const tabs: TabsItem[] = [
-  { icon: "i-lucide-layers", label: "Lots", slot: "lots" },
-  { icon: "i-lucide-history", label: "Mouvements", slot: "movements" },
+  { icon: icons.lots, label: "Lots", slot: "lots" },
+  { icon: icons.movements, label: "Mouvements", slot: "movements" },
 ];
 
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
@@ -116,20 +118,20 @@ const lotColumns: TableColumn<StockLot>[] = [
   <PagePanel
     id="product-detail"
     :title="product.data.value?.name ?? 'Produit'"
-    icon="i-lucide-package"
+    :icon="icons.product"
   >
     <template #actions>
       <UButton
         to="/produits"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Produits"
       />
       <UButton
         color="neutral"
         variant="outline"
-        :icon="isArchived ? 'i-lucide-archive-restore' : 'i-lucide-archive'"
+        :icon="isArchived ? icons.unarchive : icons.archive"
         :label="isArchived ? 'Restaurer' : 'Archiver'"
         :disabled="!product.data.value"
         @click="toggleArchive"
@@ -137,7 +139,7 @@ const lotColumns: TableColumn<StockLot>[] = [
       <UButton
         color="neutral"
         variant="outline"
-        icon="i-lucide-pencil"
+        :icon="icons.edit"
         label="Modifier"
         :disabled="!product.data.value"
         @click="formOpen = true"
@@ -146,13 +148,13 @@ const lotColumns: TableColumn<StockLot>[] = [
         v-if="product.data.value?.piecesPerUnit"
         color="neutral"
         variant="outline"
-        icon="i-lucide-package-open"
+        :icon="icons.unpack"
         :label="`Ouvrir des ${product.data.value.unit}s`"
         :disabled="!canUnpack"
         @click="unpackOpen = true"
       />
       <UButton
-        icon="i-lucide-package-plus"
+        :icon="icons.stockEntry"
         label="Entrée de stock"
         :disabled="!product.data.value || isArchived"
         @click="entryOpen = true"
@@ -163,7 +165,7 @@ const lotColumns: TableColumn<StockLot>[] = [
       v-if="product.isError.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="Produit introuvable"
       :description="product.error.value?.message"
     />
@@ -173,7 +175,7 @@ const lotColumns: TableColumn<StockLot>[] = [
         v-if="isArchived"
         color="neutral"
         variant="subtle"
-        icon="i-lucide-archive"
+        :icon="icons.archive"
         title="Produit archivé"
         description="Il n'apparaît plus dans les listes et son stock ne peut plus être mouvementé."
       />
@@ -182,7 +184,7 @@ const lotColumns: TableColumn<StockLot>[] = [
         v-if="product.data.value?.pieceProduct || product.data.value?.packProducts.length"
         class="bg-elevated/50 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-3 py-2 text-sm"
       >
-        <UIcon name="i-lucide-package-open" class="text-muted size-4" />
+        <UIcon :name="icons.unpack" class="text-muted size-4" />
         <template v-if="product.data.value.pieceProduct">
           <span class="text-muted">
             {{ product.data.value.piecesPerUnit }} pièces par {{ product.data.value.unit }}, vendues
@@ -207,7 +209,7 @@ const lotColumns: TableColumn<StockLot>[] = [
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Stock disponible"
-          icon="i-lucide-boxes"
+          :icon="icons.stock"
           :loading="product.isPending.value"
           :value="
             product.data.value
@@ -223,14 +225,14 @@ const lotColumns: TableColumn<StockLot>[] = [
         />
         <KpiCard
           label="Valeur du stock"
-          icon="i-lucide-wallet"
+          :icon="icons.stockValue"
           :loading="product.isPending.value"
           :value="formatFcfa(product.data.value?.stockValueFcfa ?? 0)"
           hint="Au coût de revient des lots"
         />
         <KpiCard
           label="Coût moyen pondéré"
-          icon="i-lucide-scale"
+          :icon="icons.averageCost"
           color="neutral"
           :loading="product.isPending.value"
           :value="
@@ -240,7 +242,7 @@ const lotColumns: TableColumn<StockLot>[] = [
         />
         <KpiCard
           label="Prix de vente conseillé"
-          icon="i-lucide-tag"
+          :icon="icons.price"
           color="primary"
           :loading="product.isPending.value"
           :value="
@@ -355,7 +357,7 @@ const lotColumns: TableColumn<StockLot>[] = [
                   size="sm"
                   color="neutral"
                   variant="ghost"
-                  icon="i-lucide-sliders-horizontal"
+                  :icon="icons.stockAdjust"
                   label="Ajuster"
                   :disabled="isArchived"
                   @click="openAdjust(row.original)"
@@ -366,7 +368,7 @@ const lotColumns: TableColumn<StockLot>[] = [
                   <p class="text-muted">Aucun lot en stock pour ce produit.</p>
                   <UButton
                     variant="soft"
-                    icon="i-lucide-package-plus"
+                    :icon="icons.stockEntry"
                     label="Enregistrer une entrée"
                     :disabled="isArchived"
                     @click="entryOpen = true"

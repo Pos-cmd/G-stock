@@ -10,6 +10,8 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import PaymentModal from "~/components/sales/PaymentModal.vue";
 import type { CustomerRow } from "~/types/api";
 
+const icons = useIcons();
+
 useHead({ title: "Clients" });
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -63,18 +65,18 @@ const openCreate = () => {
 const rowActions = (customer: CustomerRow): DropdownMenuItem[][] => [
   [
     {
-      icon: "i-lucide-eye",
+      icon: icons.eye,
       label: "Voir la fiche",
       to: `/clients/${customer.id}`,
     },
     {
-      icon: "i-lucide-shopping-cart",
+      icon: icons.sales,
       label: "Nouvelle vente",
       to: { path: "/ventes/nouvelle", query: { client: customer.id } },
     },
     {
       disabled: customer.dueFcfa <= 0,
-      icon: "i-lucide-banknote",
+      icon: icons.payment,
       label: "Encaisser",
       onSelect: () => {
         payingCustomer.value = customer;
@@ -82,7 +84,7 @@ const rowActions = (customer: CustomerRow): DropdownMenuItem[][] => [
       },
     },
     {
-      icon: "i-lucide-pencil",
+      icon: icons.edit,
       label: "Modifier",
       onSelect: () => {
         editedCustomer.value = customer;
@@ -104,16 +106,16 @@ const columns: TableColumn<CustomerRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="customers" title="Clients" icon="i-lucide-users">
+  <PagePanel id="customers" title="Clients" :icon="icons.customers">
     <template #actions>
-      <UButton icon="i-lucide-user-plus" label="Nouveau client" @click="openCreate" />
+      <UButton :icon="icons.customerAdd" label="Nouveau client" @click="openCreate" />
     </template>
 
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
         <UInput
           v-model="search"
-          icon="i-lucide-search"
+          :icon="icons.search"
           placeholder="Nom, téléphone, quartier…"
           class="w-full sm:w-72"
         />
@@ -125,7 +127,7 @@ const columns: TableColumn<CustomerRow>[] = [
       <div class="grid gap-4 sm:grid-cols-3">
         <KpiCard
           label="Créances en cours"
-          icon="i-lucide-hourglass"
+          :icon="icons.pending"
           color="warning"
           :loading="customers.isPending.value"
           :value="formatFcfa(totals.dueFcfa)"
@@ -133,7 +135,7 @@ const columns: TableColumn<CustomerRow>[] = [
         />
         <KpiCard
           label="Créances critiques"
-          icon="i-lucide-siren"
+          :icon="icons.receivablesCritical"
           color="error"
           :loading="customers.isPending.value"
           :value="String(totals.critical)"
@@ -141,7 +143,7 @@ const columns: TableColumn<CustomerRow>[] = [
         />
         <KpiCard
           label="Clients"
-          icon="i-lucide-users"
+          :icon="icons.customers"
           color="neutral"
           :loading="customers.isPending.value"
           :value="String(customers.data.value?.length ?? 0)"
@@ -192,7 +194,7 @@ const columns: TableColumn<CustomerRow>[] = [
         <template #actions-cell="{ row }">
           <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
             <UButton
-              icon="i-lucide-ellipsis-vertical"
+              :icon="icons.moreActions"
               color="neutral"
               variant="ghost"
               :aria-label="`Actions pour ${row.original.name}`"
@@ -201,13 +203,13 @@ const columns: TableColumn<CustomerRow>[] = [
         </template>
         <template #empty>
           <div class="flex flex-col items-center gap-3 py-10 text-center">
-            <UIcon name="i-lucide-users" class="text-dimmed size-10" />
+            <UIcon :name="icons.customers" class="text-dimmed size-10" />
             <p class="text-muted">
               {{ withDebtOnly ? "Aucun client ne doit d'argent." : "Aucun client ne correspond." }}
             </p>
             <UButton
               variant="soft"
-              icon="i-lucide-user-plus"
+              :icon="icons.customerAdd"
               label="Ajouter un client"
               @click="openCreate"
             />

@@ -15,6 +15,8 @@ import ProductSalesTable from "~/components/sales/ProductSalesTable.vue";
 import SalesFilters from "~/components/sales/SalesFilters.vue";
 import SalesTable from "~/components/sales/SalesTable.vue";
 
+const icons = useIcons();
+
 const route = useRoute();
 const customerId = computed(() => String(route.params.id));
 
@@ -39,15 +41,15 @@ useHead({ title: () => data.value?.name ?? "Client" });
 const filters = ref<SalesFilterState>(emptySalesFilters());
 
 const tabs: TabsItem[] = [
-  { icon: "i-lucide-receipt", label: "Achats", slot: "sales", value: "sales" },
+  { icon: icons.sale, label: "Achats", slot: "sales", value: "sales" },
   {
-    icon: "i-lucide-boxes",
+    icon: icons.products,
     label: "Par produit",
     slot: "products",
     value: "products",
   },
   {
-    icon: "i-lucide-banknote",
+    icon: icons.payment,
     label: "Paiements",
     slot: "payments",
     value: "payments",
@@ -100,27 +102,27 @@ const confirmCancelPayment = async (reason: string) => {
 </script>
 
 <template>
-  <PagePanel id="customer-detail" :title="data?.name ?? 'Client'" icon="i-lucide-user">
+  <PagePanel id="customer-detail" :title="data?.name ?? 'Client'" :icon="icons.customer">
     <template #actions>
       <UButton
         to="/clients"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Clients"
       />
       <UButton
         v-if="data && data.saleCount === 0"
         color="error"
         variant="ghost"
-        icon="i-lucide-trash-2"
+        :icon="icons.trash"
         aria-label="Supprimer le client"
         @click="deleteOpen = true"
       />
       <UButton
         color="neutral"
         variant="outline"
-        icon="i-lucide-pencil"
+        :icon="icons.edit"
         label="Modifier"
         :disabled="!data"
         @click="formOpen = true"
@@ -128,13 +130,13 @@ const confirmCancelPayment = async (reason: string) => {
       <UButton
         color="neutral"
         variant="outline"
-        icon="i-lucide-banknote"
+        :icon="icons.payment"
         label="Encaisser"
         :disabled="!data"
         @click="paymentOpen = true"
       />
       <UButton
-        icon="i-lucide-shopping-cart"
+        :icon="icons.sales"
         label="Nouvelle vente"
         :to="{ path: '/ventes/nouvelle', query: { client: customerId } }"
       />
@@ -144,7 +146,7 @@ const confirmCancelPayment = async (reason: string) => {
       v-if="customer.isError.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="Client introuvable"
       :description="customer.error.value?.message"
     />
@@ -153,14 +155,14 @@ const confirmCancelPayment = async (reason: string) => {
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Total acheté"
-          icon="i-lucide-shopping-bag"
+          :icon="icons.customerPurchases"
           :loading="customer.isPending.value"
           :value="formatFcfa(data?.purchasedFcfa ?? 0)"
           :hint="`${data?.saleCount ?? 0} vente(s), remises déduites`"
         />
         <KpiCard
           label="Reste dû"
-          icon="i-lucide-hourglass"
+          :icon="icons.pending"
           :color="(data?.dueFcfa ?? 0) > 0 ? 'warning' : 'success'"
           :loading="customer.isPending.value"
           :value="formatFcfa(data?.dueFcfa ?? 0)"
@@ -172,7 +174,7 @@ const confirmCancelPayment = async (reason: string) => {
         />
         <KpiCard
           label="Avoir"
-          icon="i-lucide-wallet"
+          :icon="icons.customerCredit"
           color="success"
           :loading="customer.isPending.value"
           :value="formatFcfa(data?.creditFcfa ?? 0)"
@@ -180,7 +182,7 @@ const confirmCancelPayment = async (reason: string) => {
         />
         <KpiCard
           label="Dernier achat"
-          icon="i-lucide-calendar"
+          :icon="icons.calendar"
           color="neutral"
           :loading="customer.isPending.value"
           :value="data?.lastSaleDate ? formatDate(data.lastSaleDate) : '—'"
@@ -190,12 +192,12 @@ const confirmCancelPayment = async (reason: string) => {
       <UPageCard v-if="data" variant="subtle">
         <div class="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
           <span v-if="data.phone"
-            ><UIcon name="i-lucide-phone" class="text-dimmed me-1 align-middle" />{{
+            ><UIcon :name="icons.phone" class="text-dimmed me-1 align-middle" />{{
               data.phone
             }}</span
           >
           <span v-if="data.address"
-            ><UIcon name="i-lucide-map-pin" class="text-dimmed me-1 align-middle" />{{
+            ><UIcon :name="icons.address" class="text-dimmed me-1 align-middle" />{{
               data.address
             }}</span
           >
@@ -273,7 +275,7 @@ const confirmCancelPayment = async (reason: string) => {
                     color="neutral"
                     variant="ghost"
                     size="sm"
-                    icon="i-lucide-undo-2"
+                    :icon="icons.undo"
                     :aria-label="`Annuler le paiement du ${formatDate(payment.paymentDate)}`"
                     @click="cancelledPaymentId = payment.id"
                   />

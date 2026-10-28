@@ -13,6 +13,8 @@ import { z } from "zod";
 import CustomerFormModal from "~/components/customers/CustomerFormModal.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 
+const icons = useIcons();
+
 useHead({ title: "Nouvelle vente" });
 
 const QUOTE_DEBOUNCE_MS = 300;
@@ -221,19 +223,19 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
 </script>
 
 <template>
-  <PagePanel id="sale-new" title="Nouvelle vente" icon="i-lucide-shopping-cart">
+  <PagePanel id="sale-new" title="Nouvelle vente" :icon="icons.sales">
     <template #actions>
       <UButton
         to="/ventes"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Ventes"
       />
       <UButton
         type="submit"
         form="sale-form"
-        icon="i-lucide-check"
+        :icon="icons.check"
         label="Enregistrer la vente"
         :loading="mutation.isPending.value"
       />
@@ -255,7 +257,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
               <UButton
                 color="neutral"
                 variant="outline"
-                icon="i-lucide-user-plus"
+                :icon="icons.customerAdd"
                 aria-label="Nouveau client"
                 @click="customerModalOpen = true"
               />
@@ -373,7 +375,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
                     <UButton
                       color="neutral"
                       variant="ghost"
-                      icon="i-lucide-trash-2"
+                      :icon="icons.trash"
                       :aria-label="`Retirer la ligne ${index + 1}`"
                       :disabled="state.lines.length === 1"
                       @click="removeLine(line.key)"
@@ -386,26 +388,21 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
         </UFormField>
 
         <div class="flex flex-wrap items-center gap-2">
-          <UButton
-            variant="soft"
-            icon="i-lucide-plus"
-            label="Ajouter un produit"
-            @click="addLine"
-          />
+          <UButton variant="soft" :icon="icons.plus" label="Ajouter un produit" @click="addLine" />
         </div>
 
         <UAlert
           v-if="lossLines > 0"
           color="warning"
           variant="subtle"
-          icon="i-lucide-triangle-alert"
+          :icon="icons.warning"
           :description="`${lossLines} ligne${lossLines > 1 ? 's sont vendues' : ' est vendue'} sous le coût de revient. La vente reste possible.`"
         />
         <UAlert
           v-if="hasMissingStock"
           color="error"
           variant="subtle"
-          icon="i-lucide-package-x"
+          :icon="icons.stockMissing"
           description="Stock insuffisant sur au moins une ligne : la vente sera refusée tant que la quantité dépasse le stock."
         />
       </UPageCard>
@@ -444,12 +441,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
           </div>
         </UPageCard>
 
-        <UPageCard
-          variant="subtle"
-          title="Récapitulatif"
-          icon="i-lucide-receipt"
-          class="lg:self-start"
-        >
+        <UPageCard variant="subtle" title="Récapitulatif" :icon="icons.sale" class="lg:self-start">
           <dl class="space-y-2 text-sm">
             <div class="flex justify-between gap-4">
               <dt class="text-muted">Total</dt>

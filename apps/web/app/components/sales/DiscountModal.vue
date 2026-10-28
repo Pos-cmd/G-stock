@@ -6,6 +6,8 @@ import { useMutation } from "@tanstack/vue-query";
 import { z } from "zod";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
+const icons = useIcons();
+
 /** Remise accordée après la vente : montant et motif obligatoire, tracés dans l'historique. */
 const { sale } = defineProps<{
   sale: { id: string; reference: string; netFcfa: number };
@@ -111,7 +113,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
         <UButton
           type="submit"
           form="discount-form"
-          icon="i-lucide-badge-percent"
+          :icon="icons.discount"
           label="Enregistrer la remise"
           :loading="mutation.isPending.value"
         />

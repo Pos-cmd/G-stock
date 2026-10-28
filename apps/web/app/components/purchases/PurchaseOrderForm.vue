@@ -21,6 +21,8 @@ import SupplierFormModal from "~/components/purchases/SupplierFormModal.vue";
 import { useSettingsStore } from "~/stores/settings";
 import type { PurchaseOrderDetail } from "~/types/api";
 
+const icons = useIcons();
+
 const { formId = "purchase-form", order = null } = defineProps<{
   order?: PurchaseOrderDetail | null;
   formId?: string;
@@ -369,7 +371,7 @@ defineExpose({ saving });
             <UButton
               color="neutral"
               variant="outline"
-              icon="i-lucide-plus"
+              :icon="icons.plus"
               aria-label="Nouveau fournisseur"
               @click="supplierModalOpen = true"
             />
@@ -542,7 +544,7 @@ defineExpose({ saving });
                   <UButton
                     color="neutral"
                     variant="ghost"
-                    icon="i-lucide-trash-2"
+                    :icon="icons.trash"
                     :aria-label="`Retirer la ligne ${index + 1}`"
                     :disabled="state.items.length === 1"
                     @click="removeLine(line.key)"
@@ -555,11 +557,11 @@ defineExpose({ saving });
       </UFormField>
 
       <div class="flex flex-wrap items-center gap-2">
-        <UButton variant="soft" icon="i-lucide-plus" label="Ajouter une ligne" @click="addLine()" />
+        <UButton variant="soft" :icon="icons.plus" label="Ajouter une ligne" @click="addLine()" />
         <UButton
           color="neutral"
           variant="ghost"
-          icon="i-lucide-package-plus"
+          :icon="icons.productAdd"
           label="Créer un produit"
           @click="productModalOpen = true"
         />

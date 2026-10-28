@@ -2,6 +2,8 @@
 import type { AuthFormField, FormSubmitEvent } from "@nuxt/ui";
 import { z } from "zod";
 
+const icons = useIcons();
+
 defineEmits<{ switchToSignIn: [] }>();
 
 const { $authClient } = useNuxtApp();
@@ -67,7 +69,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
       :schema="schema"
       :fields="fields"
       title="Créer un compte"
-      icon="i-lucide-user-plus"
+      :icon="icons.signUp"
       :submit="{ label: 'Créer le compte', loading }"
       @submit="onSubmit"
     >

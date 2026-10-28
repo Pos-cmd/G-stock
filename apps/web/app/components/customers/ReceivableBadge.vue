@@ -2,6 +2,8 @@
 import type { ReceivableLevel } from "@G-stock/core/enums";
 import { RECEIVABLE_LEVEL_LABELS } from "@G-stock/core/labels";
 
+const icons = useIcons();
+
 defineProps<{ level: ReceivableLevel; days: number }>();
 
 const colors = {
@@ -13,7 +15,7 @@ const colors = {
 </script>
 
 <template>
-  <UBadge :color="colors[level]" variant="subtle" size="sm" icon="i-lucide-clock">
+  <UBadge :color="colors[level]" variant="subtle" size="sm" :icon="icons.overdue">
     {{ RECEIVABLE_LEVEL_LABELS[level] }} · {{ days }} j
   </UBadge>
 </template>

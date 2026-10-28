@@ -6,6 +6,8 @@ import ReasonDialog from "~/components/common/ReasonDialog.vue";
 import SupplierPaymentModal from "~/components/purchases/SupplierPaymentModal.vue";
 import type { PurchaseOrderDetail } from "~/types/api";
 
+const icons = useIcons();
+
 /** Versements au fournisseur d'une commande : ce qui est payé, à quel taux, ce qui reste. */
 const { order } = defineProps<{ order: PurchaseOrderDetail }>();
 
@@ -66,12 +68,12 @@ const confirmCancel = async (reason: string) => {
     <template #title>
       <div class="flex flex-wrap items-center justify-between gap-3">
         <span class="flex items-center gap-2">
-          <UIcon name="i-lucide-send" class="text-primary size-5" />
+          <UIcon :name="icons.supplierPayment" class="text-primary size-5" />
           Paiements au fournisseur
         </span>
         <UButton
           v-if="canPay"
-          icon="i-lucide-plus"
+          :icon="icons.plus"
           label="Ajouter un versement"
           color="neutral"
           variant="outline"
@@ -133,7 +135,7 @@ const confirmCancel = async (reason: string) => {
         v-if="exchange"
         :color="exchange > 0 ? 'warning' : 'success'"
         variant="subtle"
-        icon="i-lucide-arrow-right-left"
+        :icon="icons.exchangeRate"
         :title="`${exchange > 0 ? 'Perte' : 'Gain'} de change : ${formatFcfa(Math.abs(exchange))}`"
         :description="`Les lots ont été valorisés à la réception avec ${formatFcfa(order.costs.goodsFcfa)} de marchandise ; avec les versements, elle revient à ${formatFcfa(payment.goodsFcfa)}. Les lots ne sont pas recalculés.`"
       />
@@ -166,7 +168,7 @@ const confirmCancel = async (reason: string) => {
             </span>
             <UButton
               v-if="!entry.cancelledAt"
-              icon="i-lucide-undo-2"
+              :icon="icons.undo"
               color="neutral"
               variant="ghost"
               size="xs"

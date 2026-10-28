@@ -10,6 +10,8 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue";
 import type { PurchaseOrderRow } from "~/types/api";
 
+const icons = useIcons();
+
 useHead({ title: "Commandes fournisseurs" });
 
 const ALL = "all";
@@ -70,23 +72,23 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="purchases" title="Commandes fournisseurs" icon="i-lucide-ship">
+  <PagePanel id="purchases" title="Commandes fournisseurs" :icon="icons.purchases">
     <template #actions>
       <UButton
         to="/achats/fournisseurs"
         color="neutral"
         variant="outline"
-        icon="i-lucide-factory"
+        :icon="icons.suppliers"
         label="Fournisseurs"
       />
-      <UButton to="/achats/nouvelle" icon="i-lucide-plus" label="Nouvelle commande" />
+      <UButton to="/achats/nouvelle" :icon="icons.plus" label="Nouvelle commande" />
     </template>
 
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
         <UInput
           v-model="search"
-          icon="i-lucide-search"
+          :icon="icons.search"
           placeholder="Référence, fournisseur, notes…"
           class="w-full sm:w-72"
         />
@@ -190,12 +192,12 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
 
         <template #empty>
           <div class="flex flex-col items-center gap-3 py-10 text-center">
-            <UIcon name="i-lucide-ship" class="text-dimmed size-10" />
+            <UIcon :name="icons.purchases" class="text-dimmed size-10" />
             <p class="text-muted">Aucune commande ne correspond à ces critères.</p>
             <UButton
               to="/achats/nouvelle"
               variant="soft"
-              icon="i-lucide-plus"
+              :icon="icons.plus"
               label="Créer une commande"
             />
           </div>

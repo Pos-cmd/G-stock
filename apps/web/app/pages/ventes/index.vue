@@ -6,14 +6,16 @@ import ProductSalesTable from "~/components/sales/ProductSalesTable.vue";
 import SalesFilters from "~/components/sales/SalesFilters.vue";
 import SalesTable from "~/components/sales/SalesTable.vue";
 
+const icons = useIcons();
+
 useHead({ title: "Ventes" });
 
 const filters = ref<SalesFilterState>(emptySalesFilters());
 
 const tabs: TabsItem[] = [
-  { icon: "i-lucide-receipt", label: "Ventes", slot: "sales", value: "sales" },
+  { icon: icons.sale, label: "Ventes", slot: "sales", value: "sales" },
   {
-    icon: "i-lucide-boxes",
+    icon: icons.products,
     label: "Par produit",
     slot: "products",
     value: "products",
@@ -22,9 +24,9 @@ const tabs: TabsItem[] = [
 </script>
 
 <template>
-  <PagePanel id="sales" title="Ventes" icon="i-lucide-shopping-cart">
+  <PagePanel id="sales" title="Ventes" :icon="icons.sales">
     <template #actions>
-      <UButton to="/ventes/nouvelle" icon="i-lucide-plus" label="Nouvelle vente" />
+      <UButton to="/ventes/nouvelle" :icon="icons.plus" label="Nouvelle vente" />
     </template>
 
     <template #toolbar>

@@ -3,6 +3,7 @@ import { QueryCache, QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 
 export default defineNuxtPlugin((nuxt) => {
   const toast = useToast();
+  const icons = useIcons();
 
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -15,7 +16,7 @@ export default defineNuxtPlugin((nuxt) => {
         toast.add({
           color: "error",
           description: error?.message || "Une erreur inattendue est survenue.",
-          icon: "i-lucide-circle-alert",
+          icon: icons.error,
           title: "Erreur de chargement",
         });
       },

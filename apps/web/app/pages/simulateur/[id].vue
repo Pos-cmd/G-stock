@@ -6,6 +6,8 @@ import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import SimulationEditor from "~/components/simulator/SimulationEditor.vue";
 
+const icons = useIcons();
+
 const SAVE_FIRST_HINT = "Enregistrez d'abord vos modifications";
 
 const route = useRoute();
@@ -67,12 +69,12 @@ const convert = async () => {
 const moreActions = computed<DropdownMenuItem[][]>(() => [
   [
     {
-      icon: "i-lucide-copy",
+      icon: icons.copy,
       label: "Dupliquer pour comparer",
       onSelect: duplicate,
     },
     {
-      icon: "i-lucide-git-compare",
+      icon: icons.compare,
       label: "Comparer avec…",
       to: comparisonLink([{ id: simulationId.value, type: "simulation" }]),
     },
@@ -81,20 +83,20 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
 </script>
 
 <template>
-  <PagePanel id="simulation-detail" :title="data?.name ?? 'Simulation'" icon="i-lucide-calculator">
+  <PagePanel id="simulation-detail" :title="data?.name ?? 'Simulation'" :icon="icons.simulations">
     <template #actions>
       <UButton
         to="/simulateur"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Simulations"
       />
       <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
         <UButton
           color="neutral"
           variant="outline"
-          icon="i-lucide-ellipsis-vertical"
+          :icon="icons.moreActions"
           aria-label="Autres actions"
         />
       </UDropdownMenu>
@@ -102,7 +104,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         <UButton
           color="neutral"
           variant="outline"
-          icon="i-lucide-file-down"
+          :icon="icons.pdf"
           label="PDF"
           :disabled="dirty || !data"
           :loading="generating"
@@ -114,14 +116,14 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         :to="`/achats/${data.purchaseOrderId}`"
         color="neutral"
         variant="outline"
-        icon="i-lucide-ship"
+        :icon="icons.purchases"
         :label="`Commande ${data.orderReference ?? ''}`"
       />
       <UTooltip v-else :text="SAVE_FIRST_HINT" :disabled="!dirty">
         <UButton
           color="neutral"
           variant="outline"
-          icon="i-lucide-ship"
+          :icon="icons.purchases"
           label="Créer la commande"
           :disabled="dirty || !data"
           @click="convertOpen = true"
@@ -130,7 +132,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
       <UButton
         type="submit"
         form="simulation-form"
-        icon="i-lucide-save"
+        :icon="icons.save"
         label="Enregistrer"
         :disabled="!dirty"
         :loading="editor?.saving"
@@ -141,7 +143,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
       v-if="simulation.isError.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="Simulation introuvable"
       :description="simulation.error.value?.message"
     />

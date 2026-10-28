@@ -9,6 +9,8 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import BackupStatus from "~/components/settings/BackupStatus.vue";
 import { useSettingsStore } from "~/stores/settings";
 
+const icons = useIcons();
+
 useHead({ title: "Paramètres" });
 
 const SAMPLE_AMOUNT_RMB = 100;
@@ -59,12 +61,12 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
 </script>
 
 <template>
-  <PagePanel id="settings" title="Paramètres" icon="i-lucide-settings">
+  <PagePanel id="settings" title="Paramètres" :icon="icons.settings">
     <UAlert
       v-if="settingsStore.error"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="Impossible de charger les paramètres"
       :description="settingsStore.error.message"
       class="mb-6"
@@ -107,7 +109,7 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
           v-if="previewRates"
           class="bg-elevated/50 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm"
         >
-          <UIcon name="i-lucide-arrow-right-left" class="text-muted size-4" />
+          <UIcon :name="icons.exchangeRate" class="text-muted size-4" />
           <span>{{ formatRmb(SAMPLE_AMOUNT_RMB) }}</span>
           <span class="text-muted">→</span>
           <span>{{ formatUsd(rmbToUsd(SAMPLE_AMOUNT_RMB, previewRates)) }}</span>
@@ -165,7 +167,7 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
               v-model="state.phoneCountryCode"
               placeholder="ex. 228"
               inputmode="numeric"
-              icon="i-lucide-phone"
+              :icon="icons.phone"
               class="w-full"
             />
           </UFormField>
@@ -176,7 +178,7 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
             class="sm:col-span-2"
             help="Sous-dossiers créés automatiquement : Ventes, Simulations, Commandes/<référence>."
           >
-            <UInput v-model="state.documentsFolder" icon="i-lucide-folder" class="w-full" />
+            <UInput v-model="state.documentsFolder" :icon="icons.folder" class="w-full" />
           </UFormField>
         </div>
       </UPageCard>
@@ -188,7 +190,7 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
       >
         <div class="grid gap-4 sm:grid-cols-[1fr_12rem]">
           <UFormField label="Dossier des sauvegardes" name="backupFolder" required>
-            <UInput v-model="state.backupFolder" icon="i-lucide-folder-lock" class="w-full" />
+            <UInput v-model="state.backupFolder" :icon="icons.backupFolder" class="w-full" />
           </UFormField>
           <UFormField
             label="Sauvegardes conservées"
@@ -204,7 +206,7 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
       </UPageCard>
 
       <div class="flex justify-end">
-        <UButton type="submit" icon="i-lucide-save" label="Enregistrer" :loading="saving" />
+        <UButton type="submit" :icon="icons.save" label="Enregistrer" :loading="saving" />
       </div>
     </UForm>
   </PagePanel>

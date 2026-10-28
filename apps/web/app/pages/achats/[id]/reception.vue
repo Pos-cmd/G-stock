@@ -19,6 +19,8 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
 import type { PurchaseOrderDetail } from "~/types/api";
 
+const icons = useIcons();
+
 const route = useRoute();
 const orderId = computed(() => String(route.params.id));
 
@@ -295,14 +297,14 @@ const confirmDescription = computed(
   <PagePanel
     id="purchase-reception"
     :title="data ? `Réception ${data.reference}` : 'Réception'"
-    icon="i-lucide-package-check"
+    :icon="icons.reception"
   >
     <template #actions>
       <UButton
         :to="`/achats/${orderId}`"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Commande"
       />
       <template v-if="data && !data.isLocked">
@@ -311,7 +313,7 @@ const confirmDescription = computed(
           form="reception-form"
           color="neutral"
           variant="outline"
-          icon="i-lucide-save"
+          :icon="icons.save"
           label="Enregistrer"
           :loading="saveMutation.isPending.value"
           @click="intent = 'save'"
@@ -320,7 +322,7 @@ const confirmDescription = computed(
           type="submit"
           form="reception-form"
           color="success"
-          icon="i-lucide-package-check"
+          :icon="icons.reception"
           label="Valider la réception"
           @click="intent = 'receive'"
         />
@@ -331,7 +333,7 @@ const confirmDescription = computed(
       v-if="order.isError.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="Commande introuvable"
       :description="order.error.value?.message"
     />
@@ -340,7 +342,7 @@ const confirmDescription = computed(
       v-else-if="data?.isLocked"
       color="neutral"
       variant="subtle"
-      icon="i-lucide-lock"
+      :icon="icons.locked"
       :title="data.status === 'received' ? 'Commande déjà réceptionnée' : 'Commande annulée'"
       description="Cette commande ne peut plus être réceptionnée."
       :actions="[{ label: 'Voir la commande', to: `/achats/${orderId}` }]"
@@ -406,7 +408,7 @@ const confirmDescription = computed(
           v-if="missingWeight"
           color="warning"
           variant="subtle"
-          icon="i-lucide-triangle-alert"
+          :icon="icons.warning"
           description="Un frais est réparti au poids, mais certaines lignes de la commande n'ont pas de poids. Complétez la commande ou choisissez une autre répartition."
         />
 
@@ -471,7 +473,7 @@ const confirmDescription = computed(
                     <UButton
                       color="neutral"
                       variant="ghost"
-                      icon="i-lucide-trash-2"
+                      :icon="icons.trash"
                       :aria-label="`Retirer le frais ${index + 1}`"
                       @click="removeFee(fee.key)"
                     />
@@ -488,14 +490,14 @@ const confirmDescription = computed(
         </UFormField>
 
         <div class="flex flex-wrap items-center gap-2">
-          <UButton variant="soft" icon="i-lucide-plus" label="Ajouter un frais" @click="addFee()" />
+          <UButton variant="soft" :icon="icons.plus" label="Ajouter un frais" @click="addFee()" />
           <UButton
             v-for="label in missingSuggestions"
             :key="label"
             color="neutral"
             variant="ghost"
             size="sm"
-            icon="i-lucide-plus"
+            :icon="icons.plus"
             :label="label"
             @click="addFee(label)"
           />

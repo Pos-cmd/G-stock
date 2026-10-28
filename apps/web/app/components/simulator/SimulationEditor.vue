@@ -27,6 +27,8 @@ import { useSettingsStore } from "~/stores/settings";
 import type { SimulationDetail } from "~/types/api";
 import type { FeeLineDisplay } from "~/utils/purchases";
 
+const icons = useIcons();
+
 const { formId = "simulation-form", simulation = null } = defineProps<{
   simulation?: SimulationDetail | null;
   formId?: string;
@@ -439,7 +441,7 @@ defineExpose({ saving });
                   <UButton
                     color="neutral"
                     variant="ghost"
-                    icon="i-lucide-trash-2"
+                    :icon="icons.trash"
                     :aria-label="`Retirer la ligne ${index + 1}`"
                     :disabled="state.data.lines.length === 1"
                     @click="
@@ -455,7 +457,7 @@ defineExpose({ saving });
       <div>
         <UButton
           variant="soft"
-          icon="i-lucide-plus"
+          :icon="icons.plus"
           label="Ajouter une ligne"
           @click="state.data.lines.push(newLine())"
         />
@@ -554,7 +556,7 @@ defineExpose({ saving });
                     <UButton
                       color="neutral"
                       variant="ghost"
-                      icon="i-lucide-trash-2"
+                      :icon="icons.trash"
                       :aria-label="`Retirer le frais ${index + 1}`"
                       @click="
                         state.data.fees = state.data.fees.filter((item) => item.key !== fee.key)
@@ -569,7 +571,7 @@ defineExpose({ saving });
         <div>
           <UButton
             variant="soft"
-            icon="i-lucide-plus"
+            :icon="icons.plus"
             label="Ajouter un frais"
             @click="state.data.fees.push(newFee())"
           />

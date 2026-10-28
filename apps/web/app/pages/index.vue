@@ -8,6 +8,8 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import StockStatusBadge from "~/components/products/StockStatusBadge.vue";
 import type { ProductRow } from "~/types/api";
 
+const icons = useIcons();
+
 useHead({ title: "Tableau de bord" });
 
 const { $orpc } = useNuxtApp();
@@ -58,13 +60,13 @@ const columns: TableColumn<ProductRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="dashboard" title="Tableau de bord" icon="i-lucide-layout-dashboard">
+  <PagePanel id="dashboard" title="Tableau de bord" :icon="icons.dashboard">
     <div class="space-y-6">
       <UAlert
         v-if="backupWarning"
         color="warning"
         variant="subtle"
-        icon="i-lucide-hard-drive"
+        :icon="icons.backup"
         title="Sauvegarde à vérifier"
         :description="backupWarning"
         :actions="[{ label: 'Voir la sauvegarde', color: 'warning', to: '/parametres' }]"
@@ -72,7 +74,7 @@ const columns: TableColumn<ProductRow>[] = [
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Stock valorisé"
-          icon="i-lucide-wallet"
+          :icon="icons.stockValue"
           :loading="summary.isPending.value"
           :value="formatFcfa(summary.data.value?.stockValueFcfa ?? 0)"
           hint="Au coût de revient des lots en stock"
@@ -80,7 +82,7 @@ const columns: TableColumn<ProductRow>[] = [
         />
         <KpiCard
           label="Produits actifs"
-          icon="i-lucide-boxes"
+          :icon="icons.products"
           color="neutral"
           :loading="summary.isPending.value"
           :value="String(summary.data.value?.productCount ?? 0)"
@@ -88,7 +90,7 @@ const columns: TableColumn<ProductRow>[] = [
         />
         <KpiCard
           label="Stock bas"
-          icon="i-lucide-triangle-alert"
+          :icon="icons.stockLow"
           color="warning"
           :loading="summary.isPending.value"
           :value="String(summary.data.value?.lowCount ?? 0)"
@@ -96,7 +98,7 @@ const columns: TableColumn<ProductRow>[] = [
         />
         <KpiCard
           label="Ruptures"
-          icon="i-lucide-circle-x"
+          :icon="icons.stockOut"
           color="error"
           :loading="summary.isPending.value"
           :value="String(summary.data.value?.outCount ?? 0)"
@@ -107,7 +109,7 @@ const columns: TableColumn<ProductRow>[] = [
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Chiffre d'affaires du jour"
-          icon="i-lucide-trending-up"
+          :icon="icons.revenue"
           :loading="sales.isPending.value"
           :value="formatFcfa(sales.data.value?.revenue.day ?? 0)"
           :hint="`Semaine : ${formatFcfa(sales.data.value?.revenue.week ?? 0)}`"
@@ -115,7 +117,7 @@ const columns: TableColumn<ProductRow>[] = [
         />
         <KpiCard
           label="Chiffre d'affaires du mois"
-          icon="i-lucide-calendar-range"
+          :icon="icons.period"
           :loading="sales.isPending.value"
           :value="formatFcfa(sales.data.value?.revenue.month ?? 0)"
           :hint="`${sales.data.value?.monthSaleCount ?? 0} vente(s), remises déduites`"
@@ -123,7 +125,7 @@ const columns: TableColumn<ProductRow>[] = [
         />
         <KpiCard
           label="Marge brute du mois"
-          icon="i-lucide-piggy-bank"
+          :icon="icons.profit"
           color="success"
           :loading="sales.isPending.value"
           :value="formatFcfa(sales.data.value?.monthMarginFcfa ?? 0)"
@@ -136,7 +138,7 @@ const columns: TableColumn<ProductRow>[] = [
         />
         <KpiCard
           label="Créances en cours"
-          icon="i-lucide-hand-coins"
+          :icon="icons.receivables"
           :color="(sales.data.value?.criticalDebtorCount ?? 0) > 0 ? 'error' : 'warning'"
           :loading="sales.isPending.value"
           :value="formatFcfa(sales.data.value?.receivablesFcfa ?? 0)"
@@ -209,7 +211,7 @@ const columns: TableColumn<ProductRow>[] = [
           </template>
           <template #empty>
             <div class="text-muted flex items-center justify-center gap-2 py-6">
-              <UIcon name="i-lucide-circle-check" class="text-success size-5" />
+              <UIcon :name="icons.success" class="text-success size-5" />
               Tous les produits sont au-dessus de leur seuil.
             </div>
           </template>

@@ -2,6 +2,8 @@
 import PagePanel from "~/components/layout/PagePanel.vue";
 import SimulationEditor from "~/components/simulator/SimulationEditor.vue";
 
+const icons = useIcons();
+
 useHead({ title: "Nouvelle simulation" });
 
 const editor = useTemplateRef<InstanceType<typeof SimulationEditor>>("editor");
@@ -12,19 +14,19 @@ const onSaved = async (id: string) => {
 </script>
 
 <template>
-  <PagePanel id="simulation-new" title="Nouvelle simulation" icon="i-lucide-calculator">
+  <PagePanel id="simulation-new" title="Nouvelle simulation" :icon="icons.simulations">
     <template #actions>
       <UButton
         to="/simulateur"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Simulations"
       />
       <UButton
         type="submit"
         form="simulation-form"
-        icon="i-lucide-save"
+        :icon="icons.save"
         label="Enregistrer"
         :loading="editor?.saving"
       />

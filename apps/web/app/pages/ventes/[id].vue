@@ -11,6 +11,8 @@ import PaymentModal from "~/components/sales/PaymentModal.vue";
 import SaleStatusBadge from "~/components/sales/SaleStatusBadge.vue";
 import type { SaleDetail } from "~/types/api";
 
+const icons = useIcons();
+
 type SaleItem = SaleDetail["items"][number];
 
 const route = useRoute();
@@ -59,7 +61,7 @@ const confirmCancel = async (reason: string) => {
 const moreActions = computed<DropdownMenuItem[][]>(() => [
   [
     {
-      icon: "i-lucide-badge-percent",
+      icon: icons.discount,
       label: "Accorder une remise",
       onSelect: () => {
         discountOpen.value = true;
@@ -69,7 +71,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
   [
     {
       color: "error",
-      icon: "i-lucide-ban",
+      icon: icons.cancel,
       label: "Annuler la vente",
       onSelect: () => {
         cancelOpen.value = true;
@@ -91,20 +93,20 @@ const columns: TableColumn<SaleItem>[] = [
 </script>
 
 <template>
-  <PagePanel id="sale-detail" :title="data?.reference ?? 'Vente'" icon="i-lucide-receipt">
+  <PagePanel id="sale-detail" :title="data?.reference ?? 'Vente'" :icon="icons.sale">
     <template #actions>
       <UButton
         to="/ventes"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Ventes"
       />
       <template v-if="data">
         <UButton
           color="neutral"
           variant="outline"
-          icon="i-lucide-file-down"
+          :icon="icons.pdf"
           label="Reçu PDF"
           :loading="generating"
           @click="generate('receipt', data.id)"
@@ -113,7 +115,7 @@ const columns: TableColumn<SaleItem>[] = [
           <UButton
             color="success"
             variant="soft"
-            icon="i-lucide-message-circle"
+            :icon="icons.whatsapp"
             label="WhatsApp"
             :loading="sharing"
             @click="share(data)"
@@ -125,13 +127,13 @@ const columns: TableColumn<SaleItem>[] = [
             <UButton
               color="neutral"
               variant="outline"
-              icon="i-lucide-ellipsis-vertical"
+              :icon="icons.moreActions"
               aria-label="Autres actions"
             />
           </UDropdownMenu>
           <UButton
             v-if="data.summary.dueFcfa > 0"
-            icon="i-lucide-banknote"
+            :icon="icons.payment"
             label="Encaisser"
             @click="paymentOpen = true"
           />
@@ -143,7 +145,7 @@ const columns: TableColumn<SaleItem>[] = [
       v-if="sale.isError.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="Vente introuvable"
       :description="sale.error.value?.message"
     />
@@ -153,7 +155,7 @@ const columns: TableColumn<SaleItem>[] = [
         v-if="data.status === 'cancelled'"
         color="neutral"
         variant="subtle"
-        icon="i-lucide-ban"
+        :icon="icons.cancel"
         :title="`Annulée le ${formatDateTime(data.cancelledAt ?? data.createdAt)}${data.cancelledByName ? ` par ${data.cancelledByName}` : ''}`"
         :description="`Motif : ${data.cancelReason}. Le stock est revenu dans ses lots et les paiements de la vente ont été annulés.`"
       />
@@ -203,7 +205,7 @@ const columns: TableColumn<SaleItem>[] = [
           </dl>
         </UPageCard>
 
-        <UPageCard variant="subtle" title="Montants" icon="i-lucide-calculator">
+        <UPageCard variant="subtle" title="Montants" :icon="icons.amounts">
           <dl class="space-y-2 text-sm">
             <div class="flex justify-between gap-4">
               <dt class="text-muted">Total des articles</dt>
@@ -307,7 +309,7 @@ const columns: TableColumn<SaleItem>[] = [
       </UTable>
 
       <div class="grid gap-6 lg:grid-cols-2">
-        <UPageCard variant="subtle" title="Remises" icon="i-lucide-badge-percent">
+        <UPageCard variant="subtle" title="Remises" :icon="icons.discount">
           <p v-if="data.discounts.length === 0" class="text-muted text-sm">Aucune remise.</p>
           <ul v-else class="divide-default divide-y text-sm">
             <li
@@ -329,7 +331,7 @@ const columns: TableColumn<SaleItem>[] = [
           </ul>
         </UPageCard>
 
-        <UPageCard variant="subtle" title="Paiements de cette vente" icon="i-lucide-banknote">
+        <UPageCard variant="subtle" title="Paiements de cette vente" :icon="icons.payment">
           <p v-if="data.payments.length === 0" class="text-muted text-sm">
             Aucun paiement rattaché. Les paiements libres du client soldent ses ventes les plus
             anciennes d'abord.

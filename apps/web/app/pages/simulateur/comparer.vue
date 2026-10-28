@@ -10,6 +10,8 @@ import CompareCell from "~/components/comparison/CompareCell.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import type { ComparisonData } from "~/types/api";
 
+const icons = useIcons();
+
 useHead({ title: "Comparer" });
 
 type Column = ComparisonData["columns"][number];
@@ -258,13 +260,13 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
 </script>
 
 <template>
-  <PagePanel id="comparison" title="Comparer" icon="i-lucide-git-compare">
+  <PagePanel id="comparison" title="Comparer" :icon="icons.compare">
     <template #actions>
       <UButton
         to="/simulateur"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Simulations"
       />
     </template>
@@ -280,7 +282,7 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
           class="gap-2"
         >
           <UIcon
-            :name="column.type === 'simulation' ? 'i-lucide-calculator' : 'i-lucide-ship'"
+            :name="column.type === 'simulation' ? icons.simulations : icons.purchases"
             class="size-4"
           />
           <span class="max-w-56 truncate">{{ column.title }}</span>
@@ -290,7 +292,7 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
               size="xs"
               color="neutral"
               variant="link"
-              icon="i-lucide-pin"
+              :icon="icons.pin"
               :aria-label="`Prendre ${column.title} comme référence`"
               @click="makeReference(index)"
             />
@@ -299,7 +301,7 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
             size="xs"
             color="neutral"
             variant="link"
-            icon="i-lucide-x"
+            :icon="icons.close"
             :aria-label="`Retirer ${column.title}`"
             @click="remove(index)"
           />
@@ -312,7 +314,7 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
           value-key="value"
           placeholder="Ajouter une simulation ou une commande"
           :search-input="{ placeholder: 'Rechercher…' }"
-          icon="i-lucide-plus"
+          :icon="icons.plus"
           class="w-80"
           @update:model-value="addItem"
         />
@@ -321,7 +323,7 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
     </template>
 
     <div v-if="items.length === 0" class="flex flex-col items-center gap-3 py-16 text-center">
-      <UIcon name="i-lucide-git-compare" class="text-dimmed size-12" />
+      <UIcon :name="icons.compare" class="text-dimmed size-12" />
       <p class="text-highlighted font-medium">Compare jusqu'à {{ MAX_COMPARED_ITEMS }} imports</p>
       <p class="text-muted max-w-lg text-sm">
         Ajoute des simulations et des commandes passées : prix de revient, frais, taux, puis produit
@@ -333,7 +335,7 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
       v-else-if="comparison.isError.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="Comparaison impossible"
       :description="comparison.error.value?.message"
     />

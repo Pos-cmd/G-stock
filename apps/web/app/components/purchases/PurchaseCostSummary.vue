@@ -3,6 +3,8 @@ import { formatFcfa, formatQty, formatRmb, formatUsd } from "@G-stock/core/forma
 
 import type { FeeLineDisplay } from "~/utils/purchases";
 
+const icons = useIcons();
+
 const {
   costs,
   estimateTotalFcfa = null,
@@ -41,7 +43,7 @@ const estimateGap = computed(() =>
 </script>
 
 <template>
-  <UPageCard variant="subtle" :title="title" icon="i-lucide-calculator">
+  <UPageCard variant="subtle" :title="title" :icon="icons.amounts">
     <dl class="space-y-2 text-sm">
       <div class="flex justify-between gap-4">
         <dt class="text-muted">

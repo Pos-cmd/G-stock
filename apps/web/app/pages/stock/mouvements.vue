@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/vue-query";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import MovementsTable from "~/components/stock/MovementsTable.vue";
 
+const icons = useIcons();
+
 useHead({ title: "Mouvements de stock" });
 
 const ALL = "all";
@@ -53,7 +55,7 @@ const resetFilters = () => {
 </script>
 
 <template>
-  <PagePanel id="stock-movements" title="Mouvements de stock" icon="i-lucide-history">
+  <PagePanel id="stock-movements" title="Mouvements de stock" :icon="icons.movements">
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
         <USelectMenu
@@ -73,7 +75,7 @@ const resetFilters = () => {
           v-if="hasFilters"
           color="neutral"
           variant="ghost"
-          icon="i-lucide-x"
+          :icon="icons.close"
           label="Réinitialiser"
           @click="resetFilters"
         />

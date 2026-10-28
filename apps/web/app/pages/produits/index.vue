@@ -12,6 +12,8 @@ import StockStatusBadge from "~/components/products/StockStatusBadge.vue";
 import LotEntryModal from "~/components/stock/LotEntryModal.vue";
 import type { ProductRow } from "~/types/api";
 
+const icons = useIcons();
+
 useHead({ title: "Produits" });
 
 const ALL = "all";
@@ -122,25 +124,25 @@ const confirmDelete = async () => {
 const rowActions = (product: ProductRow): DropdownMenuItem[][] => [
   [
     {
-      icon: "i-lucide-eye",
+      icon: icons.eye,
       label: "Voir la fiche",
       to: `/produits/${product.id}`,
     },
     {
-      icon: "i-lucide-pencil",
+      icon: icons.edit,
       label: "Modifier",
       onSelect: () => openEdit(product),
     },
     {
       disabled: Boolean(product.archivedAt),
-      icon: "i-lucide-package-plus",
+      icon: icons.stockEntry,
       label: "Entrée de stock",
       onSelect: () => openEntry(product),
     },
   ],
   [
     {
-      icon: product.archivedAt ? "i-lucide-archive-restore" : "i-lucide-archive",
+      icon: product.archivedAt ? icons.unarchive : icons.archive,
       label: product.archivedAt ? "Restaurer" : "Archiver",
       onSelect: () => toggleArchive(product),
     },
@@ -148,7 +150,7 @@ const rowActions = (product: ProductRow): DropdownMenuItem[][] => [
       ? [
           {
             color: "error" as const,
-            icon: "i-lucide-trash-2",
+            icon: icons.trash,
             label: "Supprimer",
             onSelect: () => {
               deletedProduct.value = product;
@@ -179,16 +181,16 @@ const columns: TableColumn<ProductRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="products" title="Produits" icon="i-lucide-boxes">
+  <PagePanel id="products" title="Produits" :icon="icons.products">
     <template #actions>
-      <UButton icon="i-lucide-plus" label="Nouveau produit" @click="openCreate" />
+      <UButton :icon="icons.plus" label="Nouveau produit" @click="openCreate" />
     </template>
 
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
         <UInput
           v-model="search"
-          icon="i-lucide-search"
+          :icon="icons.search"
           placeholder="Rechercher un produit, une référence…"
           class="w-full sm:w-72"
         />
@@ -270,7 +272,7 @@ const columns: TableColumn<ProductRow>[] = [
         <template #actions-cell="{ row }">
           <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
             <UButton
-              icon="i-lucide-ellipsis-vertical"
+              :icon="icons.moreActions"
               color="neutral"
               variant="ghost"
               :aria-label="`Actions pour ${row.original.name}`"
@@ -280,11 +282,11 @@ const columns: TableColumn<ProductRow>[] = [
 
         <template #empty>
           <div class="flex flex-col items-center gap-3 py-10 text-center">
-            <UIcon name="i-lucide-package-search" class="text-dimmed size-10" />
+            <UIcon :name="icons.products" class="text-dimmed size-10" />
             <p class="text-muted">Aucun produit ne correspond à ces critères.</p>
             <UButton
               variant="soft"
-              icon="i-lucide-plus"
+              :icon="icons.plus"
               label="Créer un produit"
               @click="openCreate"
             />

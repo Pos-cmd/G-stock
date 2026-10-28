@@ -8,6 +8,8 @@ import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
+const icons = useIcons();
+
 /** Encaissement d'un client, rattaché ou non à une vente. */
 const { customer, saleId = null } = defineProps<{
   customer: { id: string; name: string; dueFcfa: number };
@@ -186,7 +188,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
         <UButton
           type="submit"
           form="payment-form"
-          icon="i-lucide-banknote"
+          :icon="icons.payment"
           label="Enregistrer le paiement"
           :loading="mutation.isPending.value"
         />

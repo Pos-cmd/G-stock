@@ -43,6 +43,7 @@ export const useShareReceipt = () => {
   const { $orpc } = useNuxtApp();
   const notify = useNotify();
   const toast = useToast();
+  const icons = useIcons();
   const queryClient = useQueryClient();
   const settingsStore = useSettingsStore();
   const mutation = useMutation($orpc.documents.generate.mutationOptions());
@@ -61,7 +62,7 @@ export const useShareReceipt = () => {
       toast.add({
         actions: [
           {
-            icon: "i-lucide-send",
+            icon: icons.send,
             label: "Envoyer",
             onClick: async () => {
               try {
@@ -73,7 +74,7 @@ export const useShareReceipt = () => {
           },
         ],
         color: "success",
-        icon: "i-lucide-file-check",
+        icon: icons.receiptReady,
         title: "Reçu prêt à envoyer",
       });
     }

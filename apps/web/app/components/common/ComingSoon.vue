@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const icons = useIcons();
+
 defineProps<{
   icon: string;
   description: string;
@@ -21,7 +23,7 @@ defineProps<{
         :key="feature"
         class="border-default flex items-start gap-2 rounded-lg border px-3 py-2 text-sm"
       >
-        <UIcon name="i-lucide-circle-dashed" class="text-dimmed mt-0.5 size-4 shrink-0" />
+        <UIcon :name="icons.comingSoon" class="text-dimmed mt-0.5 size-4 shrink-0" />
         <span>{{ feature }}</span>
       </li>
     </ul>

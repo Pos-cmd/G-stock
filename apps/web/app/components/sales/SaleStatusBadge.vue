@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { SaleStatus } from "@G-stock/core/enums";
 
+const icons = useIcons();
+
 /** Annulée, soldée, ou reste dû. */
 const { dueFcfa, status } = defineProps<{
   status: SaleStatus;
@@ -11,7 +13,7 @@ const badge = computed(() => {
   if (status === "cancelled") {
     return {
       color: "neutral",
-      icon: "i-lucide-ban",
+      icon: icons.cancel,
       label: "Annulée",
       variant: "outline",
     } as const;
@@ -19,14 +21,14 @@ const badge = computed(() => {
   if (dueFcfa > 0) {
     return {
       color: "warning",
-      icon: "i-lucide-hourglass",
+      icon: icons.pending,
       label: "Reste dû",
       variant: "subtle",
     } as const;
   }
   return {
     color: "success",
-    icon: "i-lucide-circle-check",
+    icon: icons.success,
     label: "Soldée",
     variant: "subtle",
   } as const;

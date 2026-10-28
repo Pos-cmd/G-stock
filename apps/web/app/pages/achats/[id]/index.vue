@@ -13,6 +13,8 @@ import PurchaseOrderView from "~/components/purchases/PurchaseOrderView.vue";
 import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue";
 import SupplierPaymentsCard from "~/components/purchases/SupplierPaymentsCard.vue";
 
+const icons = useIcons();
+
 type EditableStatus = (typeof EDITABLE_PURCHASE_STATUSES)[number];
 
 const SAVE_FIRST_HINT = "Enregistrez d'abord vos modifications";
@@ -92,7 +94,7 @@ const receptionStarted = computed(() => {
 const moreActions = computed<DropdownMenuItem[][]>(() => [
   [
     {
-      icon: "i-lucide-ban",
+      icon: icons.cancel,
       label: "Annuler la commande",
       onSelect: () => {
         cancelOpen.value = true;
@@ -104,7 +106,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         [
           {
             color: "error" as const,
-            icon: "i-lucide-trash-2",
+            icon: icons.trash,
             label: "Supprimer le brouillon",
             onSelect: () => {
               deleteOpen.value = true;
@@ -117,20 +119,20 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
 </script>
 
 <template>
-  <PagePanel id="purchase-detail" :title="data?.reference ?? 'Commande'" icon="i-lucide-ship">
+  <PagePanel id="purchase-detail" :title="data?.reference ?? 'Commande'" :icon="icons.purchases">
     <template #actions>
       <UButton
         to="/achats"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-arrow-left"
+        :icon="icons.arrowLeft"
         label="Commandes"
       />
       <UButton
         v-if="data"
         color="neutral"
         variant="ghost"
-        icon="i-lucide-git-compare"
+        :icon="icons.compare"
         label="Comparer"
         :to="comparisonLink([{ id: data.id, type: 'purchase_order' }])"
       />
@@ -138,7 +140,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         <UButton
           color="neutral"
           variant="outline"
-          icon="i-lucide-file-down"
+          :icon="icons.pdf"
           label="Fiche PDF"
           :disabled="dirty"
           :loading="generating"
@@ -151,7 +153,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           v-if="data.status === 'cancelled'"
           color="error"
           variant="outline"
-          icon="i-lucide-trash-2"
+          :icon="icons.trash"
           label="Supprimer"
           @click="deleteOpen = true"
         />
@@ -169,7 +171,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           <UButton
             color="neutral"
             variant="outline"
-            icon="i-lucide-ellipsis-vertical"
+            :icon="icons.moreActions"
             aria-label="Autres actions"
           />
         </UDropdownMenu>
@@ -177,7 +179,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           <UButton
             color="success"
             variant="soft"
-            icon="i-lucide-package-check"
+            :icon="icons.reception"
             label="Réceptionner"
             :disabled="dirty"
             :to="`/achats/${orderId}/reception`"
@@ -186,7 +188,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         <UButton
           type="submit"
           form="purchase-form"
-          icon="i-lucide-save"
+          :icon="icons.save"
           label="Enregistrer"
           :disabled="!dirty"
           :loading="form?.saving"
@@ -198,7 +200,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
       v-if="order.isError.value"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      :icon="icons.error"
       title="Commande introuvable"
       :description="order.error.value?.message"
     />
@@ -209,7 +211,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           v-if="data.status === 'received' && data.receivedAt"
           color="success"
           variant="subtle"
-          icon="i-lucide-package-check"
+          :icon="icons.reception"
           :title="`Réceptionnée le ${formatDate(data.receivedAt)}`"
           description="Les lots ont été ajoutés au stock au coût de revient ci-dessous. La commande n'est plus modifiable."
         />
@@ -217,7 +219,7 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           v-else
           color="neutral"
           variant="subtle"
-          icon="i-lucide-ban"
+          :icon="icons.cancel"
           title="Commande annulée"
           description="Elle n'a eu aucun effet sur le stock."
         />
@@ -229,14 +231,14 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           v-if="receptionStarted"
           color="info"
           variant="subtle"
-          icon="i-lucide-truck"
+          :icon="icons.receptionInProgress"
           title="Réception en préparation"
           :description="`Frais réels saisis : ${formatFcfa(data.fees.reduce((sum, fee) => sum + fee.amountFcfa, 0))}. Le stock ne bouge qu'à la validation de la réception.`"
           :actions="[
             {
               label: 'Continuer la réception',
               to: `/achats/${orderId}/reception`,
-              trailingIcon: 'i-lucide-arrow-right',
+              trailingIcon: icons.arrowRight,
             },
           ]"
         />

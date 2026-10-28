@@ -1,11 +1,12 @@
 export const useNotify = () => {
   const toast = useToast();
+  const icons = useIcons();
 
   const success = (title: string, description?: string) => {
     toast.add({
       color: "success",
       description,
-      icon: "i-lucide-circle-check",
+      icon: icons.success,
       title,
     });
   };
@@ -14,7 +15,7 @@ export const useNotify = () => {
     toast.add({
       color: "error",
       description: cause instanceof Error ? cause.message : "Veuillez réessayer.",
-      icon: "i-lucide-circle-alert",
+      icon: icons.error,
       title,
     });
   };

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from "@nuxt/ui";
 
+const icons = useIcons();
+
 defineProps<{ collapsed?: boolean }>();
 
 const { $authClient } = useNuxtApp();
@@ -20,7 +22,7 @@ const handleSignOut = async () => {
 const items = computed<DropdownMenuItem[][]>(() => [
   [
     {
-      icon: colorMode.value === "dark" ? "i-lucide-sun" : "i-lucide-moon",
+      icon: colorMode.value === "dark" ? icons.light : icons.dark,
       label: colorMode.value === "dark" ? "Thème clair" : "Thème sombre",
       onSelect: () => {
         colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
@@ -30,7 +32,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
   [
     {
       color: "error",
-      icon: "i-lucide-log-out",
+      icon: icons.signOut,
       label: "Se déconnecter",
       onSelect: handleSignOut,
     },
@@ -50,7 +52,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       <UButton
         :avatar="{ alt: session.data?.user.name ?? 'Utilisateur' }"
         :label="collapsed ? undefined : session.data?.user.name"
-        :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
+        :trailing-icon="collapsed ? undefined : icons.selector"
         color="neutral"
         variant="ghost"
         block
