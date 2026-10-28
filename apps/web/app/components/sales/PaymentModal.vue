@@ -6,6 +6,7 @@ import { PAYMENT_METHOD_LABELS } from "@G-stock/core/labels";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
+import DateField from "~/components/common/DateField.vue";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const icons = useIcons();
@@ -164,7 +165,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
             />
           </UFormField>
           <UFormField label="Date" name="paymentDate" required>
-            <UInput v-model="state.paymentDate" type="date" class="w-full" />
+            <DateField v-model="state.paymentDate" class="w-full" />
           </UFormField>
           <UFormField label="Moyen de paiement" name="method" class="sm:col-span-2">
             <URadioGroup v-model="state.method" :items="methodItems" orientation="horizontal" />

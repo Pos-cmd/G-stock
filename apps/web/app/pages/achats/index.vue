@@ -80,7 +80,7 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
       hors commandes annulées
     </template>
     <template #actions>
-      <UButton :icon="icons.plus" label="Nouvelle commande" @click="create.openPurchase" />
+      <UButton :icon="icons.plus" label="Nouvelle commande" @click="create.openPurchase()" />
     </template>
 
     <template #toolbar>
@@ -193,7 +193,7 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
               variant="soft"
               :icon="icons.plus"
               label="Créer une commande"
-              @click="create.openPurchase"
+              @click="create.openPurchase()"
             />
           </div>
         </template>

@@ -46,6 +46,7 @@ const confirmDelete = async () => {
 
 const rowActions = (supplier: SupplierRow): DropdownMenuItem[][] => [
   [
+    { icon: icons.eye, label: "Voir la fiche", to: `/achats/fournisseurs/${supplier.id}` },
     {
       icon: icons.edit,
       label: "Modifier",
@@ -100,7 +101,12 @@ const columns: TableColumn<SupplierRow>[] = [
       :loading="suppliers.isFetching.value"
     >
       <template #name-cell="{ row }">
-        <span class="text-highlighted font-medium">{{ row.original.name }}</span>
+        <NuxtLink
+          :to="`/achats/fournisseurs/${row.original.id}`"
+          class="text-highlighted font-medium hover:underline"
+        >
+          {{ row.original.name }}
+        </NuxtLink>
         <p v-if="row.original.contact" class="text-dimmed text-xs">{{ row.original.contact }}</p>
       </template>
       <template #phone-cell="{ row }">

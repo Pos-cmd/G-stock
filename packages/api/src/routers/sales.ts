@@ -23,13 +23,23 @@ import {
   listSales,
   productSalesSummary,
   quoteSale,
+  salesActivity,
+  salesByHour,
   salesSummary,
 } from "../services/sales";
 
+const MAX_ACTIVITY_DAYS = 371;
+
 export const salesRouter = {
+  activity: protectedProcedure
+    .input(z.object({ days: z.number().int().min(7).max(MAX_ACTIVITY_DAYS) }))
+    .handler(({ context, input }) => salesActivity(context.db, input.days)),
+
   addDiscount: protectedProcedure
     .input(saleDiscountSchema)
     .handler(({ context, input }) => addSaleDiscount(context.db, input, context.session.user.id)),
+
+  byHour: protectedProcedure.handler(({ context }) => salesByHour(context.db)),
 
   cancel: protectedProcedure
     .input(saleCancelSchema)

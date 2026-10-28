@@ -71,7 +71,7 @@ export const useAppNavigation = () => {
       label: "Ventes",
     },
     {
-      create: { label: "Nouvelle commande", onSelect: create.openPurchase },
+      create: { label: "Nouvelle commande", onSelect: () => create.openPurchase() },
       id: "purchases",
       items: [
         {

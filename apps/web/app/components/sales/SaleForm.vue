@@ -9,6 +9,7 @@ import type { FormSubmitEvent, RadioGroupItem } from "@nuxt/ui";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
 
+import DateField from "~/components/common/DateField.vue";
 import CustomerFormModal from "~/components/customers/CustomerFormModal.vue";
 
 const { customerId, formId = "sale-form" } = defineProps<{
@@ -269,7 +270,7 @@ defineExpose({
             </template>
           </UFormField>
           <UFormField label="Date" name="saleDate" required>
-            <UInput v-model="state.saleDate" type="date" class="w-full" />
+            <DateField v-model="state.saleDate" class="w-full" />
           </UFormField>
         </div>
       </UPageCard>

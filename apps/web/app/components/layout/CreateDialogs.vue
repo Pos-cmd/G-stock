@@ -77,6 +77,7 @@ const openCreated = async (key: DialogKey, path: string) => {
       <PurchaseOrderForm
         ref="purchaseForm"
         form-id="purchase-dialog-form"
+        :supplier-id="state.purchaseSupplierId"
         @saved="openCreated('purchase', `/achats/${$event}`)"
       />
     </template>

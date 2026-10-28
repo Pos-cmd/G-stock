@@ -3,6 +3,7 @@ import { byIdSchema } from "../schemas/common";
 import { supplierInputSchema, supplierUpdateSchema } from "../schemas/suppliers";
 import {
   createSupplier,
+  getSupplier,
   listSuppliers,
   removeSupplier,
   updateSupplier,
@@ -12,6 +13,10 @@ export const suppliersRouter = {
   create: protectedProcedure
     .input(supplierInputSchema)
     .handler(({ context, input }) => createSupplier(context.db, input)),
+
+  get: protectedProcedure
+    .input(byIdSchema)
+    .handler(({ context, input }) => getSupplier(context.db, input.id)),
 
   list: protectedProcedure.handler(({ context }) => listSuppliers(context.db)),
 

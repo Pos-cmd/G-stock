@@ -3,6 +3,7 @@ import type { MovementType } from "@G-stock/core/enums";
 import { MOVEMENT_TYPE_LABELS } from "@G-stock/core/labels";
 import { useQuery } from "@tanstack/vue-query";
 
+import DateRangeField from "~/components/common/DateRangeField.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import MovementsTable from "~/components/stock/MovementsTable.vue";
 
@@ -74,16 +75,7 @@ const resetFilters = () => {
           />
           <USelect v-model="type" :items="typeItems" class="w-44" />
         </UFieldGroup>
-        <UFieldGroup>
-          <UInput
-            v-model="from"
-            type="date"
-            :icon="icons.calendar"
-            aria-label="Depuis le"
-            class="w-44"
-          />
-          <UInput v-model="to" type="date" aria-label="Jusqu'au" class="w-36" />
-        </UFieldGroup>
+        <DateRangeField v-model:from="from" v-model:to="to" class="w-full sm:w-72" />
         <UButton
           v-if="hasFilters"
           color="neutral"

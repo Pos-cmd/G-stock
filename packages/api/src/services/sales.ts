@@ -721,3 +721,86 @@ export const salesSummary = async (executor: Executor, now = new Date()) => {
     topProducts: topProducts.slice(0, 5),
   };
 };
+
+const pad = (value: number) => String(value).padStart(2, "0");
+/** Jour local au format AAAA-MM-JJ. */
+const dayKey = (date: Date) =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+const activeSalesSince = (executor: Executor, since: Date, column: AnyColumn) =>
+  executor
+    .select({
+      costFcfa: saleCostSql,
+      createdAt: sales.createdAt,
+      discountFcfa: saleDiscountSql,
+      saleDate: sales.saleDate,
+      totalFcfa: sales.totalFcfa,
+    })
+    .from(sales)
+    .where(and(eq(sales.status, "active"), gte(column, since)));
+
+/**
+ * Ventes actives jour par jour sur les `days` derniers jours, aujourd'hui compris. Les jours sans
+ * vente sont présents, à zéro : courbes des cartes et calendrier d'activité.
+ */
+export const salesActivity = async (executor: Executor, days: number, now = new Date()) => {
+  const today = startOfDay(now);
+  const since = new Date(today);
+  since.setDate(today.getDate() - (days - 1));
+
+  const series = new Map<
+    string,
+    { date: string; marginFcfa: number; revenueFcfa: number; saleCount: number }
+  >();
+  for (let offset = 0; offset < days; offset += 1) {
+    const day = new Date(since);
+    day.setDate(since.getDate() + offset);
+    const date = dayKey(day);
+    series.set(date, { date, marginFcfa: 0, revenueFcfa: 0, saleCount: 0 });
+  }
+
+  for (const row of await activeSalesSince(executor, since, sales.saleDate)) {
+    const entry = series.get(dayKey(row.saleDate));
+    if (!entry) {
+      continue;
+    }
+    const netFcfa = row.totalFcfa - row.discountFcfa;
+    entry.revenueFcfa += netFcfa;
+    entry.marginFcfa += netFcfa - row.costFcfa;
+    entry.saleCount += 1;
+  }
+  return [...series.values()];
+};
+
+const HOURS_PER_DAY = 24;
+
+/**
+ * Chiffre d'affaires heure par heure, aujourd'hui et hier : le jour est celui de la vente, l'heure
+ * celle de son enregistrement (la date de vente n'a pas d'heure). Suivi de la journée en cours.
+ */
+export const salesByHour = async (executor: Executor, now = new Date()) => {
+  const today = startOfDay(now);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const todayHours = Array.from({ length: HOURS_PER_DAY }, () => 0);
+  const yesterdayHours = Array.from({ length: HOURS_PER_DAY }, () => 0);
+  let todayCount = 0;
+  for (const row of await activeSalesSince(executor, yesterday, sales.saleDate)) {
+    // Une vente datée d'un jour à venir n'est ni d'aujourd'hui, ni d'hier.
+    if (row.saleDate >= tomorrow) {
+      continue;
+    }
+    const netFcfa = row.totalFcfa - row.discountFcfa;
+    const hour = row.createdAt.getHours();
+    if (row.saleDate >= today) {
+      todayHours[hour] = (todayHours[hour] ?? 0) + netFcfa;
+      todayCount += 1;
+    } else {
+      yesterdayHours[hour] = (yesterdayHours[hour] ?? 0) + netFcfa;
+    }
+  }
+  return { currentHour: now.getHours(), today: todayHours, todayCount, yesterday: yesterdayHours };
+};

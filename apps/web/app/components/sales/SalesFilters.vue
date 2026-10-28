@@ -2,6 +2,8 @@
 import { SALE_STATUS_LABELS } from "@G-stock/core/labels";
 import { useQuery } from "@tanstack/vue-query";
 
+import DateRangeField from "~/components/common/DateRangeField.vue";
+
 const icons = useIcons();
 
 /** Filtres de l'historique : recherche, période (avec raccourcis), produit, statut, paiement. */
@@ -39,15 +41,6 @@ const paymentItems = [
   { label: "Soldées", value: "paid" },
 ];
 
-const applyPreset = (range: (now: Date) => readonly [Date, Date]) => {
-  const [from, to] = range(new Date());
-  filters.value = {
-    ...filters.value,
-    from: toDateInputValue(from),
-    to: toDateInputValue(to),
-  };
-};
-
 const hasFilters = computed(() => {
   const empty = emptySalesFilters();
   return (Object.keys(empty) as (keyof SalesFilterState)[]).some(
@@ -65,21 +58,7 @@ const hasFilters = computed(() => {
       placeholder="N° de vente, client…"
       class="w-full sm:w-56"
     />
-    <!-- Période : raccourcis, puis dates de début et de fin -->
-    <UFieldGroup>
-      <UDropdownMenu
-        :items="
-          PERIOD_PRESETS.map((preset) => ({
-            label: preset.label,
-            onSelect: () => applyPreset(preset.range),
-          }))
-        "
-      >
-        <UButton color="neutral" variant="outline" :icon="icons.period" label="Période" />
-      </UDropdownMenu>
-      <UInput v-model="filters.from" type="date" aria-label="Depuis le" class="w-36" />
-      <UInput v-model="filters.to" type="date" aria-label="Jusqu'au" class="w-36" />
-    </UFieldGroup>
+    <DateRangeField v-model:from="filters.from" v-model:to="filters.to" class="w-full sm:w-72" />
     <UFieldGroup v-if="!periodOnly">
       <USelectMenu
         v-model="filters.productId"

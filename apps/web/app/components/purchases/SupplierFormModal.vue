@@ -8,7 +8,9 @@ import type { z } from "zod";
 import type { SupplierRow } from "~/types/api";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
-const { supplier = null } = defineProps<{ supplier?: SupplierRow | null }>();
+// Ligne de la liste ou fiche : seules les coordonnées sont reprises.
+type EditedSupplier = Pick<SupplierRow, "contact" | "country" | "id" | "name" | "notes" | "phone">;
+const { supplier = null } = defineProps<{ supplier?: EditedSupplier | null }>();
 const emit = defineEmits<{ saved: [id: string] }>();
 const open = defineModel<boolean>("open", { required: true });
 

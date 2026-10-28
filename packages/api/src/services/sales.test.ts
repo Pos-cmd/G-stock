@@ -18,6 +18,8 @@ import {
   listSales,
   productSalesSummary,
   quoteSale,
+  salesActivity,
+  salesByHour,
   salesSummary,
 } from "./sales";
 import { createLot } from "./stock";
@@ -419,5 +421,31 @@ describe("historique et fiche client", () => {
     expect(summary.receivablesFcfa).toBe(4500);
     expect(summary.debtorCount).toBe(1);
     expect(summary.topProducts[0]?.productName).toBe("Bazin");
+  });
+
+  it("donne les ventes jour par jour, jours vides compris", async () => {
+    await seedHistory();
+    const days = await salesActivity(db, 10, new Date(2026, 2, 10, 18));
+    expect(days).toHaveLength(10);
+    expect(days[0]).toEqual({
+      date: "2026-03-01",
+      marginFcfa: 1500,
+      revenueFcfa: 4500,
+      saleCount: 1,
+    });
+    expect(days.at(-1)).toMatchObject({ date: "2026-03-10", revenueFcfa: 1600, saleCount: 1 });
+    expect(days.slice(1, -1).every((day) => day.saleCount === 0)).toBe(true);
+  });
+
+  it("répartit les ventes du jour et de la veille heure par heure", async () => {
+    await seedHistory();
+    // Le 10 mars : la vente de Moussa ; le 1er mars, veille du 2, n'en compte qu'une.
+    const march10 = await salesByHour(db, new Date(2026, 2, 10, 18));
+    expect(march10.today).toHaveLength(24);
+    expect(march10.todayCount).toBe(1);
+    expect(march10.today.reduce((sum, value) => sum + value, 0)).toBe(1600);
+    const march2 = await salesByHour(db, new Date(2026, 2, 2, 9));
+    expect(march2.todayCount).toBe(0);
+    expect(march2.yesterday.reduce((sum, value) => sum + value, 0)).toBe(4500);
   });
 });

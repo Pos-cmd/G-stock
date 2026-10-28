@@ -57,6 +57,9 @@
   --ui-text-highlighted: var(--ui-color-neutral-900);
   --ui-text-inverted: #fff;
   --ui-primary: var(--ui-color-neutral-900);
+  /* Graphiques : un indigo pour la série principale, le gris pour la comparaison. */
+  --ui-chart-1: oklch(58.5% 0.233 277);
+  --ui-chart-2: var(--ui-color-neutral-300);
 
   --app-shadow-tactile: 0 1px 2px 0 rgb(41 37 36 / 0.06), 0 1px 1px -1px rgb(41 37 36 / 0.06);
   --app-shadow-primary:
@@ -80,6 +83,8 @@
   --ui-text-highlighted: var(--ui-color-neutral-50);
   --ui-text-inverted: var(--ui-color-neutral-900);
   --ui-primary: var(--ui-color-neutral-50);
+  --ui-chart-1: oklch(67.3% 0.182 276.9);
+  --ui-chart-2: var(--ui-color-neutral-600);
 
   --app-shadow-tactile: inset 0 1px 0 0 rgb(255 255 255 / 0.04), 0 1px 2px 0 rgb(0 0 0 / 0.4);
   --app-shadow-primary: inset 0 -1px 0 0 rgb(0 0 0 / 0.12), 0 1px 2px 0 rgb(0 0 0 / 0.5);

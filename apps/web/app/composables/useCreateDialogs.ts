@@ -7,6 +7,8 @@ export const useCreateDialogs = () => {
     customer: false,
     product: false,
     purchase: false,
+    /** Fournisseur choisi d'avance pour la nouvelle commande. */
+    purchaseSupplierId: undefined as string | undefined,
     sale: false,
     /** Client choisi d'avance pour la nouvelle vente. */
     saleCustomerId: undefined as string | undefined,
@@ -17,7 +19,8 @@ export const useCreateDialogs = () => {
     state.value.saleCustomerId = customerId;
     state.value.sale = true;
   };
-  const openPurchase = () => {
+  const openPurchase = (supplierId?: string) => {
+    state.value.purchaseSupplierId = supplierId;
     state.value.purchase = true;
   };
   const openSimulation = () => {

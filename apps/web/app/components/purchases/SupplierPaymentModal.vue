@@ -6,6 +6,7 @@ import { FEE_CURRENCY_LABELS } from "@G-stock/core/labels";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation } from "@tanstack/vue-query";
 import { z } from "zod";
+import DateField from "~/components/common/DateField.vue";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const icons = useIcons();
@@ -129,7 +130,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
             />
           </UFormField>
           <UFormField label="Date" name="paymentDate" required>
-            <UInput v-model="state.paymentDate" type="date" class="w-full" />
+            <DateField v-model="state.paymentDate" class="w-full" />
           </UFormField>
           <UFormField
             :label="`Taux du jour (FCFA pour 1 ${FEE_CURRENCY_LABELS[currency]})`"

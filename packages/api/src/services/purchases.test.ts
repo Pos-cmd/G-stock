@@ -22,7 +22,7 @@ import {
   updatePurchaseOrder,
 } from "./purchases";
 import { listLots } from "./stock";
-import { createSupplier, listSuppliers, removeSupplier } from "./suppliers";
+import { createSupplier, getSupplier, listSuppliers, removeSupplier } from "./suppliers";
 
 let db: Database;
 const getDb = useTestDatabase();
@@ -587,5 +587,39 @@ describe("paiements fournisseur en plusieurs tranches", () => {
 
     await setPurchaseStatus(db, order.id, "cancelled");
     await expect(pay(order.id, 100_000)).rejects.toThrow("annulée");
+  });
+});
+
+describe("getSupplier", () => {
+  it("résume les commandes, les produits achetés et le délai de livraison", async () => {
+    const supplier = await createSupplier(db, {
+      contact: null,
+      country: "Chine",
+      name: "Usine de Canton",
+      notes: null,
+      phone: null,
+    });
+    const { input } = await orderInput({ supplierId: supplier.id });
+    const order = await create(input);
+    await receive(order.id);
+
+    const detail = await getSupplier(db, supplier.id, new Date(2026, 4, 1));
+    expect(detail.stats.committedCount).toBe(1);
+    // Du 1er mars au 15 avril.
+    expect(detail.stats.averageLeadDays).toBe(45);
+    expect(
+      detail.products.map((product) => [
+        product.productName,
+        product.qty,
+        product.lastUnitCostFcfa,
+      ]),
+    ).toEqual([
+      ["Wax", 100, 8980],
+      ["Bazin", 50, 4990],
+    ]);
+    expect(detail.products[0]?.totalCostFcfa).toBe(898_000);
+    expect(detail.monthly).toHaveLength(12);
+    expect(detail.monthly.find((month) => month.month === "2026-03")?.orderCount).toBe(1);
+    expect(detail.orders.map((row) => row.id)).toEqual([order.id]);
   });
 });

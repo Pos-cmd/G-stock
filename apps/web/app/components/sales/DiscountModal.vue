@@ -4,6 +4,7 @@ import { formatFcfa } from "@G-stock/core/format";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation } from "@tanstack/vue-query";
 import { z } from "zod";
+import DateField from "~/components/common/DateField.vue";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const icons = useIcons();
@@ -88,7 +89,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
             />
           </UFormField>
           <UFormField label="Date" name="discountDate" required>
-            <UInput v-model="state.discountDate" type="date" class="w-full" />
+            <DateField v-model="state.discountDate" class="w-full" />
           </UFormField>
         </div>
         <UFormField label="Motif" name="reason" required help="Il restera visible sur la vente.">

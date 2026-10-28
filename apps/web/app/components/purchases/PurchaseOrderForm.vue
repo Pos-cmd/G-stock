@@ -21,6 +21,7 @@ import type { FormSubmitEvent, RadioGroupItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
 
+import DateField from "~/components/common/DateField.vue";
 import ProductFormModal from "~/components/products/ProductFormModal.vue";
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
 import SupplierFormModal from "~/components/purchases/SupplierFormModal.vue";
@@ -29,9 +30,15 @@ import type { PurchaseOrderDetail } from "~/types/api";
 
 const icons = useIcons();
 
-const { formId = "purchase-form", order = null } = defineProps<{
+const {
+  formId = "purchase-form",
+  order = null,
+  supplierId = undefined,
+} = defineProps<{
   order?: PurchaseOrderDetail | null;
   formId?: string;
+  /** Fournisseur choisi d'avance pour une nouvelle commande (depuis sa fiche). */
+  supplierId?: string;
 }>();
 const emit = defineEmits<{ saved: [id: string] }>();
 const dirty = defineModel<boolean>("dirty", { default: false });
@@ -106,7 +113,7 @@ const emptyState = (): FormState => ({
   orderDate: toDateInputValue(),
   otherFeesFcfa: 0,
   rmbPerUsd: settingsStore.rates.rmbPerUsd,
-  supplierId: undefined,
+  supplierId,
 });
 
 const stateFromOrder = (source: PurchaseOrderDetail): FormState => ({
@@ -410,7 +417,7 @@ defineExpose({
           </div>
         </UFormField>
         <UFormField label="Date de commande" name="orderDate" required>
-          <UInput v-model="state.orderDate" type="date" class="w-full" />
+          <DateField v-model="state.orderDate" class="w-full" />
         </UFormField>
         <UFormField
           label="Devise du prix fournisseur"

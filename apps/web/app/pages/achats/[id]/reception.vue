@@ -14,6 +14,7 @@ import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
 
+import DateField from "~/components/common/DateField.vue";
 import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
@@ -363,10 +364,10 @@ const confirmDescription = computed(
         <UPageCard variant="subtle" title="Arrivée" class="lg:self-start">
           <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <UFormField label="Arrivée au port" name="arrivedAt">
-              <UInput v-model="state.arrivedAt" type="date" class="w-full" />
+              <DateField v-model="state.arrivedAt" class="w-full" />
             </UFormField>
             <UFormField label="Entrée en stock" name="receivedAt" required>
-              <UInput v-model="state.receivedAt" type="date" class="w-full" />
+              <DateField v-model="state.receivedAt" class="w-full" />
             </UFormField>
             <UFormField label="N° conteneur" name="containerNumber">
               <UInput v-model="state.containerNumber" placeholder="MSCU1234567" class="w-full" />

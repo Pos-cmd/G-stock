@@ -11,7 +11,23 @@ const create = useCreateDialogs();
 
 useHead({ title: "Ventes" });
 
-const filters = ref<SalesFilterState>(emptySalesFilters());
+// `?du=AAAA-MM-JJ&au=AAAA-MM-JJ` (calendrier d'activité du tableau de bord) fixe la période.
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const route = useRoute();
+const queryDay = (value: unknown) =>
+  typeof value === "string" && DAY_PATTERN.test(value) ? value : "";
+const filtersFromQuery = (): SalesFilterState => ({
+  ...emptySalesFilters(),
+  from: queryDay(route.query.du),
+  to: queryDay(route.query.au),
+});
+const filters = ref<SalesFilterState>(filtersFromQuery());
+watch(
+  () => [route.query.du, route.query.au],
+  () => {
+    filters.value = filtersFromQuery();
+  },
+);
 
 const view = ref<"products" | "sales">("sales");
 const views: TabsItem[] = [

@@ -7,6 +7,7 @@ import { useMutation } from "@tanstack/vue-query";
 import { z } from "zod";
 
 import { useSettingsStore } from "~/stores/settings";
+import DateField from "~/components/common/DateField.vue";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const icons = useIcons();
@@ -108,7 +109,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
           </UFormField>
 
           <UFormField label="Date de réception" name="receivedAt" required>
-            <UInput v-model="state.receivedAt" type="date" class="w-full" />
+            <DateField v-model="state.receivedAt" class="w-full" />
           </UFormField>
 
           <UFormField
