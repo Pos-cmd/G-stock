@@ -94,8 +94,8 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
               v-model="state.rmbPerUsd"
               :min="0"
               :step="0.05"
-              :format-options="{ maximumFractionDigits: 4 }"
-              class="w-full"
+              :format-options="RMB_RATE_FORMAT"
+              class="w-full sm:w-48"
             />
           </UFormField>
           <UFormField label="FCFA pour 1 USD" name="fcfaPerUsd" required>
@@ -103,8 +103,8 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
               v-model="state.fcfaPerUsd"
               :min="0"
               :step="1"
-              :format-options="{ maximumFractionDigits: 2 }"
-              class="w-full"
+              :format-options="FCFA_RATE_FORMAT"
+              class="w-full sm:w-48"
             />
           </UFormField>
         </div>
@@ -131,17 +131,30 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
       >
         <div class="grid gap-4 sm:grid-cols-3">
           <UFormField label="Attention après" name="receivableWarningDays" required>
-            <UInputNumber v-model="state.receivableWarningDays" :min="1" :step="1" class="w-full" />
+            <UInputNumber
+              v-model="state.receivableWarningDays"
+              :format-options="DAYS_FORMAT"
+              :min="1"
+              :step="1"
+              class="w-full sm:w-36"
+            />
           </UFormField>
           <UFormField label="Alerte après" name="receivableAlertDays" required>
-            <UInputNumber v-model="state.receivableAlertDays" :min="1" :step="1" class="w-full" />
+            <UInputNumber
+              v-model="state.receivableAlertDays"
+              :format-options="DAYS_FORMAT"
+              :min="1"
+              :step="1"
+              class="w-full sm:w-36"
+            />
           </UFormField>
           <UFormField label="Critique après" name="receivableCriticalDays" required>
             <UInputNumber
               v-model="state.receivableCriticalDays"
+              :format-options="DAYS_FORMAT"
               :min="1"
               :step="1"
-              class="w-full"
+              class="w-full sm:w-36"
             />
           </UFormField>
         </div>
@@ -202,7 +215,14 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
             required
             help="Les plus anciennes sont supprimées."
           >
-            <UInputNumber v-model="state.backupKeep" :min="1" :max="365" :step="1" class="w-full" />
+            <UInputNumber
+              v-model="state.backupKeep"
+              :format-options="INTEGER_FORMAT"
+              :min="1"
+              :max="365"
+              :step="1"
+              class="w-full"
+            />
           </UFormField>
         </div>
 

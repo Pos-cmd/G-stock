@@ -65,7 +65,15 @@ const submit = async () => {
           :label="`Nombre de ${product.unit}s à ouvrir`"
           :error="valid ? undefined : `Entre 1 et ${maxQty}`"
         >
-          <UInputNumber v-model="qty" :min="1" :max="maxQty" :step="1" class="w-full" autofocus />
+          <UInputNumber
+            v-model="qty"
+            :format-options="INTEGER_FORMAT"
+            :min="1"
+            :max="maxQty"
+            :step="1"
+            class="w-full"
+            autofocus
+          />
         </UFormField>
 
         <div class="bg-elevated/50 space-y-1 rounded-lg px-3 py-2 text-sm">

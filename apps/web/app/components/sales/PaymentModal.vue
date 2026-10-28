@@ -153,12 +153,12 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
           />
         </UFormField>
         <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField label="Montant (FCFA)" name="amountFcfa" required>
+          <UFormField label="Montant" name="amountFcfa" required>
             <UInputNumber
               v-model="state.amountFcfa"
               :min="0"
               :step="1000"
-              :format-options="{ maximumFractionDigits: 0 }"
+              :format-options="FCFA_FORMAT"
               class="w-full"
               autofocus
             />

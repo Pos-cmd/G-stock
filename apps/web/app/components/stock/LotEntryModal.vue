@@ -101,7 +101,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
               v-model="state.qty"
               :min="0"
               :step="1"
-              :format-options="{ maximumFractionDigits: 3 }"
+              :format-options="QUANTITY_FORMAT"
               class="w-full"
               autofocus
             />
@@ -112,7 +112,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
           </UFormField>
 
           <UFormField
-            label="Coût de revient unitaire (FCFA)"
+            label="Coût de revient unitaire"
             name="unitCostFcfa"
             required
             class="sm:col-span-2"
@@ -122,8 +122,8 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
               v-model="state.unitCostFcfa"
               :min="0"
               :step="100"
-              :format-options="{ maximumFractionDigits: 0 }"
-              class="w-full"
+              :format-options="FCFA_FORMAT"
+              class="w-full sm:w-56"
             />
           </UFormField>
         </div>
@@ -141,21 +141,21 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
           />
           <template #content>
             <div class="grid gap-3 border-t border-default p-3 sm:grid-cols-2">
-              <UFormField label="Prix unitaire (RMB)">
+              <UFormField label="Prix unitaire">
                 <UInputNumber
                   v-model="converter.priceRmb"
                   :min="0"
                   :step="0.5"
-                  :format-options="{ maximumFractionDigits: 2 }"
+                  :format-options="RMB_FORMAT"
                   class="w-full"
                 />
               </UFormField>
-              <UFormField label="Frais par unité (FCFA)">
+              <UFormField label="Frais par unité">
                 <UInputNumber
                   v-model="converter.feesPerUnitFcfa"
                   :min="0"
                   :step="50"
-                  :format-options="{ maximumFractionDigits: 0 }"
+                  :format-options="FCFA_FORMAT"
                   class="w-full"
                 />
               </UFormField>

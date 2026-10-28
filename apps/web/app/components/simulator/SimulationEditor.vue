@@ -312,7 +312,7 @@ defineExpose({
             v-model="state.data.rates.rmbPerUsd"
             :min="0"
             :step="0.01"
-            :format-options="{ maximumFractionDigits: 4 }"
+            :format-options="RMB_RATE_FORMAT"
             class="w-full"
           />
         </UFormField>
@@ -320,7 +320,7 @@ defineExpose({
           <UInputNumber
             v-model="state.data.rates.fcfaPerUsd"
             :min="0"
-            :format-options="{ maximumFractionDigits: 2 }"
+            :format-options="FCFA_RATE_FORMAT"
             class="w-full"
           />
         </UFormField>
@@ -342,7 +342,9 @@ defineExpose({
       <UFormField name="data.lines">
         <div class="border-default overflow-x-auto rounded-lg border">
           <table class="w-full min-w-240 text-sm">
-            <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
+            <thead
+              class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase"
+            >
               <tr>
                 <th class="px-3 py-2 font-medium">Produit</th>
                 <th class="w-32 px-3 py-2 font-medium">Unité</th>
@@ -387,7 +389,7 @@ defineExpose({
                     <UInputNumber
                       v-model="line.qty"
                       :min="0"
-                      :format-options="{ maximumFractionDigits: 3 }"
+                      :format-options="QUANTITY_FORMAT"
                       :increment="false"
                       :decrement="false"
                       class="w-full"
@@ -399,7 +401,7 @@ defineExpose({
                     <UInputNumber
                       v-model="line.weightTons"
                       :min="0"
-                      :format-options="{ maximumFractionDigits: 3 }"
+                      :format-options="QUANTITY_FORMAT"
                       :increment="false"
                       :decrement="false"
                       placeholder="—"
@@ -413,7 +415,7 @@ defineExpose({
                       <UInputNumber
                         v-model="line.unitPriceRmb"
                         :min="0"
-                        :format-options="{ maximumFractionDigits: 2 }"
+                        :format-options="RMB_FORMAT"
                         :increment="false"
                         :decrement="false"
                         class="min-w-0 flex-1"
@@ -486,16 +488,16 @@ defineExpose({
               v-model="state.data.freightCbm"
               :min="0"
               :step="0.1"
-              :format-options="{ maximumFractionDigits: 3 }"
+              :format-options="QUANTITY_FORMAT"
               class="w-full"
             />
           </UFormField>
-          <UFormField label="Coût par CBM (FCFA)" name="data.freightRatePerCbmFcfa">
+          <UFormField label="Coût par CBM" name="data.freightRatePerCbmFcfa">
             <UInputNumber
               v-model="state.data.freightRatePerCbmFcfa"
               :min="0"
               :step="5000"
-              :format-options="{ maximumFractionDigits: 0 }"
+              :format-options="FCFA_FORMAT"
               class="w-full"
             />
           </UFormField>
@@ -515,7 +517,9 @@ defineExpose({
         <UFormField name="data.fees">
           <div class="border-default overflow-x-auto rounded-lg border">
             <table class="w-full min-w-160 text-sm">
-              <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
+              <thead
+                class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase"
+              >
                 <tr>
                   <th class="px-3 py-2 font-medium">Autres frais</th>
                   <th class="w-32 px-3 py-2 font-medium">Montant</th>
@@ -540,7 +544,7 @@ defineExpose({
                     <UInputNumber
                       v-model="fee.amount"
                       :min="0"
-                      :format-options="{ maximumFractionDigits: 2 }"
+                      :format-options="feeAmountFormat(fee.currency)"
                       :increment="false"
                       :decrement="false"
                       class="w-full"
@@ -612,7 +616,9 @@ defineExpose({
       </template>
       <div class="border-default overflow-x-auto rounded-lg border">
         <table class="w-full min-w-240 text-sm">
-          <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
+          <thead
+            class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase"
+          >
             <tr>
               <th class="px-3 py-2 font-medium">Produit</th>
               <th class="px-3 py-2 text-right font-medium">Revient</th>
@@ -647,9 +653,7 @@ defineExpose({
                     <UInputNumber
                       v-model="line.pricing.value"
                       :min="0"
-                      :format-options="{
-                        maximumFractionDigits: line.pricing.mode === 'price' ? 0 : 2,
-                      }"
+                      :format-options="line.pricing.mode === 'price' ? FCFA_FORMAT : PERCENT_FORMAT"
                       :increment="false"
                       :decrement="false"
                       class="min-w-0 flex-1"

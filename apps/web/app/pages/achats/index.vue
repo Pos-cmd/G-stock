@@ -91,16 +91,18 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
           placeholder="Référence, fournisseur, notes…"
           class="w-full sm:w-72"
         />
-        <USelect v-model="status" :items="statusItems" class="w-44" />
-        <USelectMenu
-          v-model="supplierId"
-          :items="supplierItems"
-          value-key="value"
-          placeholder="Tous les fournisseurs"
-          :search-input="{ placeholder: 'Rechercher…' }"
-          clear
-          class="w-56"
-        />
+        <UFieldGroup>
+          <USelect v-model="status" :items="statusItems" class="w-44" />
+          <USelectMenu
+            v-model="supplierId"
+            :items="supplierItems"
+            value-key="value"
+            placeholder="Tous les fournisseurs"
+            :search-input="{ placeholder: 'Rechercher…' }"
+            clear
+            class="w-56"
+          />
+        </UFieldGroup>
       </div>
     </template>
 

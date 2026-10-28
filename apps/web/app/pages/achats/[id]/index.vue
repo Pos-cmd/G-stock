@@ -134,25 +134,26 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
       <PurchaseStatusBadge :status="data.status" />
     </template>
     <template #actions>
-      <UButton
-        v-if="data"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.compare"
-        label="Comparer"
-        :to="comparisonLink([{ id: data.id, type: 'purchase_order' }])"
-      />
-      <UTooltip v-if="data" :text="SAVE_FIRST_HINT" :disabled="!dirty">
+      <UFieldGroup v-if="data">
         <UButton
           color="neutral"
           variant="outline"
-          :icon="icons.pdf"
-          label="Fiche PDF"
-          :disabled="dirty"
-          :loading="generating"
-          @click="generate('cost_sheet', data.id)"
+          :icon="icons.compare"
+          label="Comparer"
+          :to="comparisonLink([{ id: data.id, type: 'purchase_order' }])"
         />
-      </UTooltip>
+        <UTooltip :text="SAVE_FIRST_HINT" :disabled="!dirty">
+          <UButton
+            color="neutral"
+            variant="outline"
+            :icon="icons.pdf"
+            label="Fiche PDF"
+            :disabled="dirty"
+            :loading="generating"
+            @click="generate('cost_sheet', data.id)"
+          />
+        </UTooltip>
+      </UFieldGroup>
       <template v-if="data?.isLocked">
         <UButton
           v-if="data.status === 'cancelled'"
@@ -164,22 +165,24 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         />
       </template>
       <template v-else-if="data">
-        <USelect
-          :model-value="isEditableStatus(data.status) ? data.status : undefined"
-          :items="statusItems"
-          :loading="statusMutation.isPending.value"
-          aria-label="Statut de la commande"
-          class="w-36"
-          @update:model-value="changeStatus"
-        />
-        <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
-          <UButton
-            color="neutral"
-            variant="outline"
-            :icon="icons.moreActions"
-            aria-label="Autres actions"
+        <UFieldGroup>
+          <USelect
+            :model-value="isEditableStatus(data.status) ? data.status : undefined"
+            :items="statusItems"
+            :loading="statusMutation.isPending.value"
+            aria-label="Statut de la commande"
+            class="w-36"
+            @update:model-value="changeStatus"
           />
-        </UDropdownMenu>
+          <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
+            <UButton
+              color="neutral"
+              variant="outline"
+              :icon="icons.moreActions"
+              aria-label="Autres actions"
+            />
+          </UDropdownMenu>
+        </UFieldGroup>
         <UTooltip :text="SAVE_FIRST_HINT" :disabled="!dirty">
           <UButton
             color="success"

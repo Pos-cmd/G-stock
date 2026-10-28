@@ -418,7 +418,9 @@ const confirmDescription = computed(
         <UFormField name="fees">
           <div class="border-default overflow-x-auto rounded-lg border">
             <table class="w-full min-w-[46rem] text-sm">
-              <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
+              <thead
+                class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase"
+              >
                 <tr>
                   <th class="px-3 py-2 font-medium">Frais</th>
                   <th class="w-36 px-3 py-2 font-medium">Montant</th>
@@ -446,7 +448,7 @@ const confirmDescription = computed(
                       <UInputNumber
                         v-model="fee.amount"
                         :min="0"
-                        :format-options="{ maximumFractionDigits: 2 }"
+                        :format-options="feeAmountFormat(fee.currency)"
                         :increment="false"
                         :decrement="false"
                         class="w-full"
@@ -519,7 +521,9 @@ const confirmDescription = computed(
 
         <div class="border-default overflow-x-auto rounded-lg border">
           <table class="w-full min-w-[52rem] text-sm">
-            <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
+            <thead
+              class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase"
+            >
               <tr>
                 <th class="px-3 py-2 font-medium">Produit</th>
                 <th class="px-3 py-2 text-right font-medium">Commandé</th>
@@ -545,7 +549,7 @@ const confirmDescription = computed(
                     <UInputNumber
                       v-model="state.items[index].qtyReceived"
                       :min="0"
-                      :format-options="{ maximumFractionDigits: 3 }"
+                      :format-options="QUANTITY_FORMAT"
                       class="w-full"
                     />
                   </UFormField>

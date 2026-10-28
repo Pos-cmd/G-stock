@@ -94,13 +94,15 @@ const columns: TableColumn<DocumentRow>[] = [
   >
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
-        <UInput
-          v-model="search"
-          :icon="icons.search"
-          placeholder="Référence, client, simulation…"
-          class="w-full sm:w-72"
-        />
-        <USelect v-model="type" :items="typeItems" class="w-48" />
+        <UFieldGroup class="w-full sm:w-auto">
+          <UInput
+            v-model="search"
+            :icon="icons.search"
+            placeholder="Référence, client, simulation…"
+            class="min-w-0 flex-1 sm:w-72 sm:flex-none"
+          />
+          <USelect v-model="type" :items="typeItems" class="w-48" />
+        </UFieldGroup>
         <span v-if="settingsStore.settings" class="text-muted ms-auto truncate text-xs">
           <UIcon :name="icons.folder" class="me-1 align-middle" />
           {{ settingsStore.settings.documentsFolder }}

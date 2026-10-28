@@ -122,22 +122,24 @@ const confirmCancelPayment = async (reason: string) => {
         aria-label="Supprimer le client"
         @click="deleteOpen = true"
       />
-      <UButton
-        color="neutral"
-        variant="outline"
-        :icon="icons.edit"
-        label="Modifier"
-        :disabled="!data"
-        @click="formOpen = true"
-      />
-      <UButton
-        color="neutral"
-        variant="outline"
-        :icon="icons.payment"
-        label="Encaisser"
-        :disabled="!data"
-        @click="paymentOpen = true"
-      />
+      <UFieldGroup>
+        <UButton
+          color="neutral"
+          variant="outline"
+          :icon="icons.edit"
+          label="Modifier"
+          :disabled="!data"
+          @click="formOpen = true"
+        />
+        <UButton
+          color="neutral"
+          variant="outline"
+          :icon="icons.payment"
+          label="Encaisser"
+          :disabled="!data"
+          @click="paymentOpen = true"
+        />
+      </UFieldGroup>
       <UButton :icon="icons.sales" label="Nouvelle vente" @click="create.openSale(customerId)" />
     </template>
 

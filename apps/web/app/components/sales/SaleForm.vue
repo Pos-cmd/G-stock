@@ -286,11 +286,13 @@ defineExpose({
         <UFormField name="lines">
           <div class="border-default overflow-x-auto rounded-lg border">
             <table class="w-full min-w-[52rem] text-sm">
-              <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
+              <thead
+                class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase"
+              >
                 <tr>
                   <th class="px-3 py-2 font-medium">Produit</th>
                   <th class="w-36 px-3 py-2 font-medium">Quantité</th>
-                  <th class="w-40 px-3 py-2 font-medium">Prix unitaire (FCFA)</th>
+                  <th class="w-40 px-3 py-2 font-medium">Prix unitaire</th>
                   <th class="px-3 py-2 text-right font-medium">Montant</th>
                   <th class="px-3 py-2 text-right font-medium">Coût</th>
                   <th class="px-3 py-2 text-right font-medium">Marge</th>
@@ -317,7 +319,7 @@ defineExpose({
                       <UInputNumber
                         v-model="line.qty"
                         :min="0"
-                        :format-options="{ maximumFractionDigits: 3 }"
+                        :format-options="QUANTITY_FORMAT"
                         class="w-full"
                       />
                     </UFormField>
@@ -334,7 +336,7 @@ defineExpose({
                       <UInputNumber
                         v-model="line.unitPriceFcfa"
                         :min="0"
-                        :format-options="{ maximumFractionDigits: 0 }"
+                        :format-options="FCFA_FORMAT"
                         :increment="false"
                         :decrement="false"
                         class="w-full"
@@ -416,7 +418,7 @@ defineExpose({
             <div class="grid gap-4 sm:grid-cols-2">
               <UFormField
                 v-if="state.paymentType === 'credit'"
-                label="Acompte versé (FCFA)"
+                label="Acompte versé"
                 name="paidFcfa"
                 help="0 si le client ne paie rien maintenant."
               >
@@ -424,7 +426,7 @@ defineExpose({
                   v-model="state.paidFcfa"
                   :min="0"
                   :step="1000"
-                  :format-options="{ maximumFractionDigits: 0 }"
+                  :format-options="FCFA_FORMAT"
                   class="w-full"
                 />
               </UFormField>

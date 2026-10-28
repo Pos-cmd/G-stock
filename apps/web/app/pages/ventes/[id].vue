@@ -105,26 +105,27 @@ const columns: TableColumn<SaleItem>[] = [
     </template>
     <template #actions>
       <template v-if="data">
-        <UButton
-          color="neutral"
-          variant="outline"
-          :icon="icons.pdf"
-          label="Reçu PDF"
-          :loading="generating"
-          @click="generate('receipt', data.id)"
-        />
-        <UTooltip text="Reçu au format téléphone, avec un message pour le client">
+        <UFieldGroup>
           <UButton
-            color="success"
-            variant="soft"
-            :icon="icons.whatsapp"
-            label="WhatsApp"
-            :loading="sharing"
-            @click="share(data)"
+            color="neutral"
+            variant="outline"
+            :icon="icons.pdf"
+            label="Reçu PDF"
+            :loading="generating"
+            @click="generate('receipt', data.id)"
           />
-        </UTooltip>
-        <template v-if="isActive">
-          <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
+          <UTooltip text="Reçu au format téléphone, avec un message pour le client">
+            <UButton
+              color="neutral"
+              variant="outline"
+              :icon="icons.whatsapp"
+              label="WhatsApp"
+              :loading="sharing"
+              :ui="{ leadingIcon: 'text-success' }"
+              @click="share(data)"
+            />
+          </UTooltip>
+          <UDropdownMenu v-if="isActive" :items="moreActions" :content="{ align: 'end' }">
             <UButton
               color="neutral"
               variant="outline"
@@ -132,13 +133,13 @@ const columns: TableColumn<SaleItem>[] = [
               aria-label="Autres actions"
             />
           </UDropdownMenu>
-          <UButton
-            v-if="data.summary.dueFcfa > 0"
-            :icon="icons.payment"
-            label="Encaisser"
-            @click="paymentOpen = true"
-          />
-        </template>
+        </UFieldGroup>
+        <UButton
+          v-if="isActive && data.summary.dueFcfa > 0"
+          :icon="icons.payment"
+          label="Encaisser"
+          @click="paymentOpen = true"
+        />
       </template>
     </template>
 

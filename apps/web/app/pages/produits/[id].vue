@@ -133,31 +133,33 @@ const lotColumns: TableColumn<StockLot>[] = [
       <UBadge v-if="isArchived" color="neutral" variant="outline" size="sm" label="Archivé" />
     </template>
     <template #actions>
-      <UButton
-        color="neutral"
-        variant="outline"
-        :icon="isArchived ? icons.unarchive : icons.archive"
-        :label="isArchived ? 'Restaurer' : 'Archiver'"
-        :disabled="!product.data.value"
-        @click="toggleArchive"
-      />
-      <UButton
-        color="neutral"
-        variant="outline"
-        :icon="icons.edit"
-        label="Modifier"
-        :disabled="!product.data.value"
-        @click="formOpen = true"
-      />
-      <UButton
-        v-if="product.data.value?.piecesPerUnit"
-        color="neutral"
-        variant="outline"
-        :icon="icons.unpack"
-        :label="`Ouvrir des ${product.data.value.unit}s`"
-        :disabled="!canUnpack"
-        @click="unpackOpen = true"
-      />
+      <UFieldGroup>
+        <UButton
+          color="neutral"
+          variant="outline"
+          :icon="isArchived ? icons.unarchive : icons.archive"
+          :label="isArchived ? 'Restaurer' : 'Archiver'"
+          :disabled="!product.data.value"
+          @click="toggleArchive"
+        />
+        <UButton
+          color="neutral"
+          variant="outline"
+          :icon="icons.edit"
+          label="Modifier"
+          :disabled="!product.data.value"
+          @click="formOpen = true"
+        />
+        <UButton
+          v-if="product.data.value?.piecesPerUnit"
+          color="neutral"
+          variant="outline"
+          :icon="icons.unpack"
+          :label="`Ouvrir des ${product.data.value.unit}s`"
+          :disabled="!canUnpack"
+          @click="unpackOpen = true"
+        />
+      </UFieldGroup>
       <UButton
         :icon="icons.stockEntry"
         label="Entrée de stock"

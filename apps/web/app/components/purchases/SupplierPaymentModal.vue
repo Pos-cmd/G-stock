@@ -116,14 +116,14 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
         @submit="onSubmit"
       >
         <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField label="Montant envoyé (FCFA)" name="amountFcfa" required>
+          <UFormField label="Montant envoyé" name="amountFcfa" required>
             <UInputNumber
               v-model="state.amountFcfa"
               :min="0"
               :step="100000"
               :increment="false"
               :decrement="false"
-              :format-options="{ maximumFractionDigits: 0 }"
+              :format-options="FCFA_FORMAT"
               class="w-full"
               autofocus
             />
@@ -143,7 +143,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
               :step="0.5"
               :increment="false"
               :decrement="false"
-              :format-options="{ maximumFractionDigits: 4 }"
+              :format-options="FCFA_RATE_FORMAT"
               :placeholder="rateFormatter.format(order.payment.orderFcfaRate)"
               class="w-full"
               @update:model-value="state.fcfaRate = $event || null"

@@ -66,7 +66,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof lotAdjustSchema>>
             v-model="state.newQty"
             :min="0"
             :step="1"
-            :format-options="{ maximumFractionDigits: 3 }"
+            :format-options="QUANTITY_FORMAT"
             class="w-full"
             autofocus
           />

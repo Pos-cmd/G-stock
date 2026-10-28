@@ -65,36 +65,34 @@ const hasFilters = computed(() => {
       placeholder="N° de vente, client…"
       class="w-full sm:w-56"
     />
-    <UInput v-model="filters.from" type="date" aria-label="Depuis le" class="w-38" />
-    <span class="text-muted text-sm">au</span>
-    <UInput v-model="filters.to" type="date" aria-label="Jusqu'au" class="w-38" />
-    <UDropdownMenu
-      :items="
-        PERIOD_PRESETS.map((preset) => ({
-          label: preset.label,
-          onSelect: () => applyPreset(preset.range),
-        }))
-      "
-    >
-      <UButton color="neutral" variant="outline" :icon="icons.period" label="Période" />
-    </UDropdownMenu>
-    <USelectMenu
-      v-if="!periodOnly"
-      v-model="filters.productId"
-      :items="productItems"
-      value-key="value"
-      placeholder="Tous les produits"
-      :search-input="{ placeholder: 'Rechercher…' }"
-      clear
-      class="w-52"
-    />
-    <USelect
-      v-if="showStatus && !periodOnly"
-      v-model="filters.status"
-      :items="statusItems"
-      class="w-40"
-    />
-    <USelect v-if="!periodOnly" v-model="filters.paymentState" :items="paymentItems" class="w-40" />
+    <!-- Période : raccourcis, puis dates de début et de fin -->
+    <UFieldGroup>
+      <UDropdownMenu
+        :items="
+          PERIOD_PRESETS.map((preset) => ({
+            label: preset.label,
+            onSelect: () => applyPreset(preset.range),
+          }))
+        "
+      >
+        <UButton color="neutral" variant="outline" :icon="icons.period" label="Période" />
+      </UDropdownMenu>
+      <UInput v-model="filters.from" type="date" aria-label="Depuis le" class="w-36" />
+      <UInput v-model="filters.to" type="date" aria-label="Jusqu'au" class="w-36" />
+    </UFieldGroup>
+    <UFieldGroup v-if="!periodOnly">
+      <USelectMenu
+        v-model="filters.productId"
+        :items="productItems"
+        value-key="value"
+        placeholder="Tous les produits"
+        :search-input="{ placeholder: 'Rechercher…' }"
+        clear
+        class="w-52"
+      />
+      <USelect v-if="showStatus" v-model="filters.status" :items="statusItems" class="w-40" />
+      <USelect v-model="filters.paymentState" :items="paymentItems" class="w-40" />
+    </UFieldGroup>
     <UButton
       v-if="hasFilters"
       color="neutral"

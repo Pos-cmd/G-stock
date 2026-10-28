@@ -3,11 +3,13 @@ import type { BreadcrumbItem } from "@nuxt/ui";
 
 import AlertsMenu from "~/components/layout/AlertsMenu.vue";
 import NowPill from "~/components/layout/NowPill.vue";
+import ThemeToggle from "~/components/layout/ThemeToggle.vue";
+import UserMenu from "~/components/layout/UserMenu.vue";
 
 /**
- * Cadre d'une page. En haut, la barre : panneau latéral, fil d'Ariane, date et alertes. Dans le
- * contenu, l'en-tête : icône (pages de détail), titre, badges et résumé à gauche ; onglets en
- * pilule (`tabs`) et actions à droite. `toolbar` accueille les filtres, sous l'en-tête.
+ * Cadre d'une page. En haut, la barre : panneau latéral, fil d'Ariane, date, thème, alertes et
+ * profil. Dans le contenu, l'en-tête : icône (pages de détail), titre, badges et résumé à gauche ;
+ * onglets en pilule (`tabs`) et actions à droite. `toolbar` accueille les filtres, sous l'en-tête.
  */
 const { parents = [], title } = defineProps<{
   id: string;
@@ -46,7 +48,10 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => [...parents, { label: title 
         </template>
         <template #right>
           <NowPill class="max-sm:hidden" />
+          <ThemeToggle />
           <AlertsMenu />
+          <USeparator orientation="vertical" class="mx-0.5 h-5" />
+          <UserMenu />
         </template>
       </UDashboardNavbar>
     </template>

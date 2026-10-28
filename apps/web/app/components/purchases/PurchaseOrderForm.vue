@@ -431,7 +431,7 @@ defineExpose({
             v-model="state.rmbPerUsd"
             :min="0"
             :step="0.01"
-            :format-options="{ maximumFractionDigits: 4 }"
+            :format-options="RMB_RATE_FORMAT"
             class="w-full"
           />
         </UFormField>
@@ -440,7 +440,7 @@ defineExpose({
             v-model="state.fcfaPerUsd"
             :min="0"
             :step="1"
-            :format-options="{ maximumFractionDigits: 2 }"
+            :format-options="FCFA_RATE_FORMAT"
             class="w-full"
           />
         </UFormField>
@@ -476,7 +476,9 @@ defineExpose({
       <UFormField name="items">
         <div class="border-default overflow-x-auto rounded-lg border">
           <table class="w-full min-w-240 text-sm">
-            <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
+            <thead
+              class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase"
+            >
               <tr>
                 <th class="px-3 py-2 font-medium">Produit</th>
                 <th class="w-32 px-3 py-2 font-medium">Qté en stock</th>
@@ -515,7 +517,7 @@ defineExpose({
                       v-model="line.qty"
                       :min="0"
                       :step="1"
-                      :format-options="{ maximumFractionDigits: 3 }"
+                      :format-options="QUANTITY_FORMAT"
                       class="w-full"
                     />
                   </UFormField>
@@ -529,7 +531,7 @@ defineExpose({
                       v-model="line.weightTons"
                       :min="0"
                       :step="0.5"
-                      :format-options="{ maximumFractionDigits: 3 }"
+                      :format-options="QUANTITY_FORMAT"
                       placeholder="—"
                       class="w-full"
                       @update:model-value="onWeightChange(line)"
@@ -543,7 +545,7 @@ defineExpose({
                         v-model="line.unitPrice"
                         :min="0"
                         :step="0.5"
-                        :format-options="{ maximumFractionDigits: 2 }"
+                        :format-options="supplierPriceFormat(state.currency)"
                         :increment="false"
                         :decrement="false"
                         class="min-w-0 flex-1"
@@ -622,44 +624,40 @@ defineExpose({
 
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <UPageCard variant="subtle" title="Frais d'approche">
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <UFormField label="Volume (CBM)" name="freightCbm">
             <UInputNumber
               v-model="state.freightCbm"
               :min="0"
               :step="0.1"
-              :format-options="{ maximumFractionDigits: 3 }"
+              :format-options="QUANTITY_FORMAT"
               class="w-full"
             />
           </UFormField>
-          <UFormField label="Coût par CBM (FCFA)" name="freightRatePerCbmFcfa">
+          <UFormField label="Coût par CBM" name="freightRatePerCbmFcfa">
             <UInputNumber
               v-model="state.freightRatePerCbmFcfa"
               :min="0"
               :step="5000"
-              :format-options="{ maximumFractionDigits: 0 }"
+              :format-options="FCFA_FORMAT"
               class="w-full"
             />
           </UFormField>
-          <UFormField label="Transport local (FCFA)" name="localTransportFcfa">
+          <UFormField label="Transport local" name="localTransportFcfa">
             <UInputNumber
               v-model="state.localTransportFcfa"
               :min="0"
               :step="5000"
-              :format-options="{ maximumFractionDigits: 0 }"
+              :format-options="FCFA_FORMAT"
               class="w-full"
             />
           </UFormField>
-          <UFormField
-            label="Autres frais (FCFA)"
-            name="otherFeesFcfa"
-            help="Dédouanement, manutention…"
-          >
+          <UFormField label="Autres frais" name="otherFeesFcfa" help="Dédouanement, manutention…">
             <UInputNumber
               v-model="state.otherFeesFcfa"
               :min="0"
               :step="5000"
-              :format-options="{ maximumFractionDigits: 0 }"
+              :format-options="FCFA_FORMAT"
               class="w-full"
             />
           </UFormField>
@@ -667,7 +665,7 @@ defineExpose({
           <UFormField
             label="Répartition des frais entre les produits"
             name="allocationMethod"
-            class="sm:col-span-2"
+            class="sm:col-span-2 xl:col-span-4"
           >
             <URadioGroup
               v-model="state.allocationMethod"

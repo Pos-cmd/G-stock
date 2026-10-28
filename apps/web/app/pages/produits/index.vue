@@ -210,13 +210,15 @@ const columns: TableColumn<ProductRow>[] = [
 
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
-        <UInput
-          v-model="search"
-          :icon="icons.search"
-          placeholder="Rechercher un produit, une référence…"
-          class="w-full sm:w-72"
-        />
-        <USelect v-model="category" :items="categoryItems" class="w-48" />
+        <UFieldGroup class="w-full sm:w-auto">
+          <UInput
+            v-model="search"
+            :icon="icons.search"
+            placeholder="Rechercher un produit, une référence…"
+            class="min-w-0 flex-1 sm:w-72 sm:flex-none"
+          />
+          <USelect v-model="category" :items="categoryItems" class="w-48" />
+        </UFieldGroup>
         <USwitch v-model="includeArchived" label="Afficher les archivés" class="ms-auto" />
       </div>
     </template>

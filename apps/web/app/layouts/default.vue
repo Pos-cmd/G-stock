@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import AppSearch from "~/components/layout/AppSearch.vue";
 import CreateDialogs from "~/components/layout/CreateDialogs.vue";
-import UserMenu from "~/components/layout/UserMenu.vue";
 import { useSettingsStore } from "~/stores/settings";
 
 const icons = useIcons();
@@ -84,10 +83,6 @@ const companyName = computed(() => settingsStore.settings?.companyName || undefi
           tooltip
           class="mt-auto"
         />
-      </template>
-
-      <template #footer="{ collapsed }">
-        <UserMenu :collapsed="collapsed" />
       </template>
     </UDashboardSidebar>
 

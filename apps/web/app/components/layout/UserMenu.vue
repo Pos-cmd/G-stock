@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from "@nuxt/ui";
 
+// Profil dans la barre du haut : qui est connecté, les paramètres et la déconnexion.
 const icons = useIcons();
-
-defineProps<{ collapsed?: boolean }>();
 
 const { $authClient } = useNuxtApp();
 const session = $authClient.useSession();
-const colorMode = useColorMode();
 const notify = useNotify();
+
+const user = computed(() => session.value.data?.user);
 
 const handleSignOut = async () => {
   try {
@@ -22,46 +22,30 @@ const handleSignOut = async () => {
 const items = computed<DropdownMenuItem[][]>(() => [
   [
     {
-      icon: colorMode.value === "dark" ? icons.light : icons.dark,
-      label: colorMode.value === "dark" ? "Thème clair" : "Thème sombre",
-      onSelect: () => {
-        colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
-      },
+      avatar: { alt: user.value?.name ?? "Utilisateur" },
+      description: user.value?.email,
+      label: user.value?.name ?? "Utilisateur",
+      type: "label",
     },
   ],
-  [
-    {
-      color: "error",
-      icon: icons.signOut,
-      label: "Se déconnecter",
-      onSelect: handleSignOut,
-    },
-  ],
+  [{ icon: icons.settings, label: "Paramètres", to: "/parametres" }],
+  [{ color: "error", icon: icons.signOut, label: "Se déconnecter", onSelect: handleSignOut }],
 ]);
 </script>
 
 <template>
-  <ClientOnly>
-    <UDropdownMenu
-      :items="items"
-      :content="{ align: 'center', collisionPadding: 12 }"
-      :ui="{
-        content: collapsed ? 'w-48' : 'w-(--reka-dropdown-menu-trigger-width)',
-      }"
+  <UDropdownMenu
+    :items="items"
+    :content="{ align: 'end', collisionPadding: 12 }"
+    :ui="{ content: 'w-60' }"
+  >
+    <UButton
+      color="neutral"
+      variant="ghost"
+      class="rounded-full p-0.5"
+      :aria-label="`Compte de ${user?.name ?? 'l’utilisateur'}`"
     >
-      <UButton
-        :avatar="{ alt: session.data?.user.name ?? 'Utilisateur' }"
-        :label="collapsed ? undefined : session.data?.user.name"
-        :trailing-icon="collapsed ? undefined : icons.selector"
-        color="neutral"
-        variant="outline"
-        block
-        :square="collapsed"
-        class="py-2 data-[state=open]:bg-muted"
-      />
-    </UDropdownMenu>
-    <template #fallback>
-      <USkeleton class="h-9 w-full" />
-    </template>
-  </ClientOnly>
+      <UAvatar :alt="user?.name ?? 'Utilisateur'" size="sm" class="ring-default ring" />
+    </UButton>
+  </UDropdownMenu>
 </template>

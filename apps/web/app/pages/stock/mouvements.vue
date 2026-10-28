@@ -62,19 +62,28 @@ const resetFilters = () => {
   >
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
-        <USelectMenu
-          v-model="productId"
-          :items="productItems"
-          value-key="value"
-          placeholder="Tous les produits"
-          :search-input="{ placeholder: 'Rechercher…' }"
-          clear
-          class="w-64"
-        />
-        <USelect v-model="type" :items="typeItems" class="w-44" />
-        <UInput v-model="from" type="date" aria-label="Depuis le" class="w-40" />
-        <span class="text-muted text-sm">au</span>
-        <UInput v-model="to" type="date" aria-label="Jusqu'au" class="w-40" />
+        <UFieldGroup>
+          <USelectMenu
+            v-model="productId"
+            :items="productItems"
+            value-key="value"
+            placeholder="Tous les produits"
+            :search-input="{ placeholder: 'Rechercher…' }"
+            clear
+            class="w-64"
+          />
+          <USelect v-model="type" :items="typeItems" class="w-44" />
+        </UFieldGroup>
+        <UFieldGroup>
+          <UInput
+            v-model="from"
+            type="date"
+            :icon="icons.calendar"
+            aria-label="Depuis le"
+            class="w-44"
+          />
+          <UInput v-model="to" type="date" aria-label="Jusqu'au" class="w-36" />
+        </UFieldGroup>
         <UButton
           v-if="hasFilters"
           color="neutral"

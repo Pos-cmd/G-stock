@@ -151,15 +151,21 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof productInputSchem
           name="alertThreshold"
           help="Alerte « stock bas » à partir de cette quantité."
         >
-          <UInputNumber v-model="state.alertThreshold" :min="0" :step="1" class="w-full" />
+          <UInputNumber
+            v-model="state.alertThreshold"
+            :format-options="QUANTITY_FORMAT"
+            :min="0"
+            :step="1"
+            class="w-full"
+          />
         </UFormField>
 
-        <UFormField label="Prix d'achat de référence (RMB)" name="referencePriceRmb">
+        <UFormField label="Prix d'achat de référence" name="referencePriceRmb">
           <UInputNumber
             v-model="state.referencePriceRmb"
             :min="0"
             :step="0.5"
-            :format-options="{ maximumFractionDigits: 2 }"
+            :format-options="RMB_FORMAT"
             placeholder="Facultatif"
             class="w-full"
           />
@@ -169,12 +175,12 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof productInputSchem
           </template>
         </UFormField>
 
-        <UFormField label="Prix de vente conseillé (FCFA)" name="suggestedSalePriceFcfa">
+        <UFormField label="Prix de vente conseillé" name="suggestedSalePriceFcfa">
           <UInputNumber
             v-model="state.suggestedSalePriceFcfa"
             :min="0"
             :step="500"
-            :format-options="{ maximumFractionDigits: 0 }"
+            :format-options="FCFA_FORMAT"
             placeholder="Facultatif"
             class="w-full"
           />
@@ -188,6 +194,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof productInputSchem
         >
           <UInputNumber
             :model-value="state.piecesPerUnit ?? undefined"
+            :format-options="INTEGER_FORMAT"
             :min="0"
             :step="1"
             placeholder="Facultatif"

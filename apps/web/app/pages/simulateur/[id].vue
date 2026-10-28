@@ -90,43 +90,45 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
     :parents="[{ label: 'Simulations', to: '/simulateur' }]"
   >
     <template #actions>
-      <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
+      <UFieldGroup>
+        <UTooltip :text="SAVE_FIRST_HINT" :disabled="!dirty">
+          <UButton
+            color="neutral"
+            variant="outline"
+            :icon="icons.pdf"
+            label="PDF"
+            :disabled="dirty || !data"
+            :loading="generating"
+            @click="generate('simulation', simulationId)"
+          />
+        </UTooltip>
         <UButton
-          color="neutral"
-          variant="outline"
-          :icon="icons.moreActions"
-          aria-label="Autres actions"
-        />
-      </UDropdownMenu>
-      <UTooltip :text="SAVE_FIRST_HINT" :disabled="!dirty">
-        <UButton
-          color="neutral"
-          variant="outline"
-          :icon="icons.pdf"
-          label="PDF"
-          :disabled="dirty || !data"
-          :loading="generating"
-          @click="generate('simulation', simulationId)"
-        />
-      </UTooltip>
-      <UButton
-        v-if="data?.purchaseOrderId"
-        :to="`/achats/${data.purchaseOrderId}`"
-        color="neutral"
-        variant="outline"
-        :icon="icons.purchases"
-        :label="`Commande ${data.orderReference ?? ''}`"
-      />
-      <UTooltip v-else :text="SAVE_FIRST_HINT" :disabled="!dirty">
-        <UButton
+          v-if="data?.purchaseOrderId"
+          :to="`/achats/${data.purchaseOrderId}`"
           color="neutral"
           variant="outline"
           :icon="icons.purchases"
-          label="Créer la commande"
-          :disabled="dirty || !data"
-          @click="convertOpen = true"
+          :label="`Commande ${data.orderReference ?? ''}`"
         />
-      </UTooltip>
+        <UTooltip v-else :text="SAVE_FIRST_HINT" :disabled="!dirty">
+          <UButton
+            color="neutral"
+            variant="outline"
+            :icon="icons.purchases"
+            label="Créer la commande"
+            :disabled="dirty || !data"
+            @click="convertOpen = true"
+          />
+        </UTooltip>
+        <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
+          <UButton
+            color="neutral"
+            variant="outline"
+            :icon="icons.moreActions"
+            aria-label="Autres actions"
+          />
+        </UDropdownMenu>
+      </UFieldGroup>
       <UButton
         type="submit"
         form="simulation-form"
