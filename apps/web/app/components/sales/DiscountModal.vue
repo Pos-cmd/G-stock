@@ -62,6 +62,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
 
 <template>
   <ResponsiveModal
+    variant="modal"
     v-model:open="open"
     title="Accorder une remise"
     :description="`${sale.reference} · montant net actuel ${formatFcfa(sale.netFcfa)}. Si la vente est déjà payée, la remise devient un avoir du client.`"

@@ -46,6 +46,7 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof lotAdjustSchema>>
 
 <template>
   <ResponsiveModal
+    variant="modal"
     v-model:open="open"
     title="Ajuster un lot"
     :description="

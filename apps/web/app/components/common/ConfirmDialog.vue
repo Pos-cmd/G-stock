@@ -19,7 +19,13 @@ const open = defineModel<boolean>("open", { required: true });
 </script>
 
 <template>
-  <ResponsiveModal v-model:open="open" :title="title" :description="description">
+  <ResponsiveModal
+    v-model:open="open"
+    variant="modal"
+    :title="title"
+    :description="description"
+    :dismissible="confirmColor !== 'error'"
+  >
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton color="neutral" variant="ghost" label="Annuler" @click="open = false" />

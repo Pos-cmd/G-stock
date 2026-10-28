@@ -54,6 +54,7 @@ const submit = async () => {
 
 <template>
   <ResponsiveModal
+    variant="modal"
     v-model:open="open"
     :title="`Ouvrir des ${product.unit}s`"
     :description="`${piecesPerUnit} pièces par ${product.unit} · ${formatQty(product.stockQty, product.unit)} en stock`"

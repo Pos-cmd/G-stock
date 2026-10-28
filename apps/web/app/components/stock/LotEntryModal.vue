@@ -86,7 +86,6 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof formSchema>>) => 
     v-model:open="open"
     title="Entrée de stock"
     :description="product ? `Nouveau lot pour « ${product.name} »` : undefined"
-    :ui="{ content: 'sm:max-w-xl' }"
   >
     <template #body>
       <UForm

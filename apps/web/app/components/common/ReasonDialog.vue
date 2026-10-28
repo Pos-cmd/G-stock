@@ -42,7 +42,13 @@ const confirm = () => {
 </script>
 
 <template>
-  <ResponsiveModal v-model:open="open" :title="title" :description="description">
+  <ResponsiveModal
+    v-model:open="open"
+    variant="modal"
+    :title="title"
+    :description="description"
+    :dismissible="confirmColor !== 'error'"
+  >
     <template #body>
       <UFormField
         label="Motif"

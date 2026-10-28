@@ -100,7 +100,6 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof productInputSchem
     v-model:open="open"
     :title="isEdit ? 'Modifier le produit' : 'Nouveau produit'"
     description="Informations générales et seuil d'alerte de stock."
-    :ui="{ content: 'sm:max-w-2xl' }"
   >
     <template #body>
       <UForm

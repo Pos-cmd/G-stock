@@ -71,7 +71,6 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof supplierInputSche
     v-model:open="open"
     :title="supplier ? 'Modifier le fournisseur' : 'Nouveau fournisseur'"
     description="Coordonnées du fournisseur ou de l'usine."
-    :ui="{ content: 'sm:max-w-xl' }"
   >
     <template #body>
       <UForm

@@ -74,7 +74,6 @@ const onSubmit = async (event: FormSubmitEvent<z.output<typeof customerInputSche
     v-model:open="open"
     :title="customer ? 'Modifier le client' : 'Nouveau client'"
     description="Coordonnées du client ; son solde se calcule à partir de ses ventes et paiements."
-    :ui="{ content: 'sm:max-w-xl' }"
   >
     <template #body>
       <UForm
