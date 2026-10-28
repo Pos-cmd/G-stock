@@ -14,15 +14,14 @@ const onSaved = async (id: string) => {
 </script>
 
 <template>
-  <PagePanel id="purchase-new" title="Nouvelle commande fournisseur" :icon="icons.purchases">
+  <PagePanel
+    id="purchase-new"
+    title="Nouvelle commande fournisseur"
+    description="Prix fournisseur en RMB ou en dollars, convertis en FCFA aux taux du jour."
+    :icon="icons.purchases"
+    :parents="[{ label: 'Commandes', to: '/achats' }]"
+  >
     <template #actions>
-      <UButton
-        to="/achats"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Commandes"
-      />
       <UButton
         type="submit"
         form="purchase-form"

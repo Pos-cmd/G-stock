@@ -14,15 +14,14 @@ const onSaved = async (id: string) => {
 </script>
 
 <template>
-  <PagePanel id="simulation-new" title="Nouvelle simulation" :icon="icons.simulations">
+  <PagePanel
+    id="simulation-new"
+    title="Nouvelle simulation"
+    description="Chiffrez un achat avant de le commander : coût de revient, prix de vente et marge."
+    :icon="icons.simulations"
+    :parents="[{ label: 'Simulations', to: '/simulateur' }]"
+  >
     <template #actions>
-      <UButton
-        to="/simulateur"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Simulations"
-      />
       <UButton
         type="submit"
         form="simulation-form"

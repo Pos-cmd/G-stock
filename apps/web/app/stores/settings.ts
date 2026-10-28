@@ -20,10 +20,10 @@ export const useSettingsStore = defineStore("settings", () => {
       : DEFAULT_EXCHANGE_RATES,
   );
 
-  const load = async (force = false) => {
-    if ((settings.value && !force) || loading.value) {
-      return;
-    }
+  // Un seul chargement à la fois : les appels simultanés attendent le même.
+  let pending: Promise<void> | null = null;
+
+  const fetchSettings = async () => {
     loading.value = true;
     try {
       settings.value = await $orpc.settings.get.call();
@@ -33,7 +33,16 @@ export const useSettingsStore = defineStore("settings", () => {
       error.value = error_ instanceof Error ? error_ : new Error("Réglages indisponibles");
     } finally {
       loading.value = false;
+      pending = null;
     }
+  };
+
+  const load = async (force = false) => {
+    if (settings.value && !force) {
+      return;
+    }
+    pending ??= fetchSettings();
+    await pending;
   };
 
   const save = async (input: AppSettings) => {

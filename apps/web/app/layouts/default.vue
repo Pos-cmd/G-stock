@@ -1,130 +1,85 @@
 <script setup lang="ts">
-import type { NavigationMenuItem } from "@nuxt/ui";
-import { useQuery } from "@tanstack/vue-query";
-
+import AppSearch from "~/components/layout/AppSearch.vue";
+import CreateDialogs from "~/components/layout/CreateDialogs.vue";
 import UserMenu from "~/components/layout/UserMenu.vue";
+import { useSettingsStore } from "~/stores/settings";
 
 const icons = useIcons();
+const settingsStore = useSettingsStore();
+const { sections, settingsLink } = useAppNavigation();
 
-const { $orpc } = useNuxtApp();
+// Sur téléphone, la barre latérale est un menu : il se referme une fois la page choisie.
 const open = ref(false);
+const route = useRoute();
+watch(
+  () => route.fullPath,
+  () => {
+    open.value = false;
+  },
+);
 
-const summary = useQuery($orpc.stock.summary.queryOptions());
-const sales = useQuery($orpc.sales.summary.queryOptions());
-const criticalDebtors = computed(() => sales.data.value?.criticalDebtorCount ?? 0);
-const alertCount = computed(() => {
-  const data = summary.data.value;
-  return data ? data.lowCount + data.outCount : 0;
-});
-
-const closeOnMobile = () => {
-  open.value = false;
-};
-
-const mainLinks = computed<NavigationMenuItem[]>(() => [
-  {
-    icon: icons.dashboard,
-    label: "Tableau de bord",
-    onSelect: closeOnMobile,
-    to: "/",
-  },
-  {
-    badge: alertCount.value > 0 ? { color: "error", label: String(alertCount.value) } : undefined,
-    children: [
-      { label: "Produits", onSelect: closeOnMobile, to: "/produits" },
-      { label: "Mouvements", onSelect: closeOnMobile, to: "/stock/mouvements" },
-    ],
-    defaultOpen: true,
-    icon: icons.products,
-    label: "Stock & Produits",
-    type: "trigger",
-  },
-  {
-    children: [
-      { label: "Nouvelle vente", onSelect: closeOnMobile, to: "/ventes/nouvelle" },
-      { exact: true, label: "Historique", onSelect: closeOnMobile, to: "/ventes" },
-    ],
-    defaultOpen: true,
-    icon: icons.sales,
-    label: "Ventes",
-    type: "trigger",
-  },
-  {
-    badge:
-      criticalDebtors.value > 0
-        ? { color: "error", label: String(criticalDebtors.value) }
-        : undefined,
-    icon: icons.customers,
-    label: "Clients",
-    onSelect: closeOnMobile,
-    to: "/clients",
-  },
-  {
-    children: [
-      { label: "Commandes", onSelect: closeOnMobile, to: "/achats", exact: true },
-      { label: "Fournisseurs", onSelect: closeOnMobile, to: "/achats/fournisseurs" },
-    ],
-    defaultOpen: true,
-    icon: icons.purchases,
-    label: "Achats",
-    type: "trigger",
-  },
-  {
-    children: [
-      { exact: true, label: "Simulations", onSelect: closeOnMobile, to: "/simulateur" },
-      { label: "Comparer", onSelect: closeOnMobile, to: "/simulateur/comparer" },
-    ],
-    defaultOpen: true,
-    icon: icons.simulations,
-    label: "Simulateur",
-    type: "trigger",
-  },
-  {
-    icon: icons.documents,
-    label: "Documents",
-    onSelect: closeOnMobile,
-    to: "/documents",
-  },
-]);
-
-const secondaryLinks: NavigationMenuItem[] = [
-  {
-    icon: icons.settings,
-    label: "Paramètres",
-    onSelect: closeOnMobile,
-    to: "/parametres",
-  },
-];
+onMounted(() => settingsStore.load());
+const companyName = computed(() => settingsStore.settings?.companyName || undefined);
 </script>
 
 <template>
   <UDashboardGroup unit="rem">
-    <UDashboardSidebar
-      id="main"
-      v-model:open="open"
-      collapsible
-      resizable
-      class="bg-elevated/25"
-      :ui="{ footer: 'lg:border-t lg:border-default' }"
-    >
+    <UDashboardSidebar id="main" v-model:open="open" collapsible resizable>
       <template #header="{ collapsed }">
-        <NuxtLink to="/" class="text-highlighted flex items-center gap-2 px-1">
-          <UIcon :name="icons.logo" class="text-primary size-6 shrink-0" />
-          <span v-if="!collapsed" class="text-lg font-semibold tracking-tight">G-stock</span>
+        <NuxtLink
+          to="/"
+          class="text-highlighted flex w-full min-w-0 items-center gap-2.5"
+          :class="
+            collapsed
+              ? 'justify-center'
+              : 'bg-default shadow-tactile ring-default rounded-lg p-1.5 ring'
+          "
+        >
+          <span
+            class="bg-inverted text-inverted shadow-primary flex size-7 shrink-0 items-center justify-center rounded-md"
+          >
+            <UIcon :name="icons.logo" class="size-4" />
+          </span>
+          <span v-if="!collapsed" class="min-w-0 leading-tight">
+            <span class="block text-sm font-semibold tracking-tight">G-stock</span>
+            <span v-if="companyName" class="text-muted block truncate text-xs">
+              {{ companyName }}
+            </span>
+          </span>
         </NuxtLink>
       </template>
 
       <template #default="{ collapsed }">
+        <UDashboardSearchButton :collapsed="collapsed" label="Rechercher" class="mb-1" />
+
+        <nav v-for="section in sections" :key="section.id" :aria-label="section.label">
+          <div v-if="!collapsed" class="flex h-7 items-center justify-between ps-2.5 pe-0.5">
+            <span class="text-dimmed font-mono text-[11px] font-medium tracking-[0.08em] uppercase">
+              {{ section.label }}
+            </span>
+            <UTooltip v-if="section.create" :text="section.create.label">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :icon="icons.plus"
+                :aria-label="section.create.label"
+                @click="section.create.onSelect"
+              />
+            </UTooltip>
+          </div>
+          <USeparator v-else class="my-1.5" />
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="section.items"
+            orientation="vertical"
+            tooltip
+          />
+        </nav>
+
         <UNavigationMenu
           :collapsed="collapsed"
-          :items="mainLinks"
-          orientation="vertical"
-          tooltip
-          popover
-        />
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="secondaryLinks"
+          :items="[settingsLink]"
           orientation="vertical"
           tooltip
           class="mt-auto"
@@ -137,5 +92,8 @@ const secondaryLinks: NavigationMenuItem[] = [
     </UDashboardSidebar>
 
     <slot />
+
+    <AppSearch />
+    <CreateDialogs />
   </UDashboardGroup>
 </template>

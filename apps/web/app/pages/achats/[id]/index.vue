@@ -119,15 +119,21 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
 </script>
 
 <template>
-  <PagePanel id="purchase-detail" :title="data?.reference ?? 'Commande'" :icon="icons.purchases">
+  <PagePanel
+    id="purchase-detail"
+    :title="data?.reference ?? 'Commande'"
+    :description="
+      data
+        ? `${data.supplier?.name ?? 'Sans fournisseur'} · commandée le ${formatDate(data.orderDate)}`
+        : undefined
+    "
+    :icon="icons.purchases"
+    :parents="[{ label: 'Commandes', to: '/achats' }]"
+  >
+    <template v-if="data?.isLocked" #badges>
+      <PurchaseStatusBadge :status="data.status" />
+    </template>
     <template #actions>
-      <UButton
-        to="/achats"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Commandes"
-      />
       <UButton
         v-if="data"
         color="neutral"
@@ -148,7 +154,6 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
         />
       </UTooltip>
       <template v-if="data?.isLocked">
-        <PurchaseStatusBadge :status="data.status" />
         <UButton
           v-if="data.status === 'cancelled'"
           color="error"

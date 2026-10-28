@@ -48,6 +48,12 @@ const STOCK_COLORS = { low: "warning", ok: "success", out: "error" } as const;
 const stockColor = computed(() => STOCK_COLORS[product.data.value?.status ?? "ok"]);
 
 const isArchived = computed(() => Boolean(product.data.value?.archivedAt));
+const subtitle = computed(() => {
+  const data = product.data.value;
+  return data
+    ? [data.reference, data.category, `vendu à l'${data.unit}`].filter(Boolean).join(" · ")
+    : undefined;
+});
 
 const unitMargin = computed(() => {
   const data = product.data.value;
@@ -97,8 +103,8 @@ const toggleArchive = async () => {
 };
 
 const tabs: TabsItem[] = [
-  { icon: icons.lots, label: "Lots", slot: "lots" },
-  { icon: icons.movements, label: "Mouvements", slot: "movements" },
+  { label: "Lots", slot: "lots" },
+  { label: "Mouvements", slot: "movements" },
 ];
 
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
@@ -118,16 +124,15 @@ const lotColumns: TableColumn<StockLot>[] = [
   <PagePanel
     id="product-detail"
     :title="product.data.value?.name ?? 'Produit'"
+    :description="subtitle"
     :icon="icons.product"
+    :parents="[{ label: 'Produits', to: '/produits' }]"
   >
+    <template v-if="product.data.value" #badges>
+      <StockStatusBadge :status="product.data.value.status" />
+      <UBadge v-if="isArchived" color="neutral" variant="outline" size="sm" label="Archivé" />
+    </template>
     <template #actions>
-      <UButton
-        to="/produits"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Produits"
-      />
       <UButton
         color="neutral"
         variant="outline"
@@ -302,7 +307,7 @@ const lotColumns: TableColumn<StockLot>[] = [
         </dl>
       </UPageCard>
 
-      <UTabs :items="tabs" variant="link" class="w-full">
+      <UTabs :items="tabs">
         <template #lots>
           <div class="space-y-3 pt-2">
             <USwitch v-model="showEmptyLots" label="Afficher les lots épuisés" />
@@ -310,7 +315,6 @@ const lotColumns: TableColumn<StockLot>[] = [
               :data="lots.data.value ?? []"
               :columns="lotColumns"
               :loading="lots.isFetching.value"
-              class="border-default rounded-lg border"
             >
               <template #lotCode-cell="{ row }">
                 <span class="font-mono text-xs">{{ row.original.lotCode }}</span>

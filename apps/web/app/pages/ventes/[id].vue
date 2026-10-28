@@ -93,15 +93,17 @@ const columns: TableColumn<SaleItem>[] = [
 </script>
 
 <template>
-  <PagePanel id="sale-detail" :title="data?.reference ?? 'Vente'" :icon="icons.sale">
+  <PagePanel
+    id="sale-detail"
+    :title="data?.reference ?? 'Vente'"
+    :description="data ? `${data.customer.name} · ${formatDate(data.saleDate)}` : undefined"
+    :icon="icons.sale"
+    :parents="[{ label: 'Ventes', to: '/ventes' }]"
+  >
+    <template v-if="data" #badges>
+      <SaleStatusBadge :status="data.status" :due-fcfa="data.summary.dueFcfa" />
+    </template>
     <template #actions>
-      <UButton
-        to="/ventes"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Ventes"
-      />
       <template v-if="data">
         <UButton
           color="neutral"
@@ -121,7 +123,6 @@ const columns: TableColumn<SaleItem>[] = [
             @click="share(data)"
           />
         </UTooltip>
-        <SaleStatusBadge :status="data.status" :due-fcfa="data.summary.dueFcfa" />
         <template v-if="isActive">
           <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
             <UButton
@@ -266,7 +267,7 @@ const columns: TableColumn<SaleItem>[] = [
         </UPageCard>
       </div>
 
-      <UTable :data="data.items" :columns="columns" class="border-default rounded-lg border">
+      <UTable :data="data.items" :columns="columns">
         <template #productName-cell="{ row }">
           <NuxtLink
             :to="`/produits/${row.original.productId}`"

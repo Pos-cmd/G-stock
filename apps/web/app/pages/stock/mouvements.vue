@@ -55,7 +55,11 @@ const resetFilters = () => {
 </script>
 
 <template>
-  <PagePanel id="stock-movements" title="Mouvements de stock" :icon="icons.movements">
+  <PagePanel
+    id="stock-movements"
+    title="Mouvements de stock"
+    description="Chaque entrée, sortie et correction de stock, lot par lot."
+  >
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
         <USelectMenu

@@ -83,15 +83,13 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
 </script>
 
 <template>
-  <PagePanel id="simulation-detail" :title="data?.name ?? 'Simulation'" :icon="icons.simulations">
+  <PagePanel
+    id="simulation-detail"
+    :title="data?.name ?? 'Simulation'"
+    :icon="icons.simulations"
+    :parents="[{ label: 'Simulations', to: '/simulateur' }]"
+  >
     <template #actions>
-      <UButton
-        to="/simulateur"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Simulations"
-      />
       <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
         <UButton
           color="neutral"

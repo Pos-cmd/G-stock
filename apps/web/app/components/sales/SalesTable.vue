@@ -113,7 +113,6 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
       :data="sales.data.value?.items ?? []"
       :columns="columns"
       :loading="sales.isFetching.value"
-      class="border-default rounded-lg border"
     >
       <template #reference-cell="{ row }">
         <NuxtLink

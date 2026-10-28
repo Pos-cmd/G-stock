@@ -85,15 +85,12 @@ const columns: TableColumn<SupplierRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="suppliers" title="Fournisseurs" :icon="icons.suppliers">
+  <PagePanel
+    id="suppliers"
+    title="Fournisseurs"
+    description="Vos fournisseurs et ce qu'il vous reste à leur payer."
+  >
     <template #actions>
-      <UButton
-        to="/achats"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Commandes"
-      />
       <UButton :icon="icons.plus" label="Nouveau fournisseur" @click="openCreate" />
     </template>
 
@@ -101,7 +98,6 @@ const columns: TableColumn<SupplierRow>[] = [
       :data="suppliers.data.value ?? []"
       :columns="columns"
       :loading="suppliers.isFetching.value"
-      class="border-default rounded-lg border"
     >
       <template #name-cell="{ row }">
         <span class="text-highlighted font-medium">{{ row.original.name }}</span>

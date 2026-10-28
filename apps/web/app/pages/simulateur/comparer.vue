@@ -278,17 +278,12 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
 </script>
 
 <template>
-  <PagePanel id="comparison" title="Comparer" :icon="icons.compare">
-    <template #actions>
-      <UButton
-        to="/simulateur"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Simulations"
-      />
-    </template>
-
+  <PagePanel
+    id="comparison"
+    title="Comparer"
+    description="Simulations et commandes côte à côte, écarts calculés par rapport à la référence."
+    :parents="[{ label: 'Simulations', to: '/simulateur' }]"
+  >
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
         <UBadge
@@ -429,7 +424,7 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
         </div>
         <div class="border-default overflow-x-auto rounded-lg border">
           <table class="w-full min-w-176 text-sm">
-            <thead class="bg-elevated/50 text-muted text-xs">
+            <thead class="bg-muted text-muted font-mono text-[11px] tracking-[0.06em] uppercase">
               <tr>
                 <th class="w-52 px-4 py-2 text-left font-medium">Produit</th>
                 <th
@@ -473,7 +468,7 @@ const canAdd = computed(() => items.value.length < MAX_COMPARED_ITEMS);
         <h2 class="text-highlighted font-semibold">Frais d'approche</h2>
         <div class="border-default overflow-x-auto rounded-lg border">
           <table class="w-full min-w-176 text-sm">
-            <thead class="bg-elevated/50 text-muted text-xs">
+            <thead class="bg-muted text-muted font-mono text-[11px] tracking-[0.06em] uppercase">
               <tr>
                 <th class="w-52 px-4 py-2 text-left font-medium">Frais</th>
                 <th

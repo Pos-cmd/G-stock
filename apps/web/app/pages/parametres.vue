@@ -61,7 +61,11 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
 </script>
 
 <template>
-  <PagePanel id="settings" title="Paramètres" :icon="icons.settings">
+  <PagePanel
+    id="settings"
+    title="Paramètres"
+    description="Taux de change, coordonnées de l'entreprise, créances et sauvegardes."
+  >
     <UAlert
       v-if="settingsStore.error"
       color="error"

@@ -155,6 +155,11 @@ onMounted(async () => {
     await settingsStore.load();
   }
   reset();
+  // Saisie commencée dans la grande fenêtre, puis ouverte en pleine page.
+  const draft = simulation ? undefined : takeFormDraft<SimulationState>("simulation");
+  if (draft) {
+    Object.assign(state, draft);
+  }
 });
 watch(
   () => simulation,
@@ -287,7 +292,12 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
   }
 };
 
-defineExpose({ saving });
+defineExpose({
+  saving,
+  stashDraft: () => {
+    stashFormDraft("simulation", state);
+  },
+});
 </script>
 
 <template>
@@ -331,8 +341,8 @@ defineExpose({ saving });
       </template>
       <UFormField name="data.lines">
         <div class="border-default overflow-x-auto rounded-lg border">
-          <table class="w-full min-w-[60rem] text-sm">
-            <thead class="bg-elevated/50 text-muted text-left text-xs">
+          <table class="w-full min-w-240 text-sm">
+            <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
               <tr>
                 <th class="px-3 py-2 font-medium">Produit</th>
                 <th class="w-32 px-3 py-2 font-medium">Unité</th>
@@ -504,8 +514,8 @@ defineExpose({ saving });
 
         <UFormField name="data.fees">
           <div class="border-default overflow-x-auto rounded-lg border">
-            <table class="w-full min-w-[40rem] text-sm">
-              <thead class="bg-elevated/50 text-muted text-left text-xs">
+            <table class="w-full min-w-160 text-sm">
+              <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
                 <tr>
                   <th class="px-3 py-2 font-medium">Autres frais</th>
                   <th class="w-32 px-3 py-2 font-medium">Montant</th>
@@ -601,8 +611,8 @@ defineExpose({ saving });
         prix. Les deux taux restent affichés pour comparer.
       </template>
       <div class="border-default overflow-x-auto rounded-lg border">
-        <table class="w-full min-w-[60rem] text-sm">
-          <thead class="bg-elevated/50 text-muted text-left text-xs">
+        <table class="w-full min-w-240 text-sm">
+          <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
             <tr>
               <th class="px-3 py-2 font-medium">Produit</th>
               <th class="px-3 py-2 text-right font-medium">Revient</th>

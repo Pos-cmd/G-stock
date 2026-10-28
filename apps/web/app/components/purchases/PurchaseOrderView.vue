@@ -112,7 +112,7 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
       />
     </div>
 
-    <UTable :data="order.items" :columns="columns" class="border-default rounded-lg border">
+    <UTable :data="order.items" :columns="columns">
       <template #productName-cell="{ row }">
         <NuxtLink
           :to="`/produits/${row.original.productId}`"

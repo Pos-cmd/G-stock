@@ -11,6 +11,7 @@ import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue"
 import type { PurchaseOrderRow } from "~/types/api";
 
 const icons = useIcons();
+const create = useCreateDialogs();
 
 useHead({ title: "Commandes fournisseurs" });
 
@@ -72,16 +73,14 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="purchases" title="Commandes fournisseurs" :icon="icons.purchases">
+  <PagePanel id="purchases" title="Commandes fournisseurs">
+    <template #description>
+      {{ totals.count }} commande{{ totals.count > 1 ? "s" : "" }} · prix de revient total
+      <span class="text-highlighted font-medium tabular-nums">{{ formatFcfa(totals.value) }}</span>
+      hors commandes annulées
+    </template>
     <template #actions>
-      <UButton
-        to="/achats/fournisseurs"
-        color="neutral"
-        variant="outline"
-        :icon="icons.suppliers"
-        label="Fournisseurs"
-      />
-      <UButton to="/achats/nouvelle" :icon="icons.plus" label="Nouvelle commande" />
+      <UButton :icon="icons.plus" label="Nouvelle commande" @click="create.openPurchase" />
     </template>
 
     <template #toolbar>
@@ -106,18 +105,7 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
     </template>
 
     <div class="space-y-3">
-      <p class="text-muted text-sm">
-        {{ totals.count }} commande{{ totals.count > 1 ? "s" : "" }} · prix de revient total
-        <strong class="text-highlighted">{{ formatFcfa(totals.value) }}</strong>
-        <span class="text-dimmed ms-1">(hors commandes annulées)</span>
-      </p>
-
-      <UTable
-        :data="orders.data.value ?? []"
-        :columns="columns"
-        :loading="orders.isFetching.value"
-        class="border-default rounded-lg border"
-      >
+      <UTable :data="orders.data.value ?? []" :columns="columns" :loading="orders.isFetching.value">
         <template #reference-cell="{ row }">
           <NuxtLink :to="`/achats/${row.original.id}`" class="group block">
             <span class="text-highlighted font-mono text-sm font-medium group-hover:underline">
@@ -200,10 +188,10 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
             <UIcon :name="icons.purchases" class="text-dimmed size-10" />
             <p class="text-muted">Aucune commande ne correspond à ces critères.</p>
             <UButton
-              to="/achats/nouvelle"
               variant="soft"
               :icon="icons.plus"
               label="Créer une commande"
+              @click="create.openPurchase"
             />
           </div>
         </template>

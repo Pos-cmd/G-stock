@@ -54,10 +54,10 @@ const items = computed<DropdownMenuItem[][]>(() => [
         :label="collapsed ? undefined : session.data?.user.name"
         :trailing-icon="collapsed ? undefined : icons.selector"
         color="neutral"
-        variant="ghost"
+        variant="outline"
         block
         :square="collapsed"
-        class="data-[state=open]:bg-elevated"
+        class="py-2 data-[state=open]:bg-muted"
       />
     </UDropdownMenu>
     <template #fallback>

@@ -41,6 +41,7 @@ const slideoverUi = computed(() => ({ content: "sm:max-w-xl", ...ui }));
     :title="title"
     :description="description"
     :dismissible="dismissible"
+    inset
     :ui="slideoverUi"
   >
     <template v-if="$slots.body" #body>

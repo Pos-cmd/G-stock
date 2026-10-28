@@ -59,6 +59,7 @@ const navigationIcons = {
   dashboard: "i-tabler-layout-dashboard",
   documents: "i-tabler-file-text",
   logo: "i-tabler-packages",
+  notifications: "i-tabler-bell",
   lots: "i-tabler-stack-2",
   movements: "i-tabler-history",
   product: "i-tabler-package",
@@ -78,6 +79,7 @@ const actionIcons = {
   cancel: "i-tabler-ban",
   customerAdd: "i-tabler-user-plus",
   download: "i-tabler-download",
+  expand: "i-tabler-arrows-diagonal",
   moreActions: "i-tabler-dots-vertical",
   pdf: "i-tabler-file-download",
   pin: "i-tabler-pin",
@@ -157,11 +159,37 @@ const backupIcons = {
   cloudOff: "i-tabler-cloud-off",
 };
 
+// Champs de saisie : fond blanc, trait fin et ombre légère, comme les boutons.
+const field = {
+  defaultVariants: { variant: "outline" as const },
+  variants: {
+    size: { md: { base: "text-sm/5" } },
+    variant: { outline: "shadow-xs dark:bg-muted" },
+  },
+  // Focus : un trait gris foncé et un halo léger, plutôt que le noir plein de la couleur principale.
+  compoundVariants: [
+    {
+      color: "primary" as const,
+      variant: "outline" as const,
+      class:
+        "outline-inverted/10 focus-visible:outline-4 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500",
+    },
+  ],
+};
+
+// Menus déroulants : même surface que les fenêtres, un cran plus arrondie que les champs.
+const floatingContent = "rounded-lg shadow-overlay dark:bg-elevated/95 dark:backdrop-blur-xl";
+
+// Voile derrière les fenêtres : on assombrit le fond sans le cacher.
+const overlay = "bg-sand-950/25 backdrop-blur-[2px] dark:bg-black/50";
+
 export default defineAppConfig({
   ui: {
     colors: {
-      primary: 'red',
-      neutral: 'neutral'
+      neutral: "sand",
+      primary: "sand",
+      success: "emerald",
+      warning: "amber",
     },
     icons: {
       ...nuxtUiIcons,
@@ -173,55 +201,251 @@ export default defineAppConfig({
       ...purchaseIcons,
       ...backupIcons,
     },
-    input: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+
+    // Cadre de l'application : la barre latérale sur le fond, le contenu dans un panneau posé
+    // dessus (à partir de la tablette en paysage).
+    dashboardGroup: { base: "bg-canvas" },
+    dashboardSidebar: {
+      slots: {
+        body: "px-3",
+        footer: "px-3 py-3",
+        header: "px-3",
+      },
+      variants: { side: { left: { root: "border-e-0" } } },
     },
-    select: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+    dashboardPanel: {
+      slots: {
+        root: "bg-default lg:my-2 lg:me-2 lg:min-h-0 lg:overflow-hidden lg:rounded-xl lg:shadow-card lg:ring lg:ring-default",
+      },
     },
-    textarea: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+    dashboardNavbar: {
+      slots: {
+        left: "gap-1",
+        right: "gap-2",
+        title: "font-normal",
+      },
     },
-    selectMenu: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+    // Fil d'Ariane de la barre du haut : les pages parentes en gris, la page en cours en noir.
+    breadcrumb: {
+      slots: {
+        link: "text-sm",
+        separatorIcon: "size-4 text-dimmed",
+      },
+      variants: {
+        active: {
+          true: { link: "font-medium text-highlighted" },
+          false: { link: "font-normal text-muted" },
+        },
+      },
+      compoundVariants: [
+        { active: false, disabled: false, to: true, class: { link: "hover:text-highlighted" } },
+      ],
     },
-    inputMenu: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+    dashboardSearchButton: { slots: { base: "text-muted" } },
+    dashboardToolbar: { slots: { root: "min-h-12" } },
+    navigationMenu: {
+      slots: {
+        link: "text-default",
+        linkLeadingIcon: "size-[18px] text-muted",
+      },
+      compoundVariants: [
+        {
+          active: false,
+          disabled: false,
+          variant: "pill",
+          class: { link: "hover:before:bg-accented/50" },
+        },
+        {
+          active: true,
+          highlight: false,
+          variant: "pill",
+          class: {
+            link: "before:bg-default before:shadow-tactile before:ring before:ring-default dark:before:bg-elevated",
+          },
+        },
+      ],
     },
-    inputNumber: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+
+    button: {
+      slots: {
+        base: "transition-[color,background-color,box-shadow,translate] active:translate-y-px disabled:active:translate-y-0",
+      },
+      variants: {
+        size: {
+          md: { base: "px-3" },
+          lg: { base: "px-3.5" },
+        },
+      },
+      compoundVariants: [
+        {
+          color: "primary",
+          variant: "solid",
+          class:
+            "bg-linear-to-b from-white/10 to-transparent shadow-primary hover:bg-primary/90 active:bg-primary/90 dark:from-transparent",
+        },
+        {
+          color: "neutral",
+          variant: "outline",
+          class:
+            "bg-default shadow-tactile ring-default hover:bg-muted active:bg-elevated dark:bg-elevated/60 dark:hover:bg-elevated",
+        },
+        {
+          color: "neutral",
+          variant: "subtle",
+          class: "bg-muted shadow-tactile ring-default hover:bg-elevated",
+        },
+        {
+          color: "neutral",
+          variant: "ghost",
+          class: "text-toned hover:bg-accented/50 hover:text-highlighted active:bg-accented/70",
+        },
+        {
+          color: "error",
+          variant: "outline",
+          class: "bg-default shadow-tactile ring-default hover:bg-error/5 dark:bg-elevated/60",
+        },
+      ],
     },
-    inputTags: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+
+    pageCard: {
+      slots: {
+        description: "text-sm",
+        leading: "mb-2",
+        leadingIcon: "size-4 text-muted",
+        root: "rounded-xl",
+        title: "font-mono text-[11px]/4 font-medium tracking-[0.08em] text-muted uppercase",
+      },
+      variants: {
+        variant: {
+          // Carte dans un cadre : un liseré teinté autour d'une surface blanche.
+          subtle: {
+            container:
+              "rounded-[calc(var(--radius-xl)-0.25rem)] bg-default p-4 shadow-card ring ring-default sm:p-5",
+            root: "bg-elevated p-1",
+          },
+        },
+      },
+      compoundVariants: [{ to: true, variant: "subtle", class: { root: "hover:bg-elevated" } }],
     },
-    inputDate: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+    card: {
+      slots: {
+        root: "rounded-xl shadow-card",
+        title: "text-sm",
+      },
     },
-    inputTime: {
-      defaultVariants: {
-        variant: 'soft'
-      }
+
+    table: {
+      slots: {
+        root: "rounded-xl bg-default shadow-card ring ring-default",
+        separator: "bg-(--ui-border)",
+        tbody: "[&>tr]:transition-colors [&>tr]:hover:bg-muted/70",
+        td: "py-3",
+        th: "bg-muted py-2.5 font-mono text-[11px] font-medium tracking-[0.06em] text-muted uppercase",
+      },
     },
-    pinInput: {
-      defaultVariants: {
-        variant: 'soft'
-      }
-    }
+
+    badge: {
+      variants: {
+        size: {
+          sm: { base: "rounded-full px-2 py-0.5 text-[11px]/4" },
+          md: { base: "rounded-full px-2.5 py-0.5" },
+          lg: { base: "rounded-full px-2.5" },
+        },
+      },
+      compoundVariants: [
+        { color: "neutral", variant: "subtle", class: "bg-muted text-toned ring-default" },
+        { color: "neutral", variant: "outline", class: "text-muted ring-default" },
+      ],
+    },
+    alert: {
+      compoundVariants: [
+        { color: "neutral", variant: "subtle", class: { root: "bg-muted ring-default" } },
+      ],
+    },
+    // Onglets en pilule (contrôle segmenté) : la vue choisie est une touche blanche en relief.
+    tabs: {
+      defaultVariants: { variant: "pill" },
+      variants: {
+        size: { md: { trigger: "px-3 py-1 text-[13px]", leadingIcon: "size-4" } },
+        variant: { pill: { list: "rounded-lg bg-muted p-0.5 ring ring-default" } },
+      },
+      compoundVariants: [
+        // À la taille de son contenu, calée à gauche ; défile si l'écran est trop étroit.
+        {
+          orientation: "horizontal",
+          variant: "pill",
+          class: {
+            list: "w-fit max-w-full overflow-x-auto",
+            root: "items-start",
+            trigger: "grow-0 whitespace-nowrap",
+          },
+        },
+        {
+          color: "primary",
+          variant: "pill",
+          class: {
+            indicator: "bg-default shadow-tactile ring ring-default dark:bg-accented",
+            trigger: "data-[state=active]:text-highlighted",
+          },
+        },
+      ],
+    },
+
+    input: field,
+    inputDate: field,
+    inputMenu: { ...field, slots: { content: floatingContent } },
+    inputNumber: field,
+    inputTags: field,
+    inputTime: field,
+    pinInput: field,
+    select: { ...field, slots: { content: floatingContent } },
+    selectMenu: { ...field, slots: { content: floatingContent } },
+    textarea: field,
+    formField: { slots: { label: "text-[13px]" } },
+    radioGroup: {
+      compoundVariants: [
+        {
+          color: "primary",
+          variant: "card",
+          class: {
+            item: "has-data-[state=checked]:border-inverted has-data-[state=checked]:bg-default has-data-[state=checked]:shadow-tactile",
+          },
+        },
+      ],
+    },
+
+    dropdownMenu: { slots: { content: floatingContent } },
+    popover: { slots: { content: floatingContent } },
+    tooltip: {
+      slots: {
+        arrow: "fill-inverted stroke-transparent",
+        content: "h-7 rounded-md bg-inverted font-medium text-inverted shadow-overlay ring-0",
+      },
+    },
+    toast: { slots: { root: "rounded-xl shadow-overlay" } },
+    modal: {
+      slots: {
+        footer: "bg-muted",
+      },
+      variants: {
+        fullscreen: { false: { content: "rounded-xl shadow-overlay" } },
+        overlay: { true: { overlay } },
+      },
+    },
+    slideover: {
+      slots: {
+        content: "sm:shadow-overlay",
+        footer: "bg-muted",
+        overlay,
+      },
+      // `overflow-hidden` : le pied teinté suit l'arrondi du panneau.
+      variants: { inset: { true: { content: "overflow-hidden rounded-xl" } } },
+    },
+    drawer: {
+      slots: {
+        content: "shadow-overlay",
+        overlay,
+      },
+    },
   },
 });

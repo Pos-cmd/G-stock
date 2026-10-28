@@ -40,12 +40,7 @@ const columns: TableColumn<ProductSalesRow>[] = [
 
 <template>
   <div class="space-y-2">
-    <UTable
-      :data="summary.data.value ?? []"
-      :columns="columns"
-      :loading="summary.isFetching.value"
-      class="border-default rounded-lg border"
-    >
+    <UTable :data="summary.data.value ?? []" :columns="columns" :loading="summary.isFetching.value">
       <template #productName-cell="{ row }">
         <NuxtLink
           :to="`/produits/${row.original.productId}`"

@@ -7,46 +7,37 @@ import SalesFilters from "~/components/sales/SalesFilters.vue";
 import SalesTable from "~/components/sales/SalesTable.vue";
 
 const icons = useIcons();
+const create = useCreateDialogs();
 
 useHead({ title: "Ventes" });
 
 const filters = ref<SalesFilterState>(emptySalesFilters());
 
-const tabs: TabsItem[] = [
-  { icon: icons.sale, label: "Ventes", slot: "sales", value: "sales" },
-  {
-    icon: icons.products,
-    label: "Par produit",
-    slot: "products",
-    value: "products",
-  },
+const view = ref<"products" | "sales">("sales");
+const views: TabsItem[] = [
+  { label: "Ventes", value: "sales" },
+  { label: "Par produit", value: "products" },
 ];
 </script>
 
 <template>
-  <PagePanel id="sales" title="Ventes" :icon="icons.sales">
+  <PagePanel id="sales" title="Ventes">
+    <template #description>
+      <template v-if="view === 'sales'">Chaque vente, son encaissement et sa marge.</template>
+      <template v-else>Quantités vendues et marge par produit, sur la période choisie.</template>
+    </template>
+    <template #tabs>
+      <UTabs v-model="view" :items="views" :content="false" />
+    </template>
     <template #actions>
-      <UButton to="/ventes/nouvelle" :icon="icons.plus" label="Nouvelle vente" />
+      <UButton :icon="icons.plus" label="Nouvelle vente" @click="create.openSale()" />
     </template>
 
     <template #toolbar>
-      <SalesFilters v-model="filters" />
+      <SalesFilters v-model="filters" :period-only="view === 'products'" />
     </template>
 
-    <UTabs :items="tabs" variant="link" class="w-full">
-      <template #sales>
-        <div class="pt-2">
-          <SalesTable :filters="filters" />
-        </div>
-      </template>
-      <template #products>
-        <div class="pt-2">
-          <p class="text-muted mb-3 text-sm">
-            Selon la période choisie ; les autres filtres ne s'appliquent qu'à la liste des ventes.
-          </p>
-          <ProductSalesTable :from="filters.from" :to="filters.to" />
-        </div>
-      </template>
-    </UTabs>
+    <SalesTable v-if="view === 'sales'" :filters="filters" />
+    <ProductSalesTable v-else :from="filters.from" :to="filters.to" />
   </PagePanel>
 </template>

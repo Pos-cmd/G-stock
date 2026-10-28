@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { STOCK_STATUSES } from "@G-stock/core/enums";
 import type { StockStatus } from "@G-stock/core/enums";
 import { formatFcfa, formatQty } from "@G-stock/core/format";
-import { STOCK_STATUS_LABELS } from "@G-stock/core/labels";
-import type { DropdownMenuItem, TableColumn } from "@nuxt/ui";
+import type { DropdownMenuItem, TableColumn, TabsItem } from "@nuxt/ui";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/vue-query";
 
 import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
@@ -26,7 +26,18 @@ const invalidateStock = useInvalidateStock();
 const search = ref("");
 const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 const category = ref<string>(ALL);
-const status = ref<StockStatus | typeof ALL>(ALL);
+
+// Statut choisi par les onglets ; `?statut=low` (alertes) les ouvre sur le stock bas.
+const route = useRoute();
+const statusFromQuery = (value: unknown): StockStatus | typeof ALL =>
+  STOCK_STATUSES.find((item) => item === value) ?? ALL;
+const status = ref(statusFromQuery(route.query.statut));
+watch(
+  () => route.query.statut,
+  (value) => {
+    status.value = statusFromQuery(value);
+  },
+);
 const includeArchived = ref(false);
 
 const products = useQuery(
@@ -51,13 +62,17 @@ const categoryItems = computed(() => [
     value: name,
   })),
 ]);
-const statusItems = [
-  { label: "Tous les statuts", value: ALL },
-  ...Object.entries(STOCK_STATUS_LABELS).map(([value, label]) => ({
-    label,
-    value,
-  })),
-];
+const summary = useQuery($orpc.stock.summary.queryOptions());
+const countBadge = (count: number | undefined) =>
+  count
+    ? { color: "neutral" as const, label: String(count), variant: "outline" as const }
+    : undefined;
+const statusTabs = computed<TabsItem[]>(() => [
+  { label: "Tous", value: ALL },
+  { label: "En stock", value: "ok" },
+  { badge: countBadge(summary.data.value?.lowCount), label: "Stock bas", value: "low" },
+  { badge: countBadge(summary.data.value?.outCount), label: "Ruptures", value: "out" },
+]);
 
 const totals = computed(() => {
   const rows = products.data.value ?? [];
@@ -181,7 +196,14 @@ const columns: TableColumn<ProductRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="products" title="Produits" :icon="icons.products">
+  <PagePanel id="products" title="Produits">
+    <template #description>
+      {{ totals.count }} produit{{ totals.count > 1 ? "s" : "" }} · stock valorisé
+      <span class="text-highlighted font-medium tabular-nums">{{ formatFcfa(totals.value) }}</span>
+    </template>
+    <template #tabs>
+      <UTabs v-model="status" :items="statusTabs" :content="false" />
+    </template>
     <template #actions>
       <UButton :icon="icons.plus" label="Nouveau produit" @click="openCreate" />
     </template>
@@ -195,22 +217,15 @@ const columns: TableColumn<ProductRow>[] = [
           class="w-full sm:w-72"
         />
         <USelect v-model="category" :items="categoryItems" class="w-48" />
-        <USelect v-model="status" :items="statusItems" class="w-40" />
         <USwitch v-model="includeArchived" label="Afficher les archivés" class="ms-auto" />
       </div>
     </template>
 
     <div class="space-y-3">
-      <p class="text-muted text-sm">
-        {{ totals.count }} produit{{ totals.count > 1 ? "s" : "" }} · stock valorisé
-        <strong class="text-highlighted">{{ formatFcfa(totals.value) }}</strong>
-      </p>
-
       <UTable
         :data="products.data.value ?? []"
         :columns="columns"
         :loading="products.isFetching.value"
-        class="border-default rounded-lg border"
       >
         <template #name-cell="{ row }">
           <NuxtLink :to="`/produits/${row.original.id}`" class="group block">

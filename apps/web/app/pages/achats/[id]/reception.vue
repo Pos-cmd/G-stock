@@ -299,17 +299,17 @@ const confirmDescription = computed(
 <template>
   <PagePanel
     id="purchase-reception"
-    :title="data ? `Réception ${data.reference}` : 'Réception'"
+    title="Réception"
+    :description="
+      data ? `${data.reference} · ${data.supplier?.name ?? 'Sans fournisseur'}` : undefined
+    "
     :icon="icons.reception"
+    :parents="[
+      { label: 'Commandes', to: '/achats' },
+      { label: data?.reference ?? 'Commande', to: `/achats/${orderId}` },
+    ]"
   >
     <template #actions>
-      <UButton
-        :to="`/achats/${orderId}`"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Commande"
-      />
       <template v-if="data && !data.isLocked">
         <UButton
           type="submit"
@@ -418,7 +418,7 @@ const confirmDescription = computed(
         <UFormField name="fees">
           <div class="border-default overflow-x-auto rounded-lg border">
             <table class="w-full min-w-[46rem] text-sm">
-              <thead class="bg-elevated/50 text-muted text-left text-xs">
+              <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
                 <tr>
                   <th class="px-3 py-2 font-medium">Frais</th>
                   <th class="w-36 px-3 py-2 font-medium">Montant</th>
@@ -519,7 +519,7 @@ const confirmDescription = computed(
 
         <div class="border-default overflow-x-auto rounded-lg border">
           <table class="w-full min-w-[52rem] text-sm">
-            <thead class="bg-elevated/50 text-muted text-left text-xs">
+            <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
               <tr>
                 <th class="px-3 py-2 font-medium">Produit</th>
                 <th class="px-3 py-2 text-right font-medium">Commandé</th>

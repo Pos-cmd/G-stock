@@ -87,7 +87,11 @@ const columns: TableColumn<DocumentRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="documents" title="Documents" :icon="icons.documents">
+  <PagePanel
+    id="documents"
+    title="Documents"
+    description="Reçus, fiches de coût et simulations générés en PDF."
+  >
     <template #toolbar>
       <div class="flex w-full flex-wrap items-center gap-2 py-1">
         <UInput
@@ -108,7 +112,6 @@ const columns: TableColumn<DocumentRow>[] = [
       :data="documents.data.value ?? []"
       :columns="columns"
       :loading="documents.isFetching.value"
-      class="border-default rounded-lg border"
     >
       <template #title-cell="{ row }">
         <a

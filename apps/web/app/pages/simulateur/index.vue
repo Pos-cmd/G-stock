@@ -8,8 +8,9 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import type { SimulationRow } from "~/types/api";
 
 const icons = useIcons();
+const create = useCreateDialogs();
 
-useHead({ title: "Simulateur" });
+useHead({ title: "Simulations" });
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();
@@ -105,7 +106,11 @@ const columns: TableColumn<SimulationRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="simulator" title="Simulateur" :icon="icons.simulations">
+  <PagePanel
+    id="simulator"
+    title="Simulations"
+    description="Cochez jusqu'à quatre simulations pour les comparer."
+  >
     <template #actions>
       <UButton
         color="neutral"
@@ -114,14 +119,13 @@ const columns: TableColumn<SimulationRow>[] = [
         :label="selected.length > 0 ? `Comparer (${selected.length})` : 'Comparer'"
         :to="compareSelected"
       />
-      <UButton to="/simulateur/nouvelle" :icon="icons.plus" label="Nouvelle simulation" />
+      <UButton :icon="icons.plus" label="Nouvelle simulation" @click="create.openSimulation" />
     </template>
 
     <UTable
       :data="simulations.data.value ?? []"
       :columns="columns"
       :loading="simulations.isFetching.value"
-      class="border-default rounded-lg border"
     >
       <template #select-cell="{ row }">
         <UCheckbox
@@ -189,10 +193,10 @@ const columns: TableColumn<SimulationRow>[] = [
             avant de commander.
           </p>
           <UButton
-            to="/simulateur/nouvelle"
             variant="soft"
             :icon="icons.plus"
             label="Nouvelle simulation"
+            @click="create.openSimulation"
           />
         </div>
       </template>

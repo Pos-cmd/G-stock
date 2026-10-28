@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDateTime, formatFcfa, formatQty } from "@G-stock/core/format";
+import { formatFcfa, formatQty } from "@G-stock/core/format";
 import type { TableColumn } from "@nuxt/ui";
 import { useQuery } from "@tanstack/vue-query";
 
@@ -17,27 +17,8 @@ const { $orpc } = useNuxtApp();
 const summary = useQuery($orpc.stock.summary.queryOptions());
 const sales = useQuery($orpc.sales.summary.queryOptions());
 const products = useQuery($orpc.products.list.queryOptions({ input: {} }));
-const backups = useQuery($orpc.backups.status.queryOptions());
-
-const BACKUP_STALE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
-
-/** Rappel si la sauvegarde quotidienne échoue ou n'a pas tourné depuis plus de deux jours. */
-const backupWarning = computed(() => {
-  const status = backups.data.value;
-  if (!status) {
-    return null;
-  }
-  if (status.lastError) {
-    return status.lastError.message;
-  }
-  const latest = status.latestAt ? new Date(status.latestAt).getTime() : null;
-  if (latest === null) {
-    return "Aucune sauvegarde de la base n'a encore été faite.";
-  }
-  return Date.now() - latest > BACKUP_STALE_AFTER_MS
-    ? `Dernière sauvegarde le ${formatDateTime(latest)}.`
-    : null;
-});
+const backupWarning = useBackupWarning();
+const create = useCreateDialogs();
 
 // Ruptures d'abord, puis le stock le plus faible.
 const STATUS_PRIORITY = { low: 1, ok: 2, out: 0 } as const;
@@ -60,7 +41,22 @@ const columns: TableColumn<ProductRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="dashboard" title="Tableau de bord" :icon="icons.dashboard">
+  <PagePanel
+    id="dashboard"
+    title="Tableau de bord"
+    description="Stock, ventes du mois et créances en un coup d'œil."
+  >
+    <template #actions>
+      <UButton
+        color="neutral"
+        variant="outline"
+        :icon="icons.purchases"
+        label="Nouvelle commande"
+        @click="create.openPurchase"
+      />
+      <UButton :icon="icons.plus" label="Nouvelle vente" @click="create.openSale()" />
+    </template>
+
     <div class="space-y-6">
       <UAlert
         v-if="backupWarning"
@@ -182,12 +178,7 @@ const columns: TableColumn<ProductRow>[] = [
         description="Produits en rupture ou sous leur seuil d'alerte."
         variant="subtle"
       >
-        <UTable
-          :data="toRestock"
-          :columns="columns"
-          :loading="products.isFetching.value"
-          class="border-default rounded-lg border"
-        >
+        <UTable :data="toRestock" :columns="columns" :loading="products.isFetching.value">
           <template #name-cell="{ row }">
             <NuxtLink
               :to="`/produits/${row.original.id}`"

@@ -16,6 +16,7 @@ import SalesFilters from "~/components/sales/SalesFilters.vue";
 import SalesTable from "~/components/sales/SalesTable.vue";
 
 const icons = useIcons();
+const create = useCreateDialogs();
 
 const route = useRoute();
 const customerId = computed(() => String(route.params.id));
@@ -41,15 +42,13 @@ useHead({ title: () => data.value?.name ?? "Client" });
 const filters = ref<SalesFilterState>(emptySalesFilters());
 
 const tabs: TabsItem[] = [
-  { icon: icons.sale, label: "Achats", slot: "sales", value: "sales" },
+  { label: "Achats", slot: "sales", value: "sales" },
   {
-    icon: icons.products,
     label: "Par produit",
     slot: "products",
     value: "products",
   },
   {
-    icon: icons.payment,
     label: "Paiements",
     slot: "payments",
     value: "payments",
@@ -102,15 +101,19 @@ const confirmCancelPayment = async (reason: string) => {
 </script>
 
 <template>
-  <PagePanel id="customer-detail" :title="data?.name ?? 'Client'" :icon="icons.customer">
+  <PagePanel
+    id="customer-detail"
+    :title="data?.name ?? 'Client'"
+    :description="data ? [data.phone, data.address].filter(Boolean).join(' · ') : undefined"
+    :parents="[{ label: 'Clients', to: '/clients' }]"
+  >
+    <template #leading>
+      <UAvatar :alt="data?.name ?? 'Client'" size="xl" class="ring-default ring" />
+    </template>
+    <template v-if="data?.receivableLevel && data.daysOverdue !== null" #badges>
+      <ReceivableBadge :level="data.receivableLevel" :days="data.daysOverdue" />
+    </template>
     <template #actions>
-      <UButton
-        to="/clients"
-        color="neutral"
-        variant="ghost"
-        :icon="icons.arrowLeft"
-        label="Clients"
-      />
       <UButton
         v-if="data && data.saleCount === 0"
         color="error"
@@ -135,11 +138,7 @@ const confirmCancelPayment = async (reason: string) => {
         :disabled="!data"
         @click="paymentOpen = true"
       />
-      <UButton
-        :icon="icons.sales"
-        label="Nouvelle vente"
-        :to="{ path: '/ventes/nouvelle', query: { client: customerId } }"
-      />
+      <UButton :icon="icons.sales" label="Nouvelle vente" @click="create.openSale(customerId)" />
     </template>
 
     <UAlert
@@ -213,7 +212,7 @@ const confirmCancelPayment = async (reason: string) => {
         </div>
       </UPageCard>
 
-      <UTabs :items="tabs" variant="link" class="w-full">
+      <UTabs :items="tabs" default-value="sales">
         <template #sales>
           <div class="space-y-3 pt-2">
             <SalesFilters v-model="filters" :show-search="false" />

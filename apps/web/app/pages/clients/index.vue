@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatDate, formatFcfa } from "@G-stock/core/format";
-import type { DropdownMenuItem, TableColumn } from "@nuxt/ui";
+import type { DropdownMenuItem, TableColumn, TabsItem } from "@nuxt/ui";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
 
 import KpiCard from "~/components/common/KpiCard.vue";
@@ -11,6 +11,7 @@ import PaymentModal from "~/components/sales/PaymentModal.vue";
 import type { CustomerRow } from "~/types/api";
 
 const icons = useIcons();
+const create = useCreateDialogs();
 
 useHead({ title: "Clients" });
 
@@ -21,8 +22,24 @@ const { $orpc } = useNuxtApp();
 
 const search = ref("");
 const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
-// Lien « débiteurs » depuis le tableau de bord.
+// Lien « débiteurs » depuis le tableau de bord et les alertes.
 const withDebtOnly = ref(route.query.debiteurs !== undefined);
+watch(
+  () => route.query.debiteurs,
+  (value) => {
+    withDebtOnly.value = value !== undefined;
+  },
+);
+const view = computed({
+  get: () => (withDebtOnly.value ? "debtors" : "all"),
+  set: (value: string) => {
+    withDebtOnly.value = value === "debtors";
+  },
+});
+const views: TabsItem[] = [
+  { label: "Tous", value: "all" },
+  { label: "Débiteurs", value: "debtors" },
+];
 
 const customers = useQuery(
   computed(() => ({
@@ -72,7 +89,7 @@ const rowActions = (customer: CustomerRow): DropdownMenuItem[][] => [
     {
       icon: icons.sales,
       label: "Nouvelle vente",
-      to: { path: "/ventes/nouvelle", query: { client: customer.id } },
+      onSelect: () => create.openSale(customer.id),
     },
     {
       disabled: customer.dueFcfa <= 0,
@@ -106,7 +123,14 @@ const columns: TableColumn<CustomerRow>[] = [
 </script>
 
 <template>
-  <PagePanel id="customers" title="Clients" :icon="icons.customers">
+  <PagePanel
+    id="customers"
+    title="Clients"
+    description="Achats, solde et ancienneté des créances de chaque client."
+  >
+    <template #tabs>
+      <UTabs v-model="view" :items="views" :content="false" />
+    </template>
     <template #actions>
       <UButton :icon="icons.customerAdd" label="Nouveau client" @click="openCreate" />
     </template>
@@ -119,7 +143,6 @@ const columns: TableColumn<CustomerRow>[] = [
           placeholder="Nom, téléphone, quartier…"
           class="w-full sm:w-72"
         />
-        <USwitch v-model="withDebtOnly" label="Débiteurs uniquement" class="ms-auto" />
       </div>
     </template>
 
@@ -154,7 +177,6 @@ const columns: TableColumn<CustomerRow>[] = [
         :data="customers.data.value ?? []"
         :columns="columns"
         :loading="customers.isFetching.value"
-        class="border-default rounded-lg border"
       >
         <template #name-cell="{ row }">
           <NuxtLink :to="`/clients/${row.original.id}`" class="group block">

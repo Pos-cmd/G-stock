@@ -155,6 +155,11 @@ onMounted(async () => {
     await settingsStore.load();
   }
   reset();
+  // Saisie commencée dans la grande fenêtre, puis ouverte en pleine page.
+  const draft = order ? undefined : takeFormDraft<FormState>("purchase");
+  if (draft) {
+    Object.assign(state, draft);
+  }
 });
 // Un rafraîchissement (changement de statut…) ne doit pas écraser une saisie en cours.
 watch(
@@ -372,7 +377,12 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
   }
 };
 
-defineExpose({ saving });
+defineExpose({
+  saving,
+  stashDraft: () => {
+    stashFormDraft("purchase", state);
+  },
+});
 </script>
 
 <template>
@@ -466,7 +476,7 @@ defineExpose({ saving });
       <UFormField name="items">
         <div class="border-default overflow-x-auto rounded-lg border">
           <table class="w-full min-w-240 text-sm">
-            <thead class="bg-elevated/50 text-muted text-left text-xs">
+            <thead class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase">
               <tr>
                 <th class="px-3 py-2 font-medium">Produit</th>
                 <th class="w-32 px-3 py-2 font-medium">Qté en stock</th>

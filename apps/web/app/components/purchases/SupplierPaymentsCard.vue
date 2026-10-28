@@ -74,7 +74,7 @@ const confirmCancel = async (reason: string) => {
     <template #title>
       <div class="flex flex-wrap items-center justify-between gap-3">
         <span class="flex items-center gap-2">
-          <UIcon :name="icons.supplierPayment" class="text-primary size-5" />
+          <UIcon :name="icons.supplierPayment" class="size-4" />
           Paiements au fournisseur
         </span>
         <UButton
@@ -83,6 +83,7 @@ const confirmCancel = async (reason: string) => {
           label="Ajouter un versement"
           color="neutral"
           variant="outline"
+          class="font-sans tracking-normal normal-case"
           @click="addOpen = true"
         />
       </div>

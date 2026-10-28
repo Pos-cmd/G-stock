@@ -71,7 +71,6 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
       :data="movements.data.value?.items ?? []"
       :columns="columns"
       :loading="movements.isFetching.value"
-      class="border-default rounded-lg border"
     >
       <template #createdAt-cell="{ row }">
         <span class="text-muted whitespace-nowrap">{{
