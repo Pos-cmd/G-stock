@@ -1,2 +1,62 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-weight-semibold: 700;
+  --font-weight-bold: 800;
+}
+
+:root {
+  --ui-radius: 0rem;
+}
+
+:root, .light {
+  --ui-bg: var(--ui-color-neutral-50);
+  --ui-bg-muted: var(--ui-color-neutral-100);
+  --ui-text-inverted: var(--ui-color-neutral-50);
+  --ui-primary: var(--ui-color-primary-600);
+}
+
+.dark {
+  --ui-bg: var(--ui-color-neutral-950);
+  --ui-bg-muted: var(--ui-color-neutral-900);
+  --ui-text-highlighted: var(--ui-color-neutral-50);
+  --ui-bg-inverted: var(--ui-color-neutral-50);
+  --ui-border-inverted: var(--ui-color-neutral-50);
+  --ui-primary: var(--ui-color-primary-500);
+  --ui-bg-elevated: var(--ui-color-neutral-900);
+  --ui-bg-accented: var(--ui-color-neutral-800);
+  --ui-text-inverted: var(--ui-color-neutral-900);
+}
+
+/* Custom thin scrollbar styling */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(52, 58, 68, 0.5) transparent;
+}
+
+/* WebKit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+/* Hide scrollbar corner */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
