@@ -20,6 +20,7 @@
     "db:studio": "vp run --filter @G-stock/db db:studio",
     "db:generate": "vp run --filter @G-stock/db db:generate",
     "db:migrate": "vp run --filter @G-stock/db db:migrate",
+    "db:migrate:fresh": "node scripts/migrate-fresh.mjs",
     "db:restore": "node scripts/restore-backup.mjs",
     "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./packages/db/",
     "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./packages/db/",
