@@ -6,6 +6,7 @@ import type {
   PaymentMethod,
   PaymentType,
   PricingBasis,
+  PurchaseCurrency,
   PurchaseOrderStatus,
   ReceivableLevel,
   SalePricingMode,
@@ -64,6 +65,11 @@ export const FEE_CURRENCY_LABELS: Record<FeeCurrency, string> = {
   fcfa: "FCFA",
   rmb: "RMB",
   usd: "USD",
+};
+
+export const PURCHASE_CURRENCY_LABELS: Record<PurchaseCurrency, string> = {
+  rmb: "RMB (yuan)",
+  usd: "USD (dollar)",
 };
 
 /** Libellés proposés pour les frais de réception ; la saisie reste libre. */

@@ -1,5 +1,5 @@
 import type { AllocationMethod, FeeCurrency } from "@G-stock/core/enums";
-import { formatFcfa, formatQty, formatRmb, formatUsd } from "@G-stock/core/format";
+import { formatCurrency, formatFcfa, formatQty } from "@G-stock/core/format";
 import { ALLOCATION_METHOD_LABELS } from "@G-stock/core/labels";
 import { computeFeesFcfa } from "@G-stock/core/purchasing";
 import type { LandedCostFees } from "@G-stock/core/purchasing";
@@ -22,16 +22,6 @@ export const estimateFeeLines = (fees: LandedCostFees): FeeLineDisplay[] => [
   { amountFcfa: fees.otherFeesFcfa, label: "Autres frais" },
 ];
 
-const formatFeeAmount = (amount: number, currency: FeeCurrency): string | null => {
-  if (currency === "usd") {
-    return formatUsd(amount);
-  }
-  if (currency === "rmb") {
-    return formatRmb(amount);
-  }
-  return null;
-};
-
 /** Frais réels saisis à la réception : montant d'origine et méthode de répartition en détail. */
 export const receptionFeeLines = (
   fees: readonly {
@@ -45,7 +35,7 @@ export const receptionFeeLines = (
   fees.map((fee) => ({
     amountFcfa: fee.amountFcfa,
     detail: [
-      formatFeeAmount(fee.amount, fee.currency),
+      fee.currency === "fcfa" ? null : formatCurrency(fee.amount, fee.currency),
       ALLOCATION_METHOD_LABELS[fee.allocationMethod].toLowerCase(),
     ]
       .filter(Boolean)

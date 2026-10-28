@@ -185,6 +185,7 @@ export const convertSimulationToOrder = async (executor: Executor, id: string) =
 
   const order = await createPurchaseOrder(executor, {
     allocationMethod: data.freightAllocation,
+    currency: "rmb",
     fcfaPerUsd: data.rates.fcfaPerUsd,
     freightCbm: data.freightCbm,
     freightRatePerCbmFcfa: data.freightRatePerCbmFcfa,
@@ -193,7 +194,7 @@ export const convertSimulationToOrder = async (executor: Executor, id: string) =
       productId: productIds[index] ?? "",
       qty: line.qty,
       trips: line.trips,
-      unitPriceRmb: line.unitPriceRmb,
+      unitPrice: line.unitPriceRmb,
       weightTons: line.weightTons ?? null,
     })),
     localTransportFcfa: 0,

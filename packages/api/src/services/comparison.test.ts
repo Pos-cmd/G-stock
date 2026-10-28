@@ -32,6 +32,7 @@ const receivedOrder = async (galvaId: number, pointesId: number) => {
   const order = await db.transaction((tx) =>
     createPurchaseOrder(tx, {
       allocationMethod: "weight",
+      currency: "rmb",
       fcfaPerUsd: 600,
       freightCbm: 20,
       freightRatePerCbmFcfa: 100_000,
@@ -41,7 +42,7 @@ const receivedOrder = async (galvaId: number, pointesId: number) => {
           productId: galvaId,
           qty: 800,
           trips: 1,
-          unitPriceRmb: 4300,
+          unitPrice: 4300,
           weightTons: 8,
         },
         {
@@ -49,7 +50,7 @@ const receivedOrder = async (galvaId: number, pointesId: number) => {
           productId: pointesId,
           qty: 80,
           trips: 1,
-          unitPriceRmb: 5000,
+          unitPrice: 5000,
           weightTons: 2,
         },
       ],
@@ -171,7 +172,7 @@ describe("getComparison", () => {
     expect(
       comparison.productRows.map((row) => [
         row.label,
-        row.cells.map((cell) => cell?.unitPriceRmb ?? null),
+        row.cells.map((cell) => cell?.unitPrice ?? null),
       ]),
     ).toEqual([
       ["Fil galva", [4450, 4300]],

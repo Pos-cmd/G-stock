@@ -32,6 +32,10 @@ export type PricingBasis = (typeof PRICING_BASES)[number];
 export const FEE_CURRENCIES = ["fcfa", "usd", "rmb"] as const;
 export type FeeCurrency = (typeof FEE_CURRENCIES)[number];
 
+/** Devise du prix fournisseur d'une commande : la marchandise est convertie de là en FCFA. */
+export const PURCHASE_CURRENCIES = ["rmb", "usd"] as const;
+export type PurchaseCurrency = (typeof PURCHASE_CURRENCIES)[number];
+
 export const PAYMENT_TYPES = ["cash", "credit"] as const;
 export type PaymentType = (typeof PAYMENT_TYPES)[number];
 

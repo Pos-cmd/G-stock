@@ -45,8 +45,8 @@ export const listSuppliers = async (executor: Executor) => {
     return {
       ...row,
       paidFcfa: supplierOrders.reduce((sum, order) => sum + order.payment.paidFcfa, 0),
+      // En FCFA au taux de chaque commande : les commandes peuvent être en RMB ou en USD.
       remainingFcfa: supplierOrders.reduce((sum, order) => sum + order.payment.remainingFcfa, 0),
-      remainingRmb: supplierOrders.reduce((sum, order) => sum + order.payment.remainingRmb, 0),
       unpaidOrderCount: supplierOrders.filter((order) => !order.payment.isPaid).length,
     };
   });

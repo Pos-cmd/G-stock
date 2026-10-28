@@ -1,3 +1,5 @@
+import type { PurchaseCurrency } from "./enums";
+
 export interface ExchangeRates {
   /** Yuans pour 1 USD (ex : 7,2) */
   rmbPerUsd: number;
@@ -32,3 +34,22 @@ export const usdToFcfa = (amountUsd: number, rates: ExchangeRates): number => {
 /** RMB → USD → FCFA, arrondi au FCFA. */
 export const rmbToFcfa = (amountRmb: number, rates: ExchangeRates): number =>
   roundFcfa(usdToFcfa(rmbToUsd(amountRmb, rates), rates));
+
+/** FCFA pour 1 unité de la devise d'achat : l'USD directement, le RMB via l'USD. */
+export const fcfaPerUnit = (currency: PurchaseCurrency, rates: ExchangeRates): number => {
+  assertValidRates(rates);
+  return currency === "usd" ? rates.fcfaPerUsd : rates.fcfaPerUsd / rates.rmbPerUsd;
+};
+
+export const purchaseAmountToUsd = (
+  amount: number,
+  currency: PurchaseCurrency,
+  rates: ExchangeRates,
+): number => (currency === "usd" ? amount : rmbToUsd(amount, rates));
+
+/** Prix fournisseur en FCFA, arrondi : USD → FCFA directement, RMB → USD → FCFA. */
+export const purchaseAmountToFcfa = (
+  amount: number,
+  currency: PurchaseCurrency,
+  rates: ExchangeRates,
+): number => (currency === "usd" ? roundFcfa(usdToFcfa(amount, rates)) : rmbToFcfa(amount, rates));

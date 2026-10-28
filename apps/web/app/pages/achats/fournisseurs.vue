@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDate, formatFcfa, formatRmb } from "@G-stock/core/format";
+import { formatDate, formatFcfa } from "@G-stock/core/format";
 import type { DropdownMenuItem, TableColumn } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 
@@ -79,7 +79,7 @@ const columns: TableColumn<SupplierRow>[] = [
   { accessorKey: "phone", header: "Téléphone" },
   { accessorKey: "orderCount", header: "Commandes", meta: rightAligned },
   { accessorKey: "lastOrderDate", header: "Dernière commande" },
-  { accessorKey: "remainingRmb", header: "Reste à payer", meta: rightAligned },
+  { accessorKey: "remainingFcfa", header: "Reste à payer", meta: rightAligned },
   { header: "", id: "actions", meta: rightAligned },
 ];
 </script>
@@ -122,13 +122,13 @@ const columns: TableColumn<SupplierRow>[] = [
         </ULink>
         <span v-else class="text-dimmed">0</span>
       </template>
-      <template #remainingRmb-cell="{ row }">
+      <!-- En FCFA aux taux des commandes : un fournisseur peut facturer en RMB et en USD. -->
+      <template #remainingFcfa-cell="{ row }">
         <template v-if="row.original.unpaidOrderCount > 0">
           <span class="text-warning font-medium tabular-nums">
-            {{ formatRmb(row.original.remainingRmb) }}
+            ≈ {{ formatFcfa(row.original.remainingFcfa) }}
           </span>
           <p class="text-dimmed text-xs tabular-nums">
-            ≈ {{ formatFcfa(row.original.remainingFcfa) }} ·
             {{ row.original.unpaidOrderCount }} commande{{
               row.original.unpaidOrderCount > 1 ? "s" : ""
             }}

@@ -1,5 +1,5 @@
 import { comparisonKey, normalizeLabel } from "@G-stock/core/comparison";
-import type { PricingBasis } from "@G-stock/core/enums";
+import type { PricingBasis, PurchaseCurrency } from "@G-stock/core/enums";
 import { PURCHASE_ORDER_STATUS_LABELS } from "@G-stock/core/labels";
 import { computeFeesFcfa } from "@G-stock/core/purchasing";
 import type { Executor } from "@G-stock/db";
@@ -15,7 +15,9 @@ export interface ComparableLine {
   unit: string;
   qty: number;
   weightTons: number | null;
-  unitPriceRmb: number;
+  /** Prix fournisseur, dans la devise de la colonne. */
+  unitPrice: number;
+  currency: PurchaseCurrency;
   pricingBasis: PricingBasis;
   unitCostFcfa: number;
   salePriceFcfa: number | null;
@@ -29,11 +31,13 @@ export interface ComparableColumn {
   title: string;
   subtitle: string;
   date: Date;
+  /** Devise des prix fournisseur : les simulations sont en RMB. */
+  currency: PurchaseCurrency;
   rmbPerUsd: number;
   fcfaPerUsd: number;
   freightCbm: number;
   freightRatePerCbmFcfa: number;
-  goodsRmb: number;
+  goodsAmount: number;
   goodsFcfa: number;
   feesFcfa: number;
   totalCostFcfa: number;
@@ -53,6 +57,7 @@ const simulationColumn = async (
   const simulation = await getSimulation(executor, id);
   const { data, result } = simulation;
   return {
+    currency: "rmb",
     date: simulation.updatedAt,
     fcfaPerUsd: data.rates.fcfaPerUsd,
     fees: [
@@ -62,8 +67,8 @@ const simulationColumn = async (
     feesFcfa: result.feesFcfa,
     freightCbm: data.freightCbm,
     freightRatePerCbmFcfa: data.freightRatePerCbmFcfa,
+    goodsAmount: result.goodsRmb,
     goodsFcfa: result.goodsFcfa,
-    goodsRmb: result.goodsRmb,
     id,
     key: `simulation-${id}`,
     lines: data.lines.map((line, index) => ({
@@ -71,13 +76,14 @@ const simulationColumn = async (
         label: line.label,
         productId: line.productId ?? productIdByName.get(normalizeLabel(line.label)),
       }),
+      currency: "rmb",
       label: line.label,
       pricingBasis: line.pricingBasis ?? "unit",
       qty: line.qty,
       salePriceFcfa: result.lines[index]?.salePriceFcfa ?? null,
       unit: line.unit,
       unitCostFcfa: result.lines[index]?.unitCostFcfa ?? 0,
-      unitPriceRmb: line.unitPriceRmb,
+      unitPrice: line.unitPriceRmb,
       weightTons: line.weightTons ?? null,
     })),
     marginFcfa: result.marginFcfa,
@@ -103,17 +109,19 @@ const orderColumn = async (executor: Executor, id: string): Promise<ComparableCo
         { amountFcfa: order.otherFeesFcfa, label: "Autres frais" },
       ].filter((fee) => fee.amountFcfa > 0);
   return {
+    currency: order.currency,
     date: order.receivedAt ?? order.orderDate,
     fcfaPerUsd: order.fcfaPerUsd,
     fees,
     feesFcfa: order.costs.feesFcfa,
     freightCbm: order.freightCbm,
     freightRatePerCbmFcfa: order.freightRatePerCbmFcfa,
+    goodsAmount: order.costs.goodsAmount,
     goodsFcfa: order.costs.goodsFcfa,
-    goodsRmb: order.costs.goodsRmb,
     id,
     key: `purchase_order-${id}`,
     lines: order.items.map((item) => ({
+      currency: order.currency,
       key: comparisonKey({ label: item.productName, productId: item.productId }),
       label: item.productName,
       pricingBasis: item.pricingBasis,
@@ -121,7 +129,7 @@ const orderColumn = async (executor: Executor, id: string): Promise<ComparableCo
       salePriceFcfa: null,
       unit: item.productUnit,
       unitCostFcfa: item.unitCostFcfa,
-      unitPriceRmb: item.unitPriceRmb,
+      unitPrice: item.unitPrice,
       weightTons: item.weightTons,
     })),
     marginFcfa: null,

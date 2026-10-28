@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { formatDate, formatFcfa, formatRmb } from "@G-stock/core/format";
+import { formatCurrency, formatDate, formatFcfa } from "@G-stock/core/format";
+import { FEE_CURRENCY_LABELS } from "@G-stock/core/labels";
 import { useMutation } from "@tanstack/vue-query";
 
 import ReasonDialog from "~/components/common/ReasonDialog.vue";
@@ -35,14 +36,19 @@ const percentFormatter = new Intl.NumberFormat("fr-FR", {
 });
 
 const payment = computed(() => order.payment);
+/** Montants dans la devise de la commande (RMB ou USD). */
+const formatAmount = (amount: number) => formatCurrency(amount, payment.value.currency);
+const currencyLabel = computed(() => FEE_CURRENCY_LABELS[payment.value.currency]);
 const paidRatio = computed(() =>
-  payment.value.goodsRmb > 0 ? Math.min(payment.value.paidRmb / payment.value.goodsRmb, 1) : 0,
+  payment.value.goodsAmount > 0
+    ? Math.min(payment.value.paidAmount / payment.value.goodsAmount, 1)
+    : 0,
 );
 const canPay = computed(() => order.status !== "cancelled");
 const exchange = computed(() => payment.value.exchangeDifferenceFcfa);
 
-const rmbOf = (entry: PurchaseOrderDetail["payments"][number]) =>
-  entry.amountFcfa / (entry.fcfaPerRmb ?? payment.value.orderFcfaPerRmb);
+const amountOf = (entry: PurchaseOrderDetail["payments"][number]) =>
+  entry.amountFcfa / (entry.fcfaRate ?? payment.value.orderFcfaRate);
 
 const cancelMutation = useMutation($orpc.purchases.cancelPayment.mutationOptions());
 const confirmCancel = async (reason: string) => {
@@ -87,12 +93,13 @@ const confirmCancel = async (reason: string) => {
         <div>
           <p class="text-muted">Payé</p>
           <p class="text-highlighted text-base font-semibold tabular-nums">
-            {{ formatRmb(payment.paidRmb) }}
+            {{ formatAmount(payment.paidAmount) }}
           </p>
           <p class="text-dimmed text-xs tabular-nums">
             {{ formatFcfa(payment.paidFcfa) }}
-            <template v-if="payment.averageFcfaPerRmb">
-              · {{ rateFormatter.format(payment.averageFcfaPerRmb) }} FCFA/RMB en moyenne
+            <template v-if="payment.averageFcfaRate">
+              · {{ rateFormatter.format(payment.averageFcfaRate) }} FCFA/{{ currencyLabel }} en
+              moyenne
             </template>
           </p>
         </div>
@@ -102,21 +109,21 @@ const confirmCancel = async (reason: string) => {
             class="text-base font-semibold tabular-nums"
             :class="payment.isPaid ? 'text-success' : 'text-warning'"
           >
-            {{ payment.isPaid ? "Soldée" : formatRmb(payment.remainingRmb) }}
+            {{ payment.isPaid ? "Soldée" : formatAmount(payment.remainingAmount) }}
           </p>
           <p v-if="!payment.isPaid" class="text-dimmed text-xs tabular-nums">
             ≈ {{ formatFcfa(payment.remainingFcfa) }} au taux de la commande ({{
-              rateFormatter.format(payment.orderFcfaPerRmb)
+              rateFormatter.format(payment.orderFcfaRate)
             }})
           </p>
-          <p v-else-if="payment.overpaidRmb > 0" class="text-info text-xs tabular-nums">
-            Avance de {{ formatRmb(payment.overpaidRmb) }} chez le fournisseur
+          <p v-else-if="payment.overpaidAmount > 0" class="text-info text-xs tabular-nums">
+            Avance de {{ formatAmount(payment.overpaidAmount) }} chez le fournisseur
           </p>
         </div>
         <div>
           <p class="text-muted">Marchandise</p>
           <p class="text-highlighted text-base font-semibold tabular-nums">
-            {{ formatRmb(payment.goodsRmb) }}
+            {{ formatAmount(payment.goodsAmount) }}
           </p>
           <p class="text-dimmed text-xs tabular-nums">
             Coût réel : {{ formatFcfa(payment.goodsFcfa) }}
@@ -154,8 +161,8 @@ const confirmCancel = async (reason: string) => {
             </p>
             <p class="text-dimmed text-xs">
               {{
-                entry.fcfaPerRmb
-                  ? `Taux du jour : ${rateFormatter.format(entry.fcfaPerRmb)}`
+                entry.fcfaRate
+                  ? `Taux du jour : ${rateFormatter.format(entry.fcfaRate)}`
                   : "Taux de la commande"
               }}
               <template v-if="entry.notes"> · {{ entry.notes }}</template>
@@ -164,7 +171,7 @@ const confirmCancel = async (reason: string) => {
           </div>
           <div class="flex items-center gap-2">
             <span class="tabular-nums" :class="entry.cancelledAt ? 'line-through' : ''">
-              {{ formatRmb(rmbOf(entry)) }}
+              {{ formatAmount(amountOf(entry)) }}
             </span>
             <UButton
               v-if="!entry.cancelledAt"

@@ -434,7 +434,7 @@ defineExpose({ saving });
                     {{ formatFcfa(result.lines[index]?.unitCostFcfa ?? 0) }}
                   </span>
                   <p class="text-dimmed text-xs">
-                    {{ formatRmb(result.lines[index]?.goodsRmb ?? 0) }}
+                    {{ formatRmb(result.lines[index]?.goodsAmount ?? 0) }}
                   </p>
                 </td>
                 <td class="px-1 py-2">
@@ -580,7 +580,12 @@ defineExpose({ saving });
 
       <PurchaseCostSummary
         title="Prix de revient"
-        :costs="{ ...result, totalFcfa: result.totalCostFcfa }"
+        :costs="{
+          ...result,
+          currency: 'rmb',
+          goodsAmount: result.goodsRmb,
+          totalFcfa: result.totalCostFcfa,
+        }"
         :fee-lines="feeLines"
         class="lg:self-start"
       />

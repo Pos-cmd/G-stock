@@ -2,6 +2,7 @@ import {
   ALLOCATION_METHODS,
   FEE_CURRENCIES,
   PRICING_BASES,
+  PURCHASE_CURRENCIES,
   PURCHASE_ORDER_STATUSES,
 } from "@G-stock/core/enums";
 import { sql } from "drizzle-orm";
@@ -19,6 +20,8 @@ export const purchaseOrders = sqliteTable(
     supplierId: ref("supplier_id").references(() => suppliers.id, { onDelete: "restrict" }),
     orderDate: timestamp("order_date").notNull(),
     status: text("status", { enum: PURCHASE_ORDER_STATUSES }).notNull().default("draft"),
+    // Devise des prix fournisseur : RMB (converti via l'USD) ou USD (converti directement).
+    currency: text("currency", { enum: PURCHASE_CURRENCIES }).notNull().default("rmb"),
     // Taux figés à la commande : les modifier dans les réglages ne réécrit pas l'historique.
     rmbPerUsd: real("rmb_per_usd").notNull(),
     fcfaPerUsd: real("fcfa_per_usd").notNull(),
@@ -62,8 +65,8 @@ export const purchaseOrderItems = sqliteTable(
       .references(() => products.id, { onDelete: "restrict" }),
     // Quantité qui entre en stock, dans l'unité du produit.
     qty: real("qty").notNull(),
-    // Par unité de stock, ou par tonne si pricing_basis = 'weight'.
-    unitPriceRmb: real("unit_price_rmb").notNull(),
+    // Dans la devise de la commande, par unité de stock, ou par tonne si pricing_basis = 'weight'.
+    unitPrice: real("unit_price").notNull(),
     pricingBasis: text("pricing_basis", { enum: PRICING_BASES }).notNull().default("unit"),
     // Base du prix à la tonne et de la répartition des frais au poids.
     weightTons: real("weight_tons"),
@@ -104,8 +107,9 @@ export const purchaseOrderFees = sqliteTable(
 );
 
 /**
- * Versements au fournisseur pour une commande : envoyés en FCFA, la marchandise étant payée en
- * RMB au taux obtenu ce jour-là. Un versement erroné est annulé (tracé), jamais supprimé.
+ * Versements au fournisseur pour une commande : envoyés en FCFA, la marchandise étant payée dans
+ * la devise de la commande (RMB ou USD) au taux obtenu ce jour-là. Un versement erroné est annulé
+ * (tracé), jamais supprimé.
  */
 export const supplierPayments = sqliteTable(
   "supplier_payments",
@@ -116,8 +120,8 @@ export const supplierPayments = sqliteTable(
       .references(() => purchaseOrders.id, { onDelete: "restrict" }),
     paymentDate: timestamp("payment_date").notNull(),
     amountFcfa: integer("amount_fcfa").notNull(),
-    // FCFA pour 1 RMB ; null = taux de la commande.
-    fcfaPerRmb: real("fcfa_per_rmb"),
+    // FCFA pour 1 unité de la devise de la commande (RMB ou USD) ; null = taux de la commande.
+    fcfaRate: real("fcfa_rate"),
     notes: text("notes"),
     cancelledAt: timestamp("cancelled_at"),
     cancelReason: text("cancel_reason"),
@@ -130,7 +134,7 @@ export const supplierPayments = sqliteTable(
     check("supplier_payments_amount_positive", sql`${table.amountFcfa} > 0`),
     check(
       "supplier_payments_rate_positive",
-      sql`${table.fcfaPerRmb} is null or ${table.fcfaPerRmb} > 0`,
+      sql`${table.fcfaRate} is null or ${table.fcfaRate} > 0`,
     ),
   ],
 );

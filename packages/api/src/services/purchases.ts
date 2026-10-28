@@ -3,7 +3,7 @@ import {
   computeLandedCosts,
   computeLandedCostsFromFees,
   feeToFcfa,
-  totalGoodsRmb,
+  totalGoodsAmount,
 } from "@G-stock/core/purchasing";
 import type { LandedCostItem } from "@G-stock/core/purchasing";
 import { paidGoodsFcfa, summarizeSupplierPayments } from "@G-stock/core/supplier-payments";
@@ -56,7 +56,8 @@ const goodsFcfaOf = (
   payments: readonly SupplierPaymentRow[],
 ) =>
   paidGoodsFcfa({
-    goodsRmb: totalGoodsRmb(items),
+    currency: order.currency,
+    goodsAmount: totalGoodsAmount(items),
     payments: activePayments(payments),
     rates: ratesOf(order),
   });
@@ -85,6 +86,7 @@ const actualCostsOf = (
   payments: readonly SupplierPaymentRow[],
 ) =>
   computeLandedCostsFromFees({
+    currency: order.currency,
     fees,
     goodsFcfa:
       order.status === "received"
@@ -117,7 +119,8 @@ const paymentSituationOf = (
 ) => {
   const active = activePayments(payments);
   const { lines: _lines, ...summary } = summarizeSupplierPayments({
-    goodsRmb: totalGoodsRmb(items),
+    currency: order.currency,
+    goodsAmount: totalGoodsAmount(items),
     payments: active,
     rates: ratesOf(order),
   });
@@ -190,6 +193,7 @@ const assertProductsActive = async (executor: Executor, productIds: readonly str
 
 const orderValues = (input: PurchaseOrderInput) => ({
   allocationMethod: input.allocationMethod,
+  currency: input.currency,
   fcfaPerUsd: input.fcfaPerUsd,
   freightCbm: input.freightCbm,
   freightRatePerCbmFcfa: input.freightRatePerCbmFcfa,
@@ -212,7 +216,8 @@ const insertItems = async (
   const { lines } = computeLandedCosts({
     ...input,
     goodsFcfa: paidGoodsFcfa({
-      goodsRmb: totalGoodsRmb(input.items),
+      currency: input.currency,
+      goodsAmount: totalGoodsAmount(input.items),
       payments: activePayments(payments),
       rates,
     }),
@@ -227,7 +232,7 @@ const insertItems = async (
       transportShareFcfa: lines[index]?.transportShareFcfa ?? 0,
       trips: item.trips,
       unitCostFcfa: lines[index]?.unitCostFcfa ?? 0,
-      unitPriceRmb: item.unitPriceRmb,
+      unitPrice: item.unitPrice,
       weightTons: item.weightTons ?? null,
     })),
   );
@@ -262,18 +267,27 @@ export const updatePurchaseOrder = async (
   id: string,
   input: PurchaseOrderInput,
 ) => {
-  assertEditable(await getOrderRow(executor, id));
+  const current = await getOrderRow(executor, id);
+  assertEditable(current);
   await assertProductsActive(
     executor,
     input.items.map((item) => item.productId),
   );
+  const payments = await listOrderPayments(executor, [id]);
+  // Le taux de chaque versement est exprimé dans la devise de la commande.
+  if (input.currency !== current.currency && payments.length > 0) {
+    throw new ORPCError("BAD_REQUEST", {
+      message:
+        "Des versements au fournisseur sont enregistrés dans la devise actuelle : elle ne peut plus être changée",
+    });
+  }
   const [order] = await executor
     .update(purchaseOrders)
     .set(orderValues(input))
     .where(eq(purchaseOrders.id, id))
     .returning();
   await executor.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, id));
-  await insertItems(executor, id, input, await listOrderPayments(executor, [id]));
+  await insertItems(executor, id, input, payments);
   return order;
 };
 
@@ -516,12 +530,12 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
         isPaid: payment.isPaid,
         paidFcfa: payment.paidFcfa,
         paymentCount: payment.paymentCount,
+        remainingAmount: payment.remainingAmount,
         remainingFcfa: payment.remainingFcfa,
-        remainingRmb: payment.remainingRmb,
       },
       feesFcfa: costs.feesFcfa,
+      goodsAmount: costs.goodsAmount,
       goodsFcfa: costs.goodsFcfa,
-      goodsRmb: costs.goodsRmb,
       itemCount: orderItems.length,
       supplierName,
       totalFcfa: costs.totalFcfa,
@@ -566,17 +580,18 @@ export const getPurchaseOrder = async (executor: Executor, id: string) => {
     ...item,
     ...extra,
     costPerTonFcfa: costs.lines[index]?.costPerTonFcfa ?? null,
+    goodsAmount: costs.lines[index]?.goodsAmount ?? 0,
     goodsFcfa: costs.lines[index]?.goodsFcfa ?? 0,
-    goodsRmb: costs.lines[index]?.goodsRmb ?? 0,
     totalFcfa: costs.lines[index]?.totalFcfa ?? 0,
   }));
 
   return {
     ...row.order,
     costs: {
+      currency: costs.currency,
       feesFcfa: costs.feesFcfa,
+      goodsAmount: costs.goodsAmount,
       goodsFcfa: costs.goodsFcfa,
-      goodsRmb: costs.goodsRmb,
       goodsUsd: costs.goodsUsd,
       totalFcfa: costs.totalFcfa,
       totalWeightTons: costs.totalWeightTons,
@@ -597,7 +612,7 @@ export const getPurchaseOrder = async (executor: Executor, id: string) => {
   };
 };
 
-/** Versement au fournisseur, en FCFA au taux du jour. */
+/** Versement au fournisseur, en FCFA au taux du jour (FCFA pour 1 unité de la devise). */
 export const createSupplierPayment = async (
   executor: Executor,
   input: SupplierPaymentInput,
@@ -609,7 +624,7 @@ export const createSupplierPayment = async (
   }
   const [payment] = await executor
     .insert(supplierPayments)
-    .values({ ...input, createdBy: userId ?? null, fcfaPerRmb: input.fcfaPerRmb ?? null })
+    .values({ ...input, createdBy: userId ?? null, fcfaRate: input.fcfaRate ?? null })
     .returning();
   return payment;
 };

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isUuid } from "@G-stock/core/ids";
 import type { PurchaseOrderStatus } from "@G-stock/core/enums";
-import { formatDate, formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
+import { formatCurrency, formatDate, formatFcfa, formatQty } from "@G-stock/core/format";
 import { PURCHASE_ORDER_STATUS_LABELS } from "@G-stock/core/labels";
 import type { TableColumn } from "@nuxt/ui";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
@@ -64,7 +64,7 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
   { accessorKey: "orderDate", header: "Date" },
   { accessorKey: "supplierName", header: "Fournisseur" },
   { accessorKey: "status", header: "Statut" },
-  { accessorKey: "goodsRmb", header: "Marchandise", meta: rightAligned },
+  { accessorKey: "goodsAmount", header: "Marchandise", meta: rightAligned },
   { accessorKey: "feesFcfa", header: "Frais", meta: rightAligned },
   { accessorKey: "totalFcfa", header: "Prix de revient", meta: rightAligned },
   { id: "payment", header: "Paiement", meta: rightAligned },
@@ -146,8 +146,10 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
           <PurchaseStatusBadge :status="row.original.status" />
         </template>
 
-        <template #goodsRmb-cell="{ row }">
-          <span class="tabular-nums">{{ formatRmb(row.original.goodsRmb) }}</span>
+        <template #goodsAmount-cell="{ row }">
+          <span class="tabular-nums">{{
+            formatCurrency(row.original.goodsAmount, row.original.currency)
+          }}</span>
           <p class="text-dimmed text-xs tabular-nums">
             {{ formatFcfa(row.original.goodsFcfa) }}
             <template v-if="row.original.totalWeightTons > 0">
@@ -178,7 +180,10 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
           />
           <template v-else>
             <span class="tabular-nums"
-              >Reste {{ formatRmb(row.original.payment.remainingRmb) }}</span
+              >Reste
+              {{
+                formatCurrency(row.original.payment.remainingAmount, row.original.currency)
+              }}</span
             >
             <p class="text-dimmed text-xs tabular-nums">
               {{

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { formatFcfa, formatQty, formatRmb, formatUsd } from "@G-stock/core/format";
+import type { PurchaseCurrency } from "@G-stock/core/enums";
+import { formatCurrency, formatFcfa, formatQty, formatUsd } from "@G-stock/core/format";
 
 import type { FeeLineDisplay } from "~/utils/purchases";
 
@@ -13,7 +14,9 @@ const {
   title = "Prix de revient",
 } = defineProps<{
   costs: {
-    goodsRmb: number;
+    currency: PurchaseCurrency;
+    /** Dans la devise de la commande. */
+    goodsAmount: number;
     goodsUsd: number;
     goodsFcfa: number;
     feesFcfa: number;
@@ -53,7 +56,8 @@ const estimateGap = computed(() =>
         <dd class="text-right tabular-nums">
           <span class="text-highlighted font-medium">{{ formatFcfa(costs.goodsFcfa) }}</span>
           <p class="text-dimmed text-xs">
-            {{ formatRmb(costs.goodsRmb) }} · {{ formatUsd(costs.goodsUsd) }}
+            {{ formatCurrency(costs.goodsAmount, costs.currency) }}
+            <template v-if="costs.currency !== 'usd'"> · {{ formatUsd(costs.goodsUsd) }}</template>
             <template v-if="costs.totalWeightTons > 0">
               · {{ formatQty(costs.totalWeightTons, "T") }}
             </template>

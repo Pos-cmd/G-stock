@@ -133,6 +133,7 @@ describe("generateDocument", () => {
     const order = await db.transaction((tx) =>
       createPurchaseOrder(tx, {
         allocationMethod: "equal",
+        currency: "rmb",
         fcfaPerUsd: 598,
         freightCbm: 1,
         freightRatePerCbmFcfa: 100_000,
@@ -142,7 +143,7 @@ describe("generateDocument", () => {
             productId: product.id,
             qty: 10,
             trips: 1,
-            unitPriceRmb: 60,
+            unitPrice: 60,
             weightTons: null,
           },
         ],

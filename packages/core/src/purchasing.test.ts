@@ -15,11 +15,12 @@ import type { LandedCostInput } from "./purchasing";
 // Frais : 2 CBM × 150 000 + 100 000 de transport local = 400 000 FCFA.
 const order = (allocationMethod: LandedCostInput["allocationMethod"]): LandedCostInput => ({
   allocationMethod,
+  currency: "rmb",
   freightCbm: 2,
   freightRatePerCbmFcfa: 150_000,
   items: [
-    { qty: 100, trips: 3, unitPriceRmb: 72 },
-    { qty: 50, trips: 1, unitPriceRmb: 36 },
+    { qty: 100, trips: 3, unitPrice: 72 },
+    { qty: 50, trips: 1, unitPrice: 36 },
   ],
   localTransportFcfa: 100_000,
   otherFeesFcfa: 0,
@@ -49,7 +50,7 @@ describe("allocateAmount", () => {
 describe("computeLandedCosts", () => {
   it("convertit la marchandise et totalise les frais", () => {
     const result = computeLandedCosts(order("proportional"));
-    expect(result.goodsRmb).toBe(9000);
+    expect(result.goodsAmount).toBe(9000);
     expect(result.goodsUsd).toBeCloseTo(1250);
     expect(result.goodsFcfa).toBe(747_500);
     expect(result.freightFcfa).toBe(300_000);
@@ -97,13 +98,14 @@ describe("computeLandedCosts", () => {
 // barbelé PVC 4 T × 7 200 = 28 800 ; pointes de toiture 2 T × 5 100 = 10 200. Total 98 100 RMB, 19 T.
 const tonnageOrder = (allocationMethod: LandedCostInput["allocationMethod"]): LandedCostInput => ({
   allocationMethod,
+  currency: "rmb",
   freightCbm: 24.8,
   freightRatePerCbmFcfa: 100_000,
   items: [
-    { pricingBasis: "weight", qty: 800, trips: 1, unitPriceRmb: 4450, weightTons: 8 },
-    { pricingBasis: "weight", qty: 25, trips: 1, unitPriceRmb: 4700, weightTons: 5 },
-    { pricingBasis: "weight", qty: 20, trips: 1, unitPriceRmb: 7200, weightTons: 4 },
-    { pricingBasis: "weight", qty: 80, trips: 1, unitPriceRmb: 5100, weightTons: 2 },
+    { pricingBasis: "weight", qty: 800, trips: 1, unitPrice: 4450, weightTons: 8 },
+    { pricingBasis: "weight", qty: 25, trips: 1, unitPrice: 4700, weightTons: 5 },
+    { pricingBasis: "weight", qty: 20, trips: 1, unitPrice: 7200, weightTons: 4 },
+    { pricingBasis: "weight", qty: 80, trips: 1, unitPrice: 5100, weightTons: 2 },
   ],
   localTransportFcfa: 0,
   otherFeesFcfa: 0,
@@ -113,8 +115,8 @@ const tonnageOrder = (allocationMethod: LandedCostInput["allocationMethod"]): La
 describe("commande à la tonne", () => {
   it("calcule la marchandise sur le poids et non sur le nombre de cartons", () => {
     const result = computeLandedCosts(tonnageOrder("equal"));
-    expect(result.lines.map((line) => line.goodsRmb)).toEqual([35_600, 23_500, 28_800, 10_200]);
-    expect(result.goodsRmb).toBe(98_100);
+    expect(result.lines.map((line) => line.goodsAmount)).toEqual([35_600, 23_500, 28_800, 10_200]);
+    expect(result.goodsAmount).toBe(98_100);
     expect(result.totalWeightTons).toBe(19);
   });
 
@@ -138,10 +140,45 @@ describe("commande à la tonne", () => {
   it("garde le calcul à l'unité quand la ligne n'est pas au poids", () => {
     const [line] = computeLandedCosts({
       ...order("equal"),
-      items: [{ qty: 100, trips: 1, unitPriceRmb: 72, weightTons: 2 }],
+      items: [{ qty: 100, trips: 1, unitPrice: 72, weightTons: 2 }],
     }).lines;
-    expect(line?.goodsRmb).toBe(7200);
+    expect(line?.goodsAmount).toBe(7200);
     expect(line?.costPerTonFcfa).toBe(Math.round((598_000 + 400_000) / 2));
+  });
+});
+
+describe("commande en dollars", () => {
+  // Mêmes lignes que `order`, prix en USD : A 100 × 10 $ = 1 000 $, B 50 × 5 $ = 250 $.
+  const usdOrder = (rates = DEFAULT_EXCHANGE_RATES): LandedCostInput => ({
+    ...order("proportional"),
+    currency: "usd",
+    items: [
+      { qty: 100, trips: 3, unitPrice: 10 },
+      { qty: 50, trips: 1, unitPrice: 5 },
+    ],
+    rates,
+  });
+
+  it("convertit directement USD → FCFA", () => {
+    const result = computeLandedCosts(usdOrder());
+    expect(result.currency).toBe("usd");
+    expect(result.goodsAmount).toBe(1250);
+    expect(result.goodsUsd).toBe(1250);
+    expect(result.lines.map((line) => line.goodsFcfa)).toEqual([598_000, 149_500]);
+    expect(result.totalFcfa).toBe(747_500 + 400_000);
+  });
+
+  it("ne dépend pas du taux RMB", () => {
+    const changed = computeLandedCosts(usdOrder({ fcfaPerUsd: 598, rmbPerUsd: 6.5 }));
+    expect(changed.totalFcfa).toBe(computeLandedCosts(usdOrder()).totalFcfa);
+  });
+
+  it("coûte autant que la même commande en RMB aux mêmes taux", () => {
+    const usd = computeLandedCosts(usdOrder());
+    const rmb = computeLandedCosts(order("proportional"));
+    expect(usd.lines.map((line) => line.unitCostFcfa)).toEqual(
+      rmb.lines.map((line) => line.unitCostFcfa),
+    );
   });
 });
 
@@ -163,6 +200,7 @@ describe("frais réels de réception", () => {
   it("répartit chaque frais selon sa propre méthode", () => {
     // Douane au prorata de la valeur, fret au prorata du poids.
     const result = computeLandedCostsFromFees({
+      currency: "rmb",
       fees: [
         { allocationMethod: "value", amountFcfa: 1_000_000 },
         { allocationMethod: "weight", amountFcfa: 2_480_000 },
@@ -182,6 +220,7 @@ describe("frais réels de réception", () => {
 
   it("additionne les frais d'une même méthode avant de les répartir", () => {
     const split = computeLandedCostsFromFees({
+      currency: "rmb",
       fees: [
         { allocationMethod: "weight", amountFcfa: 1_000_000 },
         { allocationMethod: "weight", amountFcfa: 1_480_000 },
@@ -201,6 +240,7 @@ describe("frais réels de réception", () => {
       throw new Error("Jeu de données incomplet");
     }
     const result = computeLandedCostsFromFees({
+      currency: "rmb",
       fees: [],
       items: [{ ...galva, receivedQty: 790 }],
       rates,

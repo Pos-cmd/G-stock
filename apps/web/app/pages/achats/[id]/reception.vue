@@ -8,7 +8,7 @@ import {
   FEE_CURRENCY_LABELS,
   SUGGESTED_FEE_LABELS,
 } from "@G-stock/core/labels";
-import { computeLandedCostsFromFees, feeToFcfa, totalGoodsRmb } from "@G-stock/core/purchasing";
+import { computeLandedCostsFromFees, feeToFcfa, totalGoodsAmount } from "@G-stock/core/purchasing";
 import { paidGoodsFcfa } from "@G-stock/core/supplier-payments";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
@@ -191,13 +191,16 @@ const costs = computed(() => {
     ...item,
     receivedQty: state.items[index]?.qtyReceived ?? item.qty,
   }));
+  const currency = data.value?.currency ?? "rmb";
   return computeLandedCostsFromFees({
+    currency,
     fees: state.fees.map((fee, index) => ({
       allocationMethod: fee.allocationMethod,
       amountFcfa: feeAmountsFcfa.value[index] ?? 0,
     })),
     goodsFcfa: paidGoodsFcfa({
-      goodsRmb: totalGoodsRmb(items),
+      currency,
+      goodsAmount: totalGoodsAmount(items),
       payments: activePayments.value,
       rates: rates.value,
     }),

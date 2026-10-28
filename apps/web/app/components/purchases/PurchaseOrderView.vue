@@ -1,6 +1,17 @@
 <script setup lang="ts">
-import { formatDate, formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
-import { ALLOCATION_METHOD_LABELS, PRICING_BASIS_LABELS } from "@G-stock/core/labels";
+import {
+  formatCurrency,
+  formatDate,
+  formatFcfa,
+  formatOrderRates,
+  formatQty,
+} from "@G-stock/core/format";
+import {
+  ALLOCATION_METHOD_LABELS,
+  FEE_CURRENCY_LABELS,
+  PRICING_BASIS_LABELS,
+  PURCHASE_CURRENCY_LABELS,
+} from "@G-stock/core/labels";
 import type { TableColumn } from "@nuxt/ui";
 
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
@@ -35,7 +46,11 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
   ...(order.items.some((item) => item.weightTons)
     ? [{ accessorKey: "weightTons", header: "Poids", meta: rightAligned }]
     : []),
-  { accessorKey: "unitPriceRmb", header: "Prix (RMB)", meta: rightAligned },
+  {
+    accessorKey: "unitPrice",
+    header: `Prix (${FEE_CURRENCY_LABELS[order.currency]})`,
+    meta: rightAligned,
+  },
   ...(order.allocationMethod === "proportional"
     ? [{ accessorKey: "trips", header: "Voyages", meta: rightAligned }]
     : []),
@@ -63,10 +78,12 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
             <dd class="text-highlighted mt-1">{{ formatDate(order.orderDate) }}</dd>
           </div>
           <div>
+            <dt class="text-muted">Prix fournisseur</dt>
+            <dd class="text-highlighted mt-1">En {{ PURCHASE_CURRENCY_LABELS[order.currency] }}</dd>
+          </div>
+          <div>
             <dt class="text-muted">Taux figés</dt>
-            <dd class="text-highlighted mt-1 tabular-nums">
-              {{ order.rmbPerUsd }} RMB = 1 $ = {{ order.fcfaPerUsd }} FCFA
-            </dd>
+            <dd class="text-highlighted mt-1 tabular-nums">{{ formatOrderRates(order) }}</dd>
           </div>
           <div>
             <dt class="text-muted">Répartition des frais</dt>
@@ -120,8 +137,10 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
           row.original.weightTons ? formatQty(row.original.weightTons, "T") : "—"
         }}</span>
       </template>
-      <template #unitPriceRmb-cell="{ row }">
-        <span class="tabular-nums">{{ formatRmb(row.original.unitPriceRmb) }}</span>
+      <template #unitPrice-cell="{ row }">
+        <span class="tabular-nums">{{
+          formatCurrency(row.original.unitPrice, order.currency)
+        }}</span>
         <span class="text-dimmed ms-1 text-xs">
           {{ PRICING_BASIS_LABELS[row.original.pricingBasis] }}</span
         >
@@ -131,7 +150,9 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
       </template>
       <template #goodsFcfa-cell="{ row }">
         <span class="tabular-nums">{{ formatFcfa(row.original.goodsFcfa) }}</span>
-        <p class="text-dimmed text-xs">{{ formatRmb(row.original.goodsRmb) }}</p>
+        <p class="text-dimmed text-xs">
+          {{ formatCurrency(row.original.goodsAmount, order.currency) }}
+        </p>
       </template>
       <template #transportShareFcfa-cell="{ row }">
         <span class="text-muted tabular-nums">{{

@@ -52,12 +52,13 @@ const orderInput = async (overrides: Partial<PurchaseOrderInput> = {}) => {
   const bazin = await newProduct("Bazin");
   const input: PurchaseOrderInput = {
     allocationMethod: "proportional",
+    currency: "rmb",
     fcfaPerUsd: 598,
     freightCbm: 2,
     freightRatePerCbmFcfa: 150_000,
     items: [
-      { productId: wax.id, qty: 100, trips: 3, unitPriceRmb: 72 },
-      { productId: bazin.id, qty: 50, trips: 1, unitPriceRmb: 36 },
+      { productId: wax.id, qty: 100, trips: 3, unitPrice: 72 },
+      { productId: bazin.id, qty: 50, trips: 1, unitPrice: 36 },
     ],
     localTransportFcfa: 100_000,
     notes: null,
@@ -260,7 +261,7 @@ describe("commande à la tonne", () => {
           productId: wax.id,
           qty: 800,
           trips: 1,
-          unitPriceRmb: 4450,
+          unitPrice: 4450,
           weightTons: 8,
         },
         {
@@ -268,7 +269,7 @@ describe("commande à la tonne", () => {
           productId: bazin.id,
           qty: 80,
           trips: 1,
-          unitPriceRmb: 5100,
+          unitPrice: 5100,
           weightTons: 2,
         },
       ],
@@ -279,7 +280,7 @@ describe("commande à la tonne", () => {
   it("enregistre le poids et réceptionne en cartons au coût de revient par carton", async () => {
     const order = await create(await tonnageInput());
     const detail = await getPurchaseOrder(db, order.id);
-    expect(detail.costs.goodsRmb).toBe(45_800);
+    expect(detail.costs.goodsAmount).toBe(45_800);
     expect(detail.costs.totalWeightTons).toBe(10);
     // Galva : 35 600 RMB = 2 956 778 FCFA + 800 000 FCFA de frais (8/10 de 1 000 000).
     expect(detail.items[0]).toMatchObject({
@@ -388,13 +389,14 @@ describe("réception avec frais réels", () => {
     });
 
     const expected = computeLandedCostsFromFees({
+      currency: "rmb",
       fees: [
         { allocationMethod: "weight", amountFcfa: 598_000 },
         { allocationMethod: "value", amountFcfa: 200_000 },
       ],
       items: [
-        { qty: 100, receivedQty: 98, trips: 3, unitPriceRmb: 72, weightTons: 3 },
-        { qty: 50, receivedQty: 0, trips: 1, unitPriceRmb: 36, weightTons: 1 },
+        { qty: 100, receivedQty: 98, trips: 3, unitPrice: 72, weightTons: 3 },
+        { qty: 50, receivedQty: 0, trips: 1, unitPrice: 36, weightTons: 1 },
       ],
       rates: { fcfaPerUsd: 598, rmbPerUsd: 7.2 },
     });
@@ -451,10 +453,10 @@ describe("numérotation", () => {
 
 describe("paiements fournisseur en plusieurs tranches", () => {
   // Marchandise : 7 200 + 1 800 = 9 000 RMB (747 500 FCFA aux taux de la commande).
-  const pay = (orderId: string, amountFcfa: number, fcfaPerRmb: number | null = null) =>
+  const pay = (orderId: string, amountFcfa: number, fcfaRate: number | null = null) =>
     createSupplierPayment(db, {
       amountFcfa,
-      fcfaPerRmb,
+      fcfaRate,
       notes: null,
       orderId,
       paymentDate: MARCH_1,
@@ -468,8 +470,8 @@ describe("paiements fournisseur en plusieurs tranches", () => {
 
     const detail = await getPurchaseOrder(db, order.id);
     expect(detail.payment.paidFcfa).toBe(380_000);
-    expect(detail.payment.paidRmb).toBeCloseTo(4750, 6);
-    expect(detail.payment.remainingRmb).toBeCloseTo(4250, 6);
+    expect(detail.payment.paidAmount).toBeCloseTo(4750, 6);
+    expect(detail.payment.remainingAmount).toBeCloseTo(4250, 6);
     expect(detail.payment.remainingFcfa).toBe(352_986);
     expect(detail.payment.isPaid).toBe(false);
     expect(detail.payment.exchangeDifferenceFcfa).toBeNull();
@@ -480,7 +482,7 @@ describe("paiements fournisseur en plusieurs tranches", () => {
 
     const [row] = await listPurchaseOrders(db, {});
     expect(row?.payment.paidFcfa).toBe(380_000);
-    expect(row?.payment.remainingRmb).toBeCloseTo(4250, 6);
+    expect(row?.payment.remainingAmount).toBeCloseTo(4250, 6);
   });
 
   it("fige le coût dans les lots à la réception, puis suit l'écart de change", async () => {
@@ -539,9 +541,42 @@ describe("paiements fournisseur en plusieurs tranches", () => {
 
     const [row] = await listSuppliers(db);
     expect(row?.paidFcfa).toBe(380_000);
-    expect(row?.remainingRmb).toBeCloseTo(4250, 6);
     expect(row?.remainingFcfa).toBe(352_986);
     expect(row?.unpaidOrderCount).toBe(1);
+  });
+
+  it("suit une commande en dollars : prix et versements convertis directement en FCFA", async () => {
+    // 100 × 10 $ + 50 × 5 $ = 1 250 $ = 747 500 FCFA, comme la commande en RMB aux mêmes taux.
+    const { input, wax, bazin } = await orderInput();
+    const order = await create({
+      ...input,
+      currency: "usd",
+      items: [
+        { productId: wax.id, qty: 100, trips: 3, unitPrice: 10 },
+        { productId: bazin.id, qty: 50, trips: 1, unitPrice: 5 },
+      ],
+    });
+    // 300 000 FCFA à 600 FCFA/$ = 500 $ ; reste 750 $ × 598 = 448 500 FCFA.
+    await pay(order.id, 300_000, 600);
+
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.currency).toBe("usd");
+    expect(detail.costs).toMatchObject({ currency: "usd", goodsAmount: 1250, goodsUsd: 1250 });
+    expect(detail.estimate.totalFcfa).toBe(1_147_500);
+    expect(detail.payment.orderFcfaRate).toBe(598);
+    expect(detail.payment.paidAmount).toBe(500);
+    expect(detail.payment.remainingAmount).toBe(750);
+    expect(detail.payment.remainingFcfa).toBe(448_500);
+    expect(detail.costs.goodsFcfa).toBe(300_000 + 448_500);
+  });
+
+  it("refuse de changer la devise d'une commande qui a des versements", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    await pay(order.id, 100_000);
+    await expect(
+      db.transaction((tx) => updatePurchaseOrder(tx, order.id, { ...input, currency: "usd" })),
+    ).rejects.toThrow("devise");
   });
 
   it("garde une commande qui a des versements et refuse d'en payer une annulée", async () => {

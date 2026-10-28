@@ -6,10 +6,16 @@ import {
   purchaseItemSchema,
   purchaseOrderFieldsSchema,
 } from "@G-stock/api/schemas/purchases";
-import type { AllocationMethod, PricingBasis } from "@G-stock/core/enums";
-import { formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
-import { ALLOCATION_METHOD_LABELS, PRICING_BASIS_LABELS } from "@G-stock/core/labels";
-import { computeLandedCosts, stockQtyFromWeight, totalGoodsRmb } from "@G-stock/core/purchasing";
+import { PURCHASE_CURRENCIES } from "@G-stock/core/enums";
+import type { AllocationMethod, PricingBasis, PurchaseCurrency } from "@G-stock/core/enums";
+import { formatCurrency, formatFcfa, formatQty } from "@G-stock/core/format";
+import {
+  ALLOCATION_METHOD_LABELS,
+  FEE_CURRENCY_LABELS,
+  PRICING_BASIS_LABELS,
+  PURCHASE_CURRENCY_LABELS,
+} from "@G-stock/core/labels";
+import { computeLandedCosts, stockQtyFromWeight, totalGoodsAmount } from "@G-stock/core/purchasing";
 import { paidGoodsFcfa } from "@G-stock/core/supplier-payments";
 import type { FormSubmitEvent, RadioGroupItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
@@ -55,7 +61,7 @@ interface LineState {
   productId: string | undefined;
   qty: number;
   trips: number;
-  unitPriceRmb: number;
+  unitPrice: number;
   pricingBasis: PricingBasis;
   weightTons: number | null;
 }
@@ -67,7 +73,7 @@ const newLine = (line: Partial<Omit<LineState, "key">> = {}): LineState => {
     productId: undefined,
     qty: 1,
     trips: 1,
-    unitPriceRmb: 0,
+    unitPrice: 0,
     weightTons: null,
     ...line,
   };
@@ -75,6 +81,7 @@ const newLine = (line: Partial<Omit<LineState, "key">> = {}): LineState => {
 
 interface FormState {
   allocationMethod: AllocationMethod;
+  currency: PurchaseCurrency;
   fcfaPerUsd: number;
   freightCbm: number;
   freightRatePerCbmFcfa: number;
@@ -89,6 +96,7 @@ interface FormState {
 
 const emptyState = (): FormState => ({
   allocationMethod: "proportional",
+  currency: "rmb",
   fcfaPerUsd: settingsStore.rates.fcfaPerUsd,
   freightCbm: 0,
   freightRatePerCbmFcfa: 0,
@@ -103,6 +111,7 @@ const emptyState = (): FormState => ({
 
 const stateFromOrder = (source: PurchaseOrderDetail): FormState => ({
   allocationMethod: source.allocationMethod,
+  currency: source.currency,
   fcfaPerUsd: source.fcfaPerUsd,
   freightCbm: source.freightCbm,
   freightRatePerCbmFcfa: source.freightRatePerCbmFcfa,
@@ -112,7 +121,7 @@ const stateFromOrder = (source: PurchaseOrderDetail): FormState => ({
       productId: item.productId,
       qty: item.qty,
       trips: item.trips,
-      unitPriceRmb: item.unitPriceRmb,
+      unitPrice: item.unitPrice,
       weightTons: item.weightTons,
     }),
   ),
@@ -207,6 +216,14 @@ const allocationItems: RadioGroupItem[] = [
   },
 ];
 
+const currencyItems = PURCHASE_CURRENCIES.map((currency) => ({
+  label: PURCHASE_CURRENCY_LABELS[currency],
+  value: currency,
+}));
+const currencyLabel = computed(() => FEE_CURRENCY_LABELS[state.currency]);
+// Le taux de chaque versement est exprimé dans la devise de la commande.
+const currencyLocked = computed(() => (order?.payments.length ?? 0) > 0);
+
 const pricingBasisItems = Object.entries(PRICING_BASIS_LABELS).map(([value, label]) => ({
   label,
   value,
@@ -223,9 +240,14 @@ const totalWeightTons = computed(() =>
 );
 
 // Lignes
+/** Le prix de référence d'un produit est en RMB : il ne pré-remplit qu'une commande en RMB. */
+const referencePriceOf = (productId: string | undefined) =>
+  productId && state.currency === "rmb"
+    ? (productsById.value.get(productId)?.referencePriceRmb ?? null)
+    : null;
+
 const addLine = (productId?: string) => {
-  const price = productId ? (productsById.value.get(productId)?.referencePriceRmb ?? 0) : 0;
-  state.items.push(newLine({ productId, unitPriceRmb: price }));
+  state.items.push(newLine({ productId, unitPrice: referencePriceOf(productId) ?? 0 }));
 };
 
 const removeLine = (key: string) => {
@@ -233,11 +255,9 @@ const removeLine = (key: string) => {
 };
 
 const onProductChange = (line: LineState) => {
-  const reference = line.productId
-    ? productsById.value.get(line.productId)?.referencePriceRmb
-    : null;
-  if (reference && !line.unitPriceRmb) {
-    line.unitPriceRmb = reference;
+  const reference = referencePriceOf(line.productId);
+  if (reference && !line.unitPrice) {
+    line.unitPrice = reference;
   }
 };
 
@@ -261,7 +281,7 @@ const costs = computed(() => {
     pricingBasis: line.pricingBasis,
     qty: line.qty || 0,
     trips: line.trips || 0,
-    unitPriceRmb: line.unitPriceRmb || 0,
+    unitPrice: line.unitPrice || 0,
     weightTons: line.weightTons || null,
   }));
   const rates = {
@@ -270,10 +290,12 @@ const costs = computed(() => {
   };
   return computeLandedCosts({
     allocationMethod: state.allocationMethod,
+    currency: state.currency,
     freightCbm: state.freightCbm || 0,
     freightRatePerCbmFcfa: state.freightRatePerCbmFcfa || 0,
     goodsFcfa: paidGoodsFcfa({
-      goodsRmb: totalGoodsRmb(items),
+      currency: state.currency,
+      goodsAmount: totalGoodsAmount(items),
       payments: activePayments.value,
       rates,
     }),
@@ -380,7 +402,19 @@ defineExpose({ saving });
         <UFormField label="Date de commande" name="orderDate" required>
           <UInput v-model="state.orderDate" type="date" class="w-full" />
         </UFormField>
-        <div />
+        <UFormField
+          label="Devise du prix fournisseur"
+          name="currency"
+          required
+          :help="currencyLocked ? 'Figée : des versements sont faits.' : undefined"
+        >
+          <USelect
+            v-model="state.currency"
+            :items="currencyItems"
+            :disabled="currencyLocked"
+            class="w-full"
+          />
+        </UFormField>
 
         <UFormField label="Taux RMB pour 1 $" name="rmbPerUsd" required>
           <UInputNumber
@@ -424,8 +458,9 @@ defineExpose({ saving });
       :ui="{ container: 'lg:grid-cols-[minmax(0,1fr)]', wrapper: 'min-w-0' }"
     >
       <template #description>
-        Prix fournisseur en RMB, à l'unité ou à la tonne. La quantité est celle qui entre en stock
-        (cartons, rouleaux…) ; le coût de revient unitaire inclut la part des frais d'approche.
+        Prix fournisseur en {{ currencyLabel }}, à l'unité ou à la tonne, converti en FCFA aux taux
+        de la commande. La quantité est celle qui entre en stock (cartons, rouleaux…) ; le coût de
+        revient unitaire inclut la part des frais d'approche.
       </template>
 
       <UFormField name="items">
@@ -436,7 +471,7 @@ defineExpose({ saving });
                 <th class="px-3 py-2 font-medium">Produit</th>
                 <th class="w-32 px-3 py-2 font-medium">Qté en stock</th>
                 <th v-if="showWeight" class="w-28 px-3 py-2 font-medium">Poids (T)</th>
-                <th class="w-56 px-3 py-2 font-medium">Prix (RMB)</th>
+                <th class="w-56 px-3 py-2 font-medium">Prix ({{ currencyLabel }})</th>
                 <th
                   v-if="state.allocationMethod === 'proportional'"
                   class="w-24 px-3 py-2 font-medium"
@@ -492,10 +527,10 @@ defineExpose({ saving });
                   </UFormField>
                 </td>
                 <td class="px-3 py-2">
-                  <UFormField :name="`items.${index}.unitPriceRmb`">
+                  <UFormField :name="`items.${index}.unitPrice`">
                     <div class="flex gap-1">
                       <UInputNumber
-                        v-model="line.unitPriceRmb"
+                        v-model="line.unitPrice"
                         :min="0"
                         :step="0.5"
                         :format-options="{ maximumFractionDigits: 2 }"
@@ -526,7 +561,7 @@ defineExpose({ saving });
                 <td class="px-3 py-3 text-right tabular-nums">
                   {{ formatFcfa(costs.lines[index]?.goodsFcfa ?? 0) }}
                   <p class="text-dimmed text-xs">
-                    {{ formatRmb(costs.lines[index]?.goodsRmb ?? 0) }}
+                    {{ formatCurrency(costs.lines[index]?.goodsAmount ?? 0, state.currency) }}
                   </p>
                 </td>
                 <td class="text-muted px-3 py-3 text-right tabular-nums">

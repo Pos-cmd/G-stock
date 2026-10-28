@@ -3,7 +3,14 @@ import { MAX_COMPARED_ITEMS } from "@G-stock/api/schemas/comparison";
 import type { ComparisonItem } from "@G-stock/api/schemas/comparison";
 import { compareValues } from "@G-stock/core/comparison";
 import type { Preference } from "@G-stock/core/comparison";
-import { formatDate, formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
+import {
+  formatCurrency,
+  formatDate,
+  formatFcfa,
+  formatQty,
+  formatRmb,
+  formatUsd,
+} from "@G-stock/core/format";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
 
 import CompareCell from "~/components/comparison/CompareCell.vue";
@@ -99,11 +106,18 @@ interface Metric {
 }
 
 const metrics: Metric[] = [
+  // Une colonne n'a de valeur que dans la ligne de sa devise ; le FCFA compare tout.
   {
     format: formatRmb,
     label: "Marchandise (RMB)",
     preference: "lower",
-    value: (c) => c.goodsRmb,
+    value: (c) => (c.currency === "rmb" ? c.goodsAmount : null),
+  },
+  {
+    format: formatUsd,
+    label: "Marchandise (USD)",
+    preference: "lower",
+    value: (c) => (c.currency === "usd" ? c.goodsAmount : null),
   },
   {
     format: formatFcfa,
@@ -214,7 +228,7 @@ const productValue = (cell: ProductCell): number | null => {
     return null;
   }
   if (productMetric.value === "supplier") {
-    return cell.unitPriceRmb;
+    return cell.unitPrice;
   }
   if (productMetric.value === "sale") {
     return cell.salePriceFcfa;
@@ -225,8 +239,11 @@ const productValue = (cell: ProductCell): number | null => {
 const productRows = computed(() =>
   (comparison.data.value?.productRows ?? []).map((row) => {
     const present = row.cells.filter((cell) => cell !== null);
-    // Un prix à la tonne ne se compare pas à un prix à l'unité.
-    const sameBasis = present.every((cell) => cell?.pricingBasis === present[0]?.pricingBasis);
+    // Un prix à la tonne ne se compare pas à un prix à l'unité, ni un prix en RMB à un prix en USD.
+    const sameBasis = present.every(
+      (cell) =>
+        cell?.pricingBasis === present[0]?.pricingBasis && cell?.currency === present[0]?.currency,
+    );
     const comparable = productMetric.value !== "supplier" || sameBasis;
     return {
       ...row,
@@ -241,7 +258,8 @@ const productRows = computed(() =>
 
 const formatProductValue = (cell: ProductCell) => (value: number) => {
   if (productMetric.value === "supplier") {
-    return `${formatRmb(value)}${cell?.pricingBasis === "weight" ? " / T" : ""}`;
+    const price = formatCurrency(value, cell?.currency ?? "rmb");
+    return `${price}${cell?.pricingBasis === "weight" ? " / T" : ""}`;
   }
   return formatFcfa(value);
 };

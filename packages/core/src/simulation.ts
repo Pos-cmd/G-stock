@@ -42,7 +42,9 @@ export const pricingRates = (unitCostFcfa: number, salePriceFcfa: number): Prici
   };
 };
 
-export interface SimulationLineInput extends LandedCostItem {
+/** Le simulateur travaille en RMB : ses simulations enregistrées gardent `unitPriceRmb`. */
+export interface SimulationLineInput extends Omit<LandedCostItem, "unitPrice"> {
+  unitPriceRmb: number;
   label: string;
   unit: string;
   productId?: string | null;
@@ -108,8 +110,9 @@ export const computeSimulation = (input: SimulationInput): SimulationResult => {
     label: fee.label,
   }));
   const costs = computeLandedCostsFromFees({
+    currency: "rmb",
     fees: [{ allocationMethod: input.freightAllocation, amountFcfa: freightFcfa }, ...fees],
-    items: input.lines,
+    items: input.lines.map((line) => ({ ...line, unitPrice: line.unitPriceRmb })),
     rates: input.rates,
   });
 
@@ -133,7 +136,7 @@ export const computeSimulation = (input: SimulationInput): SimulationResult => {
     feesFcfa: costs.feesFcfa,
     freightFcfa,
     goodsFcfa: costs.goodsFcfa,
-    goodsRmb: costs.goodsRmb,
+    goodsRmb: costs.goodsAmount,
     goodsUsd: costs.goodsUsd,
     lines,
     marginFcfa,

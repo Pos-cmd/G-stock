@@ -2,6 +2,7 @@ import {
   ALLOCATION_METHODS,
   FEE_CURRENCIES,
   PRICING_BASES,
+  PURCHASE_CURRENCIES,
   PURCHASE_ORDER_STATUSES,
 } from "@G-stock/core/enums";
 import type { AllocationMethod, PricingBasis } from "@G-stock/core/enums";
@@ -25,7 +26,8 @@ export const purchaseItemSchema = z.object({
   productId: idSchema,
   qty: z.number().positive("La quantité doit être supérieure à zéro"),
   trips: z.number().positive("Au moins un voyage"),
-  unitPriceRmb: z.number().min(0, "Le prix ne peut pas être négatif"),
+  /** Dans la devise de la commande. */
+  unitPrice: z.number().min(0, "Le prix ne peut pas être négatif"),
   pricingBasis: z.enum(PRICING_BASES).default("unit"),
   weightTons: z.number().positive("Le poids doit être supérieur à zéro").nullish(),
 });
@@ -34,6 +36,7 @@ export type PurchaseItemInput = z.input<typeof purchaseItemSchema>;
 /** Champs d'une commande, sans les règles qui croisent plusieurs champs (voir `checkWeights`). */
 export const purchaseOrderFieldsSchema = z.object({
   allocationMethod: z.enum(ALLOCATION_METHODS),
+  currency: z.enum(PURCHASE_CURRENCIES),
   fcfaPerUsd: exchangeRate,
   freightCbm: z.number().min(0, "Le volume ne peut pas être négatif"),
   freightRatePerCbmFcfa: fcfaAmount,
@@ -127,8 +130,8 @@ export type PurchaseReceiveInput = z.output<typeof purchaseReceiveSchema>;
 
 export const supplierPaymentInputSchema = z.object({
   amountFcfa: fcfaAmount.positive("Le montant doit être supérieur à zéro"),
-  /** FCFA pour 1 RMB obtenu ce jour-là ; vide = taux de la commande. */
-  fcfaPerRmb: exchangeRate.nullish(),
+  /** FCFA pour 1 unité de la devise de la commande, obtenu ce jour-là ; vide = taux de la commande. */
+  fcfaRate: exchangeRate.nullish(),
   notes: optionalText(500),
   orderId: idSchema,
   paymentDate: z.date(),

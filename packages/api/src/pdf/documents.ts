@@ -1,10 +1,19 @@
-import { formatDate, formatQty, formatRmb, formatUsd } from "@G-stock/core/format";
+import {
+  formatCurrency,
+  formatDate,
+  formatOrderRates,
+  formatQty,
+  formatRmb,
+  formatUsd,
+} from "@G-stock/core/format";
 import {
   ALLOCATION_METHOD_LABELS,
   PAYMENT_METHOD_LABELS,
   PAYMENT_TYPE_LABELS,
+  PURCHASE_CURRENCY_LABELS,
   PURCHASE_ORDER_STATUS_LABELS,
 } from "@G-stock/core/labels";
+import type { FeeCurrency } from "@G-stock/core/enums";
 import { computeFeesFcfa } from "@G-stock/core/purchasing";
 import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 
@@ -36,10 +45,8 @@ const rate = (value: number | null) => (value === null ? "—" : pdfText(percent
 const qty = (value: number, unit?: string | null) => pdfText(formatQty(value, unit));
 const rmb = (value: number) => pdfText(formatRmb(value));
 
-const feeDetail = (fee: { amount: number; currency: string }) =>
-  fee.currency === "fcfa"
-    ? "—"
-    : `${pdfText(fee.currency === "usd" ? formatUsd(fee.amount) : formatRmb(fee.amount))}`;
+const feeDetail = (fee: { amount: number; currency: FeeCurrency }) =>
+  fee.currency === "fcfa" ? "—" : pdfText(formatCurrency(fee.amount, fee.currency));
 
 /** Simulation d'import : achat, frais, vente et marges. */
 export const simulationDocument = (
@@ -351,10 +358,8 @@ export const purchaseOrderDocument = (
       { label: "Fournisseur", value: order.supplier?.name ?? "—" },
       { label: "Date de commande", value: formatDate(order.orderDate) },
       { label: "Statut", value: PURCHASE_ORDER_STATUS_LABELS[order.status] },
-      {
-        label: "Taux",
-        value: `${order.rmbPerUsd} RMB = 1 $ = ${order.fcfaPerUsd} FCFA`,
-      },
+      { label: "Prix fournisseur", value: PURCHASE_CURRENCY_LABELS[order.currency] },
+      { label: "Taux", value: formatOrderRates(order) },
       {
         label: "Arrivée au port",
         value: order.arrivedAt ? formatDate(order.arrivedAt) : null,
@@ -384,7 +389,7 @@ export const purchaseOrderDocument = (
           ? `${qty(item.qtyReceived)} / ${qty(item.qty, item.productUnit)}`
           : qty(item.qty, item.productUnit),
         ...(showWeight ? [item.weightTons ? qty(item.weightTons, "T") : "—"] : []),
-        `${rmb(item.unitPriceRmb)}${item.pricingBasis === "weight" ? " / T" : ""}`,
+        `${pdfText(formatCurrency(item.unitPrice, order.currency))}${item.pricingBasis === "weight" ? " / T" : ""}`,
         money(item.goodsFcfa),
         money(item.transportShareFcfa),
         { bold: true, text: money(item.unitCostFcfa) },
@@ -395,7 +400,7 @@ export const purchaseOrderDocument = (
         ...(showWeight
           ? [order.costs.totalWeightTons > 0 ? qty(order.costs.totalWeightTons, "T") : ""]
           : []),
-        rmb(order.costs.goodsRmb),
+        pdfText(formatCurrency(order.costs.goodsAmount, order.currency)),
         money(order.costs.goodsFcfa),
         money(order.costs.feesFcfa),
         money(order.costs.totalFcfa),
@@ -414,7 +419,9 @@ export const purchaseOrderDocument = (
     ),
     summaryBox([
       { label: "Marchandise", value: money(order.costs.goodsFcfa) },
-      { label: "Soit en dollars", value: pdfText(formatUsd(order.costs.goodsUsd)) },
+      ...(order.currency === "usd"
+        ? []
+        : [{ label: "Soit en dollars", value: pdfText(formatUsd(order.costs.goodsUsd)) }]),
       { label: "Frais d'approche", value: money(order.costs.feesFcfa) },
       ...(received
         ? [
