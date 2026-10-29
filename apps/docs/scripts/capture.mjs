@@ -159,7 +159,7 @@ const figure = (shot, notes) => {
       `:::annotation{x=${box.x} y=${box.y} w=${box.w} h=${box.h}${note.side ? ` side="${note.side}"` : ""}}\n${note.text}\n:::`,
   );
   return [
-    `::screenshot{src="/captures/${shot.name}.png" alt="${shot.alt}" viewport="${WIDTH}x${HEIGHT}"}`,
+    `::screenshot{src="/captures/${shot.name}.webp" alt="${shot.alt}" viewport="${WIDTH}x${HEIGHT}"}`,
     ...marks,
     "::",
     "",
@@ -234,9 +234,10 @@ for (const shot of SHOTS) {
       console.warn(`  ! ${shot.name} : élément absent ou hors écran (${note.find})`);
     }
   }
-  const { data } = await send("Page.captureScreenshot", { format: "png" });
+  // WebP : environ le même poids qu'un PNG à cette qualité, sans perte visible sur l'interface.
+  const { data } = await send("Page.captureScreenshot", { format: "webp", quality: 90 });
   await writeFile(
-    path.join(ROOT, "public", "captures", `${shot.name}.png`),
+    path.join(ROOT, "public", "captures", `${shot.name}.webp`),
     Buffer.from(data, "base64"),
   );
   await writeFile(path.join(ROOT, "figures", `${shot.name}.md`), figure(shot, notes));
