@@ -7,7 +7,7 @@ export default defineNuxtConfig({
       meta: [
         {
           content:
-            "Stock par lots, vraie marge, ventes à crédit, commandes de Chine et reçus sur WhatsApp : la gestion du magasin pour les importateurs, installée chez vous.",
+            "La vraie marge de chaque produit, frais compris : stock, ventes à crédit et commandes de Chine pour les importateurs. Une licence par magasin, sans abonnement.",
           name: "description",
         },
         { content: "#f4f2ef", name: "theme-color" },
@@ -22,26 +22,17 @@ export default defineNuxtConfig({
     clientBundle: { scan: true },
     serverBundle: "local",
   },
-  modules: [
-    "@nuxt/ui",
-    // Sans numéro, chaque bouton ouvrirait WhatsApp sans destinataire : la version publiée refuse
-    // de se construire tant que NUXT_PUBLIC_WHATSAPP n'est pas renseigné (le mode dev l'accepte).
-    (_options, nuxt) => {
-      nuxt.hook("build:before", () => {
-        if (!nuxt.options.dev && !process.env.NUXT_PUBLIC_WHATSAPP) {
-          throw new Error(
-            "NUXT_PUBLIC_WHATSAPP manquant : indiquez le numéro WhatsApp (ex. 22890000000) avant de générer la landing.",
-          );
-        }
-      });
-    },
-  ],
+  modules: ["@nuxt/ui"],
   runtimeConfig: {
     public: {
-      // Numéro WhatsApp au format international, chiffres seuls (ex. 22890000000).
-      // NUXT_PUBLIC_WHATSAPP au moment de la génération.
+      // Contacts affichés sur la page ; chacun se remplace à la génération (NUXT_PUBLIC_…).
       demoUrl: "",
-      whatsapp: "",
+      email: "afolabiyasser06@gmail.com",
+      // Prix de départ de la licence, en FCFA ; vide : « prix sur demande ».
+      licenceFrom: "",
+      phone: "+228 96 53 63 39",
+      // WhatsApp au format international, chiffres seuls.
+      whatsapp: "22896536339",
     },
   },
   ui: { colorMode: false },

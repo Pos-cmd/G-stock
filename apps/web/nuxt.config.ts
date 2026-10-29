@@ -34,7 +34,7 @@ export default defineNuxtConfig({
       meta: [
         {
           content:
-            "Stock par lots, vraie marge, ventes à crédit, commandes de Chine et reçus sur WhatsApp : la gestion du magasin pour les importateurs, installée chez vous.",
+            "Stock par lots, vraie marge, ventes à crédit et commandes de Chine : la gestion du magasin pour les importateurs.",
           name: "description",
         },
         { content: "#f4f2ef", name: "theme-color" },

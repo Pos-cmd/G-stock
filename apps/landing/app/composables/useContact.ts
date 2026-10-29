@@ -1,28 +1,36 @@
 /**
- * Liens de contact : WhatsApp avec un message prêt, et la démo quand elle est en ligne. Le numéro
- * et l'adresse de la démo se règlent à la génération (NUXT_PUBLIC_WHATSAPP, NUXT_PUBLIC_DEMO_URL).
+ * Contacts de la page et prix de la licence, réglés dans nuxt.config.ts (runtimeConfig.public) et
+ * remplaçables à la génération (NUXT_PUBLIC_WHATSAPP, NUXT_PUBLIC_PHONE, NUXT_PUBLIC_EMAIL,
+ * NUXT_PUBLIC_LICENCE_FROM, NUXT_PUBLIC_DEMO_URL).
  */
-export const CONTACT_MESSAGE = "Bonjour, je voudrais G-stock pour mon magasin.";
-export const DEMO_MESSAGE = "Bonjour, je voudrais voir une démonstration de G-stock.";
+export type RequestKind = "demo" | "licence";
+
+export const REQUEST_LABELS: Record<RequestKind, string> = {
+  demo: "une démonstration",
+  licence: "une licence",
+};
+
+const fcfa = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
 
 export const useContact = () => {
   const config = useRuntimeConfig().public;
-  const number = String(config.whatsapp ?? "").replaceAll(/\D/gu, "");
-  const demoUrl = String(config.demoUrl ?? "");
+  const whatsappNumber = String(config.whatsapp ?? "").replaceAll(/\D/gu, "");
+  const phone = String(config.phone ?? "");
+  const email = String(config.email ?? "");
+  const licenceFrom = Number(config.licenceFrom) || 0;
 
-  // Sans numéro, WhatsApp s'ouvre avec le message et laisse choisir le destinataire.
-  const whatsapp = (text: string = CONTACT_MESSAGE) =>
-    `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+  const whatsapp = (text: string) =>
+    `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
+  const mail = (subject: string, body: string) =>
+    `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
   return {
-    demo: demoUrl
-      ? { external: true, label: "Essayer la démo", to: demoUrl }
-      : {
-          external: true,
-          label: "Demander une démonstration",
-          to: whatsapp(DEMO_MESSAGE),
-        },
-    hasDemo: demoUrl !== "",
+    email,
+    licencePrice:
+      licenceFrom > 0 ? `À partir de ${fcfa.format(licenceFrom)} FCFA` : "Prix sur demande",
+    mail,
+    phone,
+    phoneHref: `tel:${phone.replaceAll(/\s/gu, "")}`,
     whatsapp,
   };
 };

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-29T12:00:00Z",
+  "generatedAt": "2026-10-29T19:37:40.340Z",
   "title": "Design System: G-stock",
   "extensions": {
     "colorMeta": {
@@ -21,7 +21,7 @@
       },
       "data": {
         "role": "secondary",
-        "displayName": "Indigo des données",
+        "displayName": "Indigo des données et de la marge",
         "canonical": "oklch(58.5% 0.233 277)",
         "tonalRamp": [
           "oklch(25% 0.09 277)",
@@ -118,7 +118,7 @@
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Une seule phrase par page : la question d'ouverture de la landing."
+        "purpose": "Une seule phrase par page : l'affirmation d'ouverture de la landing, sur 62 rem au plus."
       },
       "headline": {
         "displayName": "Headline",
@@ -140,9 +140,13 @@
         "displayName": "Figure",
         "purpose": "Tout montant, quantité ou compteur, en chiffres tabulaires."
       },
+      "figure-term": {
+        "displayName": "Figure (terme de calcul)",
+        "purpose": "Termes chiffrés de la ligne de calcul ; unité à 0,5em en text-muted. Le champ du prix de vente reprend cette taille."
+      },
       "label": {
         "displayName": "Label",
-        "purpose": "Geist Mono en capitales : intitulés de carte et de colonne, références, dates et heures. Jamais en surtitre."
+        "purpose": "Geist Mono en capitales : intitulés de carte, de colonne et de terme, références, dates et heures, mention de provenance sous une capture. Jamais en surtitre."
       }
     },
     "shadows": [
@@ -169,12 +173,7 @@
       {
         "name": "bubble",
         "value": "0 1px 2px 0 rgb(41 37 36 / 0.05), 0 8px 24px -16px rgb(41 37 36 / 0.25)",
-        "purpose": "Bulles de discussion reçues (landing)."
-      },
-      {
-        "name": "float",
-        "value": "0 18px 40px -18px rgb(28 25 23 / 0.35), 0 4px 10px -4px rgb(28 25 23 / 0.08)",
-        "purpose": "Barre de message de la landing."
+        "purpose": "--shadow-bubble : pastille blanche choisie d'un sélecteur en pilule sur la landing (type de demande)."
       },
       {
         "name": "tactile-dark",
@@ -204,9 +203,24 @@
         "purpose": "Les couleurs glissent au changement de thème."
       },
       {
-        "name": "bubble-in",
-        "value": "520ms var(--ease-snappy)",
-        "purpose": "Entrée unique du fil de la landing : translation de 14 px, échelle 0,98, flou de 4 px."
+        "name": "play-in",
+        "value": "520ms var(--ease-snappy), décalé par --at",
+        "purpose": "Entrée unique de l'ouverture : le titre puis chaque terme et opérateur de la ligne de calcul se posent un à un (translation 14 px, échelle 0,98, flou 4 px). Rien sous prefers-reduced-motion."
+      },
+      {
+        "name": "bar-resize",
+        "value": "500ms var(--ease-snappy)",
+        "purpose": "Les segments de la barre empilée glissent quand le prix de vente change."
+      },
+      {
+        "name": "route-panel",
+        "value": "300ms fondu + flou (150ms en sortie)",
+        "purpose": "Changement de station du trajet : la capture change par fondu et léger flou."
+      },
+      {
+        "name": "disclosure",
+        "value": "200ms rotate(45deg)",
+        "purpose": "Le + d'une question devient × à l'ouverture."
       },
       {
         "name": "chart-entry",
@@ -220,9 +234,18 @@
       }
     ],
     "breakpoints": [
-      { "name": "sm", "value": "640px" },
-      { "name": "md", "value": "768px" },
-      { "name": "lg", "value": "1024px" }
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
     ]
   },
   "components": [
@@ -243,12 +266,12 @@
       "css": ".ds-btn-outline { font-family: Inter, sans-serif; font-feature-settings: 'cv11'; font-size: 14px; line-height: 20px; font-weight: 500; color: oklch(21% 0.006 60); background: #fff; padding: 6px 12px; border: none; border-radius: 9px; box-shadow: inset 0 0 0 1px oklch(92.2% 0.007 75), 0 1px 2px 0 rgb(41 37 36 / 0.06), 0 1px 1px -1px rgb(41 37 36 / 0.06); cursor: pointer; transition: background-color 150ms, translate 150ms; } .ds-btn-outline:hover { background: oklch(98.6% 0.003 80); } .ds-btn-outline:active { background: oklch(96.4% 0.005 80); translate: 0 1px; } .ds-btn-outline:focus-visible { outline: 2px solid oklch(71% 0.011 70); outline-offset: 2px; }"
     },
     {
-      "name": "CTA de la landing",
+      "name": "Boutons de la landing",
       "kind": "button",
       "refersTo": "button-cta",
-      "description": "Appel principal de la landing : pilule encre avec icône WhatsApp en fin.",
-      "html": "<button class=\"ds-btn-cta\">Écrire sur WhatsApp <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9\"/><path d=\"M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1\"/></svg></button>",
-      "css": ".ds-btn-cta { display: inline-flex; align-items: center; gap: 8px; font-family: Inter, sans-serif; font-size: 16px; line-height: 24px; font-weight: 500; color: #fff; background: oklch(21% 0.006 60); padding: 8px 20px; border: none; border-radius: 9999px; cursor: pointer; transition: background-color 150ms, translate 150ms; } .ds-btn-cta:hover { background: oklch(27.5% 0.008 60); } .ds-btn-cta:active { translate: 0 1px; } .ds-btn-cta:focus-visible { outline: 2px solid oklch(58.5% 0.233 277); outline-offset: 3px; }"
+      "description": "Paire de pilules xl : principal encre avec flèche, secondaire à liseré sur surface blanche.",
+      "html": "<div class=\"ds-cta-row\"><a class=\"ds-btn-cta\" href=\"#\">Demander une démo <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12l14 0\"/><path d=\"M13 18l6 -6\"/><path d=\"M13 6l6 6\"/></svg></a><a class=\"ds-btn-cta-outline\" href=\"#\">Voir la licence</a></div>",
+      "css": ".ds-cta-row { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; background: oklch(96.4% 0.005 80); } .ds-btn-cta, .ds-btn-cta-outline { display: inline-flex; align-items: center; gap: 8px; font-family: Inter, sans-serif; font-feature-settings: 'cv11'; font-size: 16px; line-height: 24px; font-weight: 500; padding: 8px 24px; border-radius: 9999px; text-decoration: none; cursor: pointer; transition: background-color 150ms, translate 150ms; } .ds-btn-cta { color: #fff; background: oklch(21% 0.006 60); } .ds-btn-cta:hover { background: oklch(21% 0.006 60 / 0.9); } .ds-btn-cta-outline { color: oklch(21% 0.006 60); background: #fff; box-shadow: inset 0 0 0 1px oklch(86.8% 0.009 75); } .ds-btn-cta-outline:hover { background: oklch(96.4% 0.005 80); } .ds-btn-cta:active, .ds-btn-cta-outline:active { translate: 0 1px; } .ds-btn-cta:focus-visible, .ds-btn-cta-outline:focus-visible { outline: 2px solid oklch(58.5% 0.233 277); outline-offset: 3px; }"
     },
     {
       "name": "Champ de saisie",
@@ -291,22 +314,30 @@
       "css": ".ds-tabs { display: inline-flex; gap: 2px; padding: 2px; border-radius: 12px; background: oklch(98.6% 0.003 80); box-shadow: inset 0 0 0 1px oklch(92.2% 0.007 75); font-family: Inter, sans-serif; } .ds-tab { font: inherit; font-size: 13px; font-weight: 500; padding: 4px 12px; border: none; border-radius: 10px; background: transparent; color: oklch(55.5% 0.012 65); cursor: pointer; transition: color 150ms, background-color 150ms; } .ds-tab:hover { color: oklch(21% 0.006 60); } .ds-tab.is-active { background: #fff; color: oklch(21% 0.006 60); box-shadow: inset 0 0 0 1px oklch(92.2% 0.007 75), 0 1px 2px 0 rgb(41 37 36 / 0.06); } .ds-tab:focus-visible { outline: 2px solid oklch(71% 0.011 70); outline-offset: 1px; }"
     },
     {
-      "name": "Bulles et reçu",
+      "name": "Sélecteur en pilule",
+      "kind": "chip",
+      "refersTo": "segmented-pill",
+      "description": "Choix exclusif dans un formulaire de la landing : rail sable en pilule, option choisie en pastille blanche à ombre Bubble ; vrais boutons radio.",
+      "html": "<fieldset class=\"ds-seg\"><legend class=\"ds-seg-legend\">Vous voulez</legend><div class=\"ds-seg-rail\"><label class=\"ds-seg-opt is-on\"><input type=\"radio\" name=\"ds-kind\" checked />Une démonstration</label><label class=\"ds-seg-opt\"><input type=\"radio\" name=\"ds-kind\" />Une licence</label></div></fieldset>",
+      "css": ".ds-seg { margin: 0; padding: 0; border: 0; font-family: Inter, sans-serif; color: oklch(21% 0.006 60); } .ds-seg-legend { padding: 0; font-size: 14px; font-weight: 500; } .ds-seg-rail { display: inline-flex; margin-top: 8px; padding: 4px; border-radius: 9999px; background: oklch(96.4% 0.005 80); } .ds-seg-opt { padding: 8px 16px; border-radius: 9999px; font-size: 14px; font-weight: 500; color: oklch(44.5% 0.011 65); cursor: pointer; transition: color 150ms, background-color 150ms; } .ds-seg-opt:hover { color: oklch(21% 0.006 60); } .ds-seg-opt input { position: absolute; width: 1px; height: 1px; opacity: 0; } .ds-seg-opt.is-on { background: #fff; color: oklch(21% 0.006 60); box-shadow: 0 1px 2px 0 rgb(41 37 36 / 0.05), 0 8px 24px -16px rgb(41 37 36 / 0.25); } .ds-seg-opt:has(input:focus-visible) { outline: 2px solid oklch(58.5% 0.233 277); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ligne de calcul",
       "kind": "custom",
-      "refersTo": "bubble-received",
-      "description": "Composant signature de la landing : bulle reçue blanche, bulle envoyée encre contenant le reçu, reste dû en ambre.",
-      "html": "<div class=\"ds-thread\"><div class=\"ds-bubble-in\"><p class=\"ds-sender\">Boutique Sainte Rita</p><p class=\"ds-question\">Bonjour, combien je vous dois encore ?</p></div><figure class=\"ds-bubble-out\"><div class=\"ds-receipt\"><div class=\"ds-receipt-head\"><span>REÇU V-2026-02364</span><span>28 oct. 2026</span></div><div class=\"ds-receipt-row\"><span>Total</span><span>230 700 FCFA</span></div><div class=\"ds-receipt-row\"><span>Déjà payé</span><span>100 000 FCFA</span></div><div class=\"ds-receipt-due\"><span>Reste dû</span><strong>130 700 FCFA</strong></div></div></figure></div>",
-      "css": ".ds-thread { display: flex; flex-direction: column; gap: 16px; width: 420px; padding: 16px; background: oklch(96.4% 0.005 80); font-family: Inter, sans-serif; font-feature-settings: 'cv11'; color: oklch(21% 0.006 60); } .ds-bubble-in { align-self: flex-start; max-width: 85%; padding: 16px 20px; background: #fff; border-radius: 1.4rem 1.4rem 1.4rem 9px; box-shadow: 0 1px 2px 0 rgb(41 37 36 / 0.05), 0 8px 24px -16px rgb(41 37 36 / 0.25); } .ds-sender { margin: 0; font-size: 13px; font-weight: 500; color: oklch(44.5% 0.011 65); } .ds-question { margin: 4px 0 0; font-size: 26px; line-height: 1.04; font-weight: 600; letter-spacing: -0.035em; } .ds-bubble-out { align-self: flex-end; width: 85%; margin: 0; padding: 10px; background: oklch(21% 0.006 60); border-radius: 1.4rem 1.4rem 9px 1.4rem; } .ds-receipt { padding: 14px 18px; background: #fff; border-radius: 16px; font-size: 14px; } .ds-receipt-head { display: flex; justify-content: space-between; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.06em; color: oklch(44.5% 0.011 65); } .ds-receipt-row { display: flex; justify-content: space-between; padding: 2px 0; color: oklch(44.5% 0.011 65); font-variant-numeric: tabular-nums; } .ds-receipt-head + .ds-receipt-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid oklch(92.2% 0.007 75); } .ds-receipt-due { display: flex; justify-content: space-between; align-items: baseline; padding-top: 4px; font-weight: 600; } .ds-receipt-due strong { font-size: 22px; letter-spacing: -0.025em; color: oklch(62% 0.17 58); font-variant-numeric: tabular-nums; }"
+      "refersTo": "calculation-term",
+      "description": "Composant signature de la landing : termes chiffrés reliés par des opérateurs, marge en indigo, barre empilée qui découpe le prix de vente.",
+      "html": "<figure class=\"ds-calc\"><div class=\"ds-calc-line\"><div class=\"ds-term\"><p class=\"ds-term-label\">Prix de vente</p><p class=\"ds-term-value\">7 000 <small>FCFA</small></p><p class=\"ds-term-note\">modifiable</p></div><span class=\"ds-op\" aria-hidden=\"true\">−</span><div class=\"ds-term\"><p class=\"ds-term-label\">Prix de revient</p><p class=\"ds-term-value is-muted\">4 796 <small>FCFA</small></p><p class=\"ds-term-note\">calculé ci-dessus</p></div><span class=\"ds-op\" aria-hidden=\"true\">=</span><div class=\"ds-term\"><p class=\"ds-term-label is-data\">Marge</p><p class=\"ds-term-value is-data\">2 204 <small>FCFA</small></p><p class=\"ds-term-note\">31,5 % du prix de vente</p></div></div><div class=\"ds-bar\" aria-hidden=\"true\"><span style=\"width:55.1%;background:oklch(37.5% 0.01 60)\"></span><span style=\"width:13.4%;background:oklch(71% 0.011 70)\"></span><span style=\"width:31.5%;background:oklch(58.5% 0.233 277)\"></span></div><figcaption class=\"ds-legend\"><span><i style=\"background:oklch(37.5% 0.01 60)\"></i>Marchandise <em>3 856 FCFA</em></span><span><i style=\"background:oklch(71% 0.011 70)\"></i>Frais d'approche <em>940 FCFA</em></span><span><i style=\"background:oklch(58.5% 0.233 277)\"></i>Marge <em>2 204 FCFA</em></span></figcaption></figure>",
+      "css": ".ds-calc { margin: 0; width: 640px; padding: 24px; background: oklch(96.4% 0.005 80); font-family: Inter, sans-serif; font-feature-settings: 'cv11'; color: oklch(21% 0.006 60); } .ds-calc-line { display: grid; grid-template-columns: 1fr 2.5rem 1fr 2.5rem 1fr; } .ds-term p { margin: 0; } .ds-term-label { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16.5px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(44.5% 0.011 65); } .ds-term .ds-term-value { margin-top: 4px; font-size: 30px; line-height: 1.5; font-weight: 600; letter-spacing: -0.025em; white-space: nowrap; font-variant-numeric: tabular-nums; } .ds-term-value small { font-size: 0.5em; font-weight: 500; letter-spacing: normal; color: oklch(44.5% 0.011 65); } .ds-term .ds-term-note { margin-top: 4px; font-size: 14px; color: oklch(44.5% 0.011 65); } .ds-term .is-muted { color: oklch(44.5% 0.011 65); } .ds-term .is-data { color: oklch(58.5% 0.233 277); } .ds-op { padding-top: 20.5px; font-size: 30px; line-height: 1.5; font-weight: 300; text-align: center; color: oklch(44.5% 0.011 65); } .ds-bar { display: flex; height: 16px; margin-top: 32px; overflow: hidden; border-radius: 9999px; background: oklch(92.2% 0.007 75); } .ds-bar span { height: 100%; transition: width 500ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-legend { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-top: 12px; font-size: 14px; } .ds-legend span { display: flex; align-items: center; gap: 8px; } .ds-legend i { width: 10px; height: 10px; border-radius: 9999px; } .ds-legend em { font-style: normal; color: oklch(44.5% 0.011 65); font-variant-numeric: tabular-nums; }"
     }
   ],
   "narrative": {
     "northStar": "Le Registre du comptoir",
-    "overview": "G-stock est le registre que le commerçant tient derrière son comptoir, devenu écran : un papier sable chaud, une encre presque noire pour ce qui engage (valider une vente, écrire au client), des chiffres alignés qui se lisent comme une colonne de cahier, et de petites mentions en mono pour les références, les dates et les intitulés. Rien n'y est décoratif : la couleur ne sort que pour dire quelque chose, l'indigo pour les données, l'ambre pour ce qui reste dû.\n\nLe système est né dans l'application (`apps/web`) et la landing (`apps/landing`) en hérite : même sable, même encre, même Inter, mêmes étiquettes mono, mêmes ombres douces. L'application est dense et posée en couches (un cadre sable porte la barre latérale, le contenu tient dans un panneau blanc posé dessus) ; la landing reprend les mêmes matériaux à plus grande échelle, avec un composant propre au monde du commerçant : la bulle de discussion (reçue blanche, envoyée encre).\n\nLe thème « Encre » est l'identité de la maison. L'application laisse chaque utilisateur choisir un autre thème (Océan, Forêt, Terre cuite, Améthyste, Graphite, Corail) ou régler lui-même couleur principale, gris, accent, arrondi, police et icônes : c'est un réglage personnel, pas la marque. Toute surface publique (landing, documents, captures de présentation) parle en Encre.",
+    "overview": "G-stock est le registre que le commerçant tient derrière son comptoir, devenu écran : un papier sable chaud, une encre presque noire pour ce qui engage (valider une vente, demander une démo), des chiffres alignés qui se lisent comme une colonne de cahier, et de petites mentions en mono pour les références, les dates et les intitulés. Rien n'y est décoratif : la couleur ne sort que pour dire quelque chose, l'indigo pour les données et la marge, l'ambre pour ce qui reste dû.\n\nLe système est né dans l'application (`apps/web`) et la landing (`apps/landing`) en hérite : même sable, même encre, même Inter, mêmes étiquettes mono, mêmes ombres douces. L'application est dense et posée en couches (un cadre sable porte la barre latérale, le contenu tient dans un panneau blanc posé dessus) ; la landing reprend les mêmes matériaux à plus grande échelle, avec un composant propre au registre : la ligne de calcul, des termes chiffrés en grand reliés par des opérateurs, qui pose la vraie marge d'un produit comme on la poserait au bas d'une colonne de cahier.\n\nLe thème « Encre » est l'identité de la maison. L'application laisse chaque utilisateur choisir un autre thème (Océan, Forêt, Terre cuite, Améthyste, Graphite, Corail) ou régler lui-même couleur principale, gris, accent, arrondi, police et icônes : c'est un réglage personnel, pas la marque. Toute surface publique (landing, documents, captures de présentation) parle en Encre.",
     "keyCharacteristics": [
       "Gris chaud « sable » partout, jamais de gris neutre froid.",
-      "Encre (sand-900) pour l'action ; indigo pour les données ; ambre pour le dû.",
+      "Encre (sand-900) pour l'action ; indigo pour les données et la marge ; ambre pour le dû.",
       "Inter avec `cv11`, chiffres tabulaires pour tout montant ; Geist Mono 11 px en capitales pour les intitulés et références.",
-      "Surfaces séparées par un liseré fin et une teinte, ombres à peine perceptibles au repos.",
+      "Surfaces séparées par un liseré fin et une teinte, ombres à peine perceptibles au repos ; un total se pose sous un filet d'encre.",
       "Mouvement rapide au départ, posé à l'arrivée (`--ease-snappy`), toujours désactivable."
     ],
     "rules": [
@@ -317,7 +348,7 @@
       },
       {
         "name": "The Color Means Something Rule",
-        "body": "L'indigo est une donnée, l'ambre est un dû. Si une couleur ne porte pas l'un de ces sens, elle est sable.",
+        "body": "L'indigo est une donnée ou une marge, l'ambre est un dû, le rouge est une perte. Si une couleur ne porte pas l'un de ces sens, elle est sable.",
         "section": "colors"
       },
       {
@@ -337,19 +368,20 @@
       },
       {
         "name": "The Hairline First Rule",
-        "body": "Une surface au repos se sépare par un liseré et une teinte ; son ombre ne dépasse pas 2 px de flou. Les grandes ombres sont réservées aux éléments qui flottent.",
+        "body": "Une surface au repos se sépare par un liseré et une teinte ; son ombre ne dépasse pas 2 px de flou. Les grandes ombres sont réservées aux éléments qui flottent ; un panneau de la landing (formulaire, capture) n'a qu'un liseré ou un cadre sable.",
         "section": "elevation"
       }
     ],
     "dos": [
       "**Do** tirer tout gris de la gamme `sand` et toute action de l'encre (`sand-900`, ou `sand-50` en sombre).",
-      "**Do** réserver l'indigo aux données (séries de graphique, progression, position active, focus) et l'ambre à ce qui reste dû ou demande attention.",
+      "**Do** réserver l'indigo aux données (séries de graphique, marge, progression, position active, focus) et l'ambre à ce qui reste dû ou demande attention.",
       "**Do** composer tout montant en chiffres tabulaires, suivi de « FCFA », milliers séparés par une espace.",
-      "**Do** titrer les cartes, colonnes et références en Geist Mono 11 px, capitales, 0,06 à 0,08em, `text-muted`.",
+      "**Do** titrer les cartes, colonnes, termes et références en Geist Mono 11 px, capitales, 0,06 à 0,08em, `text-muted`.",
       "**Do** séparer les surfaces au repos par un liseré `ring-default` et la teinte sable/blanc, avec au plus l'ombre Card.",
+      "**Do** poser un total ou un élément de liste sous un filet horizontal d'encre, comme au bas d'une colonne de registre.",
       "**Do** dériver chaque arrondi de `--ui-radius` (cartes `xl`, champs et boutons `md`, menus `lg`).",
       "**Do** animer avec `--ease-snappy` (`cubic-bezier(0.23, 1, 0.32, 1)`), sous 300 ms pour tout ce qui répond à une saisie, et couper le mouvement sous `prefers-reduced-motion`.",
-      "**Do** montrer l'application par de vraies captures de la base de démonstration, dans le cadre sable, avec la mention « données de démonstration ».",
+      "**Do** montrer l'application par de vraies captures et de vrais chiffres de la base de démonstration, dans le cadre sable, avec la mention « données de démonstration » et la référence d'origine quand il y en a une.",
       "**Do** dessiner les icônes avec Tabler (thème Encre) ; le logo est `i-tabler-packages` dans un carré encre."
     ],
     "donts": [
@@ -357,7 +389,7 @@
       "**Don't** présenter un thème utilisateur (Océan, Forêt, Terre cuite, Améthyste, Graphite, Corail) comme l'identité de G-stock.",
       "**Don't** poser une étiquette mono en capitales au-dessus d'un titre comme surtitre : elle est le titre de la carte ou le nom d'une donnée, pas un chapeau.",
       "**Don't** utiliser un gris froid (`gray`, `zinc`, `slate`) ou le noir pur `#000` pour le texte et l'encre.",
-      "**Don't** mettre une grande ombre sous une surface au repos : les ombres Overlay et Float sont pour ce qui flotte.",
+      "**Don't** mettre une grande ombre sous une surface au repos : l'ombre Overlay est pour ce qui flotte.",
       "**Don't** afficher un montant en chiffres proportionnels ni en Geist Mono : le mono est pour les références et les intitulés, Inter tabulaire pour les nombres.",
       "**Don't** remplir une alerte d'une couleur pleine : teinte à 10 %, texte et liseré de la couleur du sens.",
       "**Don't** fixer un arrondi en pixels dans l'application : il casse les thèmes à angles vifs ou très arrondis."

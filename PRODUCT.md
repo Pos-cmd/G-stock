@@ -31,8 +31,8 @@ Conçue par un importateur qui l'utilise lui-même pour son commerce, pour le ci
 ## Capabilities and Constraints
 
 - Modules : tableau de bord, produits et lots (FIFO), mouvements de stock, ventes (comptant, crédit, acompte, remise, annulation tracée), clients et créances, commandes fournisseurs (frais d'approche, réception, paiements en tranches, gain/perte de change), fournisseurs, simulateur et comparaison, documents PDF, paramètres et sauvegarde.
-- Offre commerciale : ce n'est **pas** un logiciel libre. L'auteur installe G-stock chez le client et le forme ; installation, formation et accompagnement sont payants. Les montants ne sont pas fixés (à ne pas inventer).
-- Parcours souhaité sur la landing : essayer la démo, ou contacter l'auteur. Ni démo en ligne, ni numéro de contact public ne sont encore fournis : à demander, jamais à inventer.
+- Offre commerciale : ce n'est **pas** un logiciel libre. G-stock se vend sous forme de **licence d'utilisation par magasin** (un ou plusieurs postes dans ce magasin), pas d'abonnement. La licence comprend l'installation et la formation, les mises à jour et l'assistance. Le prix s'affiche « à partir de » ; le montant n'est pas encore fourni (à ne pas inventer). Durée des mises à jour non précisée.
+- Parcours souhaité sur la landing : comprendre le produit, puis demander une démonstration ou une licence. Contact : WhatsApp et téléphone (96 53 63 39, supposé +228 Togo, à confirmer), e-mail (afolabiyasser06@gmail.com, fourni par l'auteur pour la page), formulaire. Pas encore de démo en ligne.
 - Interface en français.
 
 ## Brand Commitments

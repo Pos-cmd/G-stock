@@ -1,5 +1,9 @@
+<script setup lang="ts">
+import { fr } from "@nuxt/ui/locale";
+</script>
+
 <template>
-  <UApp>
+  <UApp :locale="fr">
     <NuxtPage />
   </UApp>
 </template>

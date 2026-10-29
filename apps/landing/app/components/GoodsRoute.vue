@@ -68,10 +68,20 @@ const active = ref(0);
 const current = computed(() => STATIONS[active.value] ?? STATIONS[0]);
 const progress = computed(() => active.value / (STATIONS.length - 1));
 
-// Clavier : flèches gauche et droite pour passer d'une station à l'autre.
+// Les stations sont en ligne à partir de 640 px, en colonne en dessous.
+const horizontal = ref(true);
+onMounted(() => {
+  const query = window.matchMedia("(min-width: 640px)");
+  horizontal.value = query.matches;
+  query.addEventListener("change", (event) => {
+    horizontal.value = event.matches;
+  });
+});
+
+// Clavier : flèches (gauche/droite ou haut/bas) pour passer d'une station à l'autre.
 const tabs = useTemplateRef<HTMLButtonElement[]>("tabs");
 const onKey = (event: KeyboardEvent) => {
-  const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+  const step = { ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1 }[event.key];
   if (!step) {
     return;
   }
@@ -86,18 +96,18 @@ const onKey = (event: KeyboardEvent) => {
     <h2
       class="max-w-184 text-[clamp(2rem,4vw,3.25rem)]/[1.05] font-semibold tracking-[-0.03em] text-balance"
     >
-      De Guangzhou à votre comptoir, chaque franc est suivi.
+      Ce calcul, G-stock le fait pour tout votre stock.
     </h2>
     <p class="text-muted mt-4 max-w-152 text-lg text-pretty">
-      G-stock suit la marchandise sur tout son trajet. À l'arrivée, vous connaissez la vraie marge
-      de chaque produit.
+      De la commande en Chine à l'encaissement du client, G-stock suit la marchandise à chaque
+      étape. Choisissez une étape pour voir l'écran qui la suit.
     </p>
 
     <div class="mt-12 pt-2 pb-3">
       <div
         role="tablist"
         aria-label="Étapes du trajet"
-        aria-orientation="horizontal"
+        :aria-orientation="horizontal ? 'horizontal' : 'vertical'"
         class="relative grid gap-5 sm:grid-cols-6 sm:gap-0"
         @keydown="onKey"
       >
@@ -136,18 +146,18 @@ const onKey = (event: KeyboardEvent) => {
           </span>
           <span>
             <span
-              class="block font-mono text-[11px] tracking-[0.06em] uppercase"
-              :class="index === active ? 'text-data' : 'text-muted'"
-            >
-              {{ station.place }}
-            </span>
-            <span
-              class="mt-0.5 block text-lg font-semibold transition-colors"
+              class="block text-lg font-semibold transition-colors"
               :class="
                 index === active ? 'text-highlighted' : 'text-muted group-hover:text-highlighted'
               "
             >
               {{ station.title }}
+            </span>
+            <span
+              class="mt-0.5 block font-mono text-[11px] tracking-[0.06em] uppercase"
+              :class="index === active ? 'text-data' : 'text-muted'"
+            >
+              {{ station.place }}
             </span>
           </span>
         </button>

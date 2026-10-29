@@ -29,7 +29,6 @@
 @theme inline {
   --background-color-canvas: var(--ui-bg-canvas);
   --shadow-bubble: 0 1px 2px 0 rgb(41 37 36 / 0.05), 0 8px 24px -16px rgb(41 37 36 / 0.25);
-  --shadow-float: 0 18px 40px -18px rgb(28 25 23 / 0.35), 0 4px 10px -4px rgb(28 25 23 / 0.08);
 }
 
 :root {
@@ -77,66 +76,26 @@
 }
 
 /*
- * Le fil d'ouverture se joue une fois : la question arrive, G-stock « écrit », le reçu arrive.
+ * Arrivée de l'ouverture, une fois : chaque terme du calcul se pose à son tour (--at).
  * Sans mouvement réduit seulement ; sinon tout est là d'emblée.
  */
-@keyframes bubble-in {
+@keyframes rise-in {
   from {
     opacity: 0;
     transform: translateY(14px) scale(0.98);
     filter: blur(4px);
   }
 }
-@keyframes typing {
-  0%,
-  100% {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  12%,
-  80% {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes dot {
-  0%,
-  60%,
-  100% {
-    transform: none;
-    opacity: 0.35;
-  }
-  30% {
-    transform: translateY(-3px);
-    opacity: 1;
-  }
-}
 
 @media (prefers-reduced-motion: no-preference) {
   .play-in {
-    animation: bubble-in 520ms var(--ease-snappy) both;
+    animation: rise-in 520ms var(--ease-snappy) both;
     animation-delay: var(--at, 0ms);
-    transform-origin: var(--from, bottom left);
-  }
-  .typing {
-    animation: typing 900ms var(--ease-snappy) both;
-    animation-delay: var(--at, 0ms);
-  }
-  .typing i {
-    animation: dot 900ms ease-in-out infinite;
-  }
-  .typing i:nth-child(2) {
-    animation-delay: 120ms;
-  }
-  .typing i:nth-child(3) {
-    animation-delay: 240ms;
+    transform-origin: bottom left;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .typing {
-    display: none;
-  }
   html {
     scroll-behavior: auto;
   }
