@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Carte de statistique : libellé, valeur, évolution par rapport à la période précédente et petite
- * courbe de la période (survol : valeur de chaque point).
+ * courbe de la période (survol : valeur de chaque point). Les textes sont sur la surface blanche ;
+ * la courbe est dessous, dans le cadre, d'un bord à l'autre de la carte.
  */
 const {
   color = "primary",
@@ -48,58 +49,66 @@ const iconColors = {
   warning: "bg-warning/10 text-warning ring-warning/25",
 } as const;
 
+const NuxtLink = resolveComponent("NuxtLink");
+
 const hasSeries = computed(() => series.length > 1);
 const trendIsGood = computed(() => trend !== null && trend >= 0 !== trendInverted);
 </script>
 
 <template>
-  <UPageCard
+  <component
+    :is="to ? NuxtLink : 'div'"
     :to="to || undefined"
-    variant="subtle"
-    :class="upcoming ? 'opacity-60' : undefined"
-    :ui="{
-      container: ['gap-y-2 overflow-hidden', hasSeries ? 'pb-0 sm:pb-0' : ''],
-      wrapper: 'items-start',
-    }"
+    class="bg-elevated relative flex flex-col overflow-hidden rounded-xl p-1"
+    :class="[
+      upcoming ? 'opacity-60' : '',
+      to
+        ? 'hover:bg-accented/60 focus-visible:outline-primary/40 transition-[background-color,transform] duration-150 ease-(--ease-snappy) focus-visible:outline-2 active:scale-[0.985]'
+        : '',
+    ]"
   >
-    <div class="flex w-full items-center gap-2.5">
-      <span
-        v-if="icon"
-        class="flex size-7 shrink-0 items-center justify-center rounded-md ring ring-inset"
-        :class="iconColors[color]"
-      >
-        <UIcon :name="icon" class="size-4" />
-      </span>
-      <span class="text-toned min-w-0 flex-1 truncate text-sm font-medium">{{ label }}</span>
-      <UTooltip v-if="trend !== null && !loading" :text="trendLabel" :disabled="!trendLabel">
-        <UBadge
-          :color="trendIsGood ? 'success' : 'error'"
-          variant="subtle"
-          size="sm"
-          :icon="trend >= 0 ? icons.arrowUp : icons.arrowDown"
-          class="tabular-nums"
+    <div
+      class="bg-default shadow-card ring-default flex flex-1 flex-col gap-y-2 rounded-[calc(var(--radius-xl)-0.25rem)] p-4 ring sm:p-5"
+    >
+      <div class="flex w-full items-center gap-2.5">
+        <span
+          v-if="icon"
+          class="flex size-7 shrink-0 items-center justify-center rounded-md ring ring-inset"
+          :class="iconColors[color]"
         >
-          {{ formatTrend(trend) }}
-        </UBadge>
-      </UTooltip>
+          <UIcon :name="icon" class="size-4" />
+        </span>
+        <span class="text-toned min-w-0 flex-1 truncate text-sm font-medium">{{ label }}</span>
+        <UTooltip v-if="trend !== null && !loading" :text="trendLabel" :disabled="!trendLabel">
+          <UBadge
+            :color="trendIsGood ? 'success' : 'error'"
+            variant="subtle"
+            size="sm"
+            :icon="trend >= 0 ? icons.arrowUp : icons.arrowDown"
+            class="tabular-nums"
+          >
+            {{ formatTrend(trend) }}
+          </UBadge>
+        </UTooltip>
+      </div>
+      <USkeleton v-if="loading" class="h-8 w-32" />
+      <div v-else class="flex items-baseline gap-2">
+        <span
+          class="text-highlighted text-[clamp(1.25rem,1.6vw,1.75rem)]/9 font-semibold tracking-tight whitespace-nowrap tabular-nums"
+          >{{ value }}</span
+        >
+        <UBadge v-if="upcoming" color="neutral" variant="subtle" size="sm">À venir</UBadge>
+      </div>
+      <p v-if="hint" class="text-muted text-xs">{{ hint }}</p>
     </div>
-    <USkeleton v-if="loading" class="h-8 w-32" />
-    <div v-else class="flex items-baseline gap-2">
-      <span
-        class="text-highlighted text-[clamp(1.25rem,1.6vw,1.75rem)]/9 font-semibold tracking-tight whitespace-nowrap tabular-nums"
-        >{{ value }}</span
-      >
-      <UBadge v-if="upcoming" color="neutral" variant="subtle" size="sm">À venir</UBadge>
-    </div>
-    <p v-if="hint" class="text-muted text-xs">{{ hint }}</p>
-    <div v-if="hasSeries" class="-mx-4 mt-1 sm:-mx-5">
+    <div v-if="hasSeries" class="-mx-1 -mb-1 pt-1.5">
       <UChart
         type="area"
         :data="series"
         index="label"
         :categories="[{ key: 'value', label }]"
         curve="monotone"
-        :height="56"
+        :height="52"
         :x-axis="false"
         :y-axis="false"
         :grid="false"
@@ -108,5 +117,5 @@ const trendIsGood = computed(() => trend !== null && trend >= 0 !== trendInverte
         :aria-label="`Évolution : ${label}`"
       />
     </div>
-  </UPageCard>
+  </component>
 </template>

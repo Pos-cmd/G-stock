@@ -163,12 +163,58 @@
   animation: spin-once 450ms var(--ease-snappy);
 }
 
+/*
+ * Entrée des graphiques, une seule fois quand ils sont mesurés : les courbes se dessinent de gauche
+ * à droite, les barres montent, l'anneau s'ouvre. La surface reste la même aux mises à jour, donc
+ * le rafraîchissement des données ne rejoue pas l'animation.
+ */
+@keyframes chart-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes chart-rise {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes chart-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) rotate(-12deg);
+  }
+}
+.chart-wipe[data-measured] .ts-chart-surface {
+  animation: chart-wipe 700ms var(--ease-snappy) both;
+}
+.chart-rise[data-measured] .ts-chart-surface {
+  animation: chart-rise 550ms var(--ease-snappy) both;
+}
+.chart-pop[data-measured] .ts-chart-surface {
+  animation: chart-pop 500ms var(--ease-snappy) both;
+}
+
+/* Colonne déplacée dans le choix des colonnes : les autres glissent à leur nouvelle place. */
+.column-move {
+  transition: transform 200ms var(--ease-snappy);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .column-move {
+    transition: none;
+  }
   ::view-transition-new(root) {
     animation-duration: 1ms;
   }
-  .spin-once {
-    animation: none;
+  .spin-once,
+  .ts-chart-surface {
+    animation: none !important;
   }
   .theme-changing,
   .theme-changing * {

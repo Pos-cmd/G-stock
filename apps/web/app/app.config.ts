@@ -446,6 +446,22 @@ export default defineAppConfig({
       ],
     },
 
+    // Infobulle des graphiques : surface claire (l'infobulle simple, inversée, rendait le texte
+    // invisible). Chaque type entre à sa façon, une fois (voir `chart-*` dans main.css).
+    chart: {
+      slots: {
+        tooltip:
+          "gap-1.5 rounded-lg bg-default px-3 py-2 font-normal text-default shadow-overlay ring ring-default",
+      },
+      // En variantes composées : les variantes `type` du thème sont des chaînes, un objet n'y est pas
+      // fusionné.
+      compoundVariants: [
+        { type: ["area", "line"], class: { root: "chart-wipe" } },
+        { type: "bar", class: { root: "chart-rise" } },
+        { type: "donut", class: { root: "chart-pop" } },
+      ],
+    },
+
     dropdownMenu: { slots: { content: floatingContent } },
     popover: { slots: { content: floatingContent } },
     tooltip: {

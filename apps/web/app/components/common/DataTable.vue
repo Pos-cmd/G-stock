@@ -2,10 +2,10 @@
 import type { TableColumn, TableData } from "@nuxt/ui";
 import { getPaginationRowModel } from "@tanstack/vue-table";
 import type {
+  ColumnOrderState,
   PaginationState,
   Row,
   SortingState,
-  Table,
   VisibilityState,
 } from "@tanstack/vue-table";
 
@@ -88,6 +88,7 @@ const filtersInMenu = computed(() => filtersMenu || !isWide.value);
 // Préférences gardées dans le navigateur (colonnes, taille de page).
 const storageName = computed(() => (storageKey ? `gstock-table-${storageKey}` : ""));
 const readPreferences = (): {
+  order?: ColumnOrderState;
   pageSize?: number;
   visibility?: VisibilityState;
 } => {
@@ -102,10 +103,12 @@ const readPreferences = (): {
 };
 const stored = readPreferences();
 const columnVisibility = ref<VisibilityState>(stored.visibility ?? {});
+// Ordre choisi des colonnes du menu (les autres, sans libellé, gardent leur place).
+const columnOrder = ref<ColumnOrderState>(stored.order ?? []);
 if (stored.pageSize && PAGE_SIZES.includes(stored.pageSize)) {
   pageSize.value = stored.pageSize;
 }
-watch([columnVisibility, pageSize], () => {
+watch([columnVisibility, columnOrder, pageSize], () => {
   if (!storageName.value) {
     return;
   }
@@ -113,6 +116,7 @@ watch([columnVisibility, pageSize], () => {
     localStorage.setItem(
       storageName.value,
       JSON.stringify({
+        order: columnOrder.value,
         pageSize: pageSize.value,
         visibility: columnVisibility.value,
       }),
@@ -196,38 +200,90 @@ const tableColumns = computed<TableColumn<T>[]>(() =>
   }),
 );
 
-const table = useTemplateRef<{ tableApi?: Table<T> }>("table");
-
 // Choix des colonnes : le libellé vient de l'en-tête texte d'origine.
+const columnId = (column: TableColumn<T>) =>
+  column.id ?? ("accessorKey" in column ? String(column.accessorKey) : "");
 const columnLabels = computed(
   () =>
     new Map(
       columns.flatMap((column) => {
-        const id = column.id ?? ("accessorKey" in column ? String(column.accessorKey) : "");
+        const id = columnId(column);
         return typeof column.header === "string" && id ? [[id, column.header] as const] : [];
       }),
     ),
 );
 const columnLabel = (id: string) => columnLabels.value.get(id) ?? "";
-const columnItems = computed(() =>
-  (table.value?.tableApi?.getAllLeafColumns() ?? [])
-    .filter((column) => column.getCanHide() && columnLabel(column.id))
-    .map((column) => ({
-      checked: columnVisibility.value[column.id] !== false,
-      label: columnLabel(column.id),
-      onSelect: (event: Event) => event.preventDefault(),
-      onUpdateChecked: (checked: boolean) => {
-        columnVisibility.value = {
-          ...columnVisibility.value,
-          [column.id]: checked,
-        };
-      },
-      type: "checkbox" as const,
-    })),
+// Colonnes du menu : celles qui ont un libellé et qu'on peut masquer, dans l'ordre choisi.
+const menuIds = computed(() =>
+  columns
+    .filter((column) => column.enableHiding !== false)
+    .map(columnId)
+    .filter((id) => columnLabels.value.has(id)),
 );
+const orderedMenuIds = computed(() => {
+  const chosen = columnOrder.value.filter((id) => menuIds.value.includes(id));
+  return [...chosen, ...menuIds.value.filter((id) => !chosen.includes(id))];
+});
+// Ordre complet donné au tableau : les colonnes du menu échangent leurs places entre elles.
+const tableColumnOrder = computed<ColumnOrderState>(() => {
+  const menu = new Set(menuIds.value);
+  let next = 0;
+  return columns.map(columnId).map((id) => {
+    if (!menu.has(id)) {
+      return id;
+    }
+    const placed = orderedMenuIds.value[next] ?? id;
+    next += 1;
+    return placed;
+  });
+});
+const isVisible = (id: string) => columnVisibility.value[id] !== false;
+const setVisible = (id: string, visible: boolean) => {
+  columnVisibility.value = { ...columnVisibility.value, [id]: visible };
+};
+const moveColumn = (id: string, target: number) => {
+  const order = orderedMenuIds.value.filter((other) => other !== id);
+  order.splice(Math.max(0, Math.min(target, order.length)), 0, id);
+  columnOrder.value = order;
+};
+const columnsCustomized = computed(
+  () =>
+    Object.values(columnVisibility.value).includes(false) ||
+    orderedMenuIds.value.some((id, index) => id !== menuIds.value[index]),
+);
+const resetColumns = () => {
+  columnVisibility.value = {};
+  columnOrder.value = [];
+};
 const hiddenCount = computed(
   () => Object.values(columnVisibility.value).filter((visible) => visible === false).length,
 );
+
+// Glisser-déposer : la colonne tenue prend la place de celle survolée.
+const dragged = ref<string | null>(null);
+const onDragStart = (event: DragEvent, id: string) => {
+  dragged.value = id;
+  if (event.dataTransfer) {
+    event.dataTransfer.setData("text/plain", id);
+    event.dataTransfer.effectAllowed = "move";
+  }
+};
+const onDragEnter = (id: string) => {
+  if (dragged.value && dragged.value !== id) {
+    moveColumn(dragged.value, orderedMenuIds.value.indexOf(id));
+  }
+};
+// Clavier : Alt + ↑ / ↓ déplace la colonne qui a le focus.
+const onColumnKeydown = async (event: KeyboardEvent, id: string) => {
+  if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) {
+    return;
+  }
+  event.preventDefault();
+  const target = event.target as HTMLElement | null;
+  moveColumn(id, orderedMenuIds.value.indexOf(id) + (event.key === "ArrowUp" ? -1 : 1));
+  await nextTick();
+  target?.focus();
+};
 
 // Pied : « 1–10 sur 29 produits »
 const rowCount = computed(() => {
@@ -289,7 +345,7 @@ const forwardedSlots = computed(() =>
       class="bg-default ring-default shadow-card overflow-hidden rounded-[calc(var(--radius-xl)-0.25rem)] ring"
     >
       <div
-        v-if="searchable || $slots.filters || $slots.toolbar || columnItems.length > 0"
+        v-if="searchable || $slots.filters || $slots.toolbar || menuIds.length > 0"
         class="border-default flex flex-wrap items-center gap-2 border-b px-3 py-2.5"
       >
         <UInput
@@ -333,30 +389,69 @@ const forwardedSlots = computed(() =>
         </template>
         <div class="ms-auto flex flex-wrap items-center gap-2">
           <slot name="toolbar" />
-          <UDropdownMenu
-            v-if="columnItems.length > 0"
-            :items="columnItems"
-            :content="{ align: 'end' }"
+          <UPopover
+            v-if="menuIds.length > 0"
+            :content="{ align: 'end', sideOffset: 6 }"
+            :ui="{ content: 'w-60 p-1.5' }"
           >
-            <UTooltip text="Colonnes affichées">
+            <UTooltip text="Colonnes : afficher et réordonner">
               <UChip :show="hiddenCount > 0" size="sm" inset>
                 <UButton
                   color="neutral"
                   variant="outline"
                   :icon="icons.columns"
-                  aria-label="Colonnes affichées"
+                  aria-label="Colonnes : afficher et réordonner"
                 />
               </UChip>
             </UTooltip>
-          </UDropdownMenu>
+            <template #content>
+              <p class="text-dimmed px-2 pt-1 pb-1.5 text-xs">Glissez pour réordonner · Alt ↑↓</p>
+              <TransitionGroup tag="ul" move-class="column-move" aria-label="Colonnes">
+                <li
+                  v-for="id in orderedMenuIds"
+                  :key="id"
+                  draggable="true"
+                  class="hover:bg-elevated flex cursor-grab items-center gap-1.5 rounded-md px-1.5 py-1 active:cursor-grabbing"
+                  :class="dragged === id ? 'bg-elevated opacity-60' : ''"
+                  @dragstart="onDragStart($event, id)"
+                  @dragenter.prevent="onDragEnter(id)"
+                  @dragover.prevent
+                  @dragend="dragged = null"
+                  @drop.prevent="dragged = null"
+                >
+                  <UIcon :name="icons.drag" class="text-dimmed size-4 shrink-0" />
+                  <UCheckbox
+                    :model-value="isVisible(id)"
+                    :label="columnLabel(id)"
+                    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                    class="min-w-0 flex-1"
+                    :ui="{ label: 'truncate font-normal text-default' }"
+                    @update:model-value="setVisible(id, $event === true)"
+                    @keydown="onColumnKeydown($event, id)"
+                  />
+                </li>
+              </TransitionGroup>
+              <div v-if="columnsCustomized" class="border-default mt-1.5 border-t pt-1.5">
+                <UButton
+                  block
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :icon="icons.undo"
+                  label="Rétablir les colonnes"
+                  @click="resetColumns"
+                />
+              </div>
+            </template>
+          </UPopover>
         </div>
       </div>
 
       <UTable
-        ref="table"
         v-bind="tableAttrs"
         v-model:sorting="sorting"
         v-model:column-visibility="columnVisibility"
+        :column-order="tableColumnOrder"
         v-model:pagination="pagination"
         v-model:global-filter="search"
         :data="data"
