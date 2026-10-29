@@ -13,6 +13,12 @@ export default defineConfig({
       "packages/api/dist/**",
       "packages/auth/dist/**",
       "packages/db/local.db*",
+      // Documentation : sortie de Nuxt et fichiers générés.
+      "apps/docs/.nuxt/**",
+      "apps/docs/.output/**",
+      "apps/docs/.data/**",
+      "apps/docs/app/figures/**",
+      "apps/docs/public/comark.js",
     ],
     options: {
       typeAware: false,
@@ -31,6 +37,15 @@ export default defineConfig({
       "packages/api/dist/**",
       "packages/auth/dist/**",
       "packages/db/local.db*",
+      // Documentation : sortie de Nuxt et fichiers générés.
+      "apps/docs/.nuxt/**",
+      "apps/docs/.output/**",
+      "apps/docs/.data/**",
+      "apps/docs/app/figures/**",
+      "apps/docs/public/comark.js",
+      // Pages MDC et figures comark-ui : le formateur Markdown casse les blocs `::`.
+      "apps/docs/content/**",
+      "apps/docs/figures/**",
     ],
     singleQuote: false,
     semi: true,

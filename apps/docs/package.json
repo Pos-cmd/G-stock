@@ -1,0 +1,24 @@
+{
+  "name": "docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 3005",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "captures": "node scripts/capture.mjs",
+    "figures": "lint-comark --config lint-comark.config.mjs figures/*.md && node scripts/render-figures.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "docus": "^5.15.0",
+    "nuxt": "^4.6.2"
+  },
+  "devDependencies": {
+    "@comark/html": "^0.8.1",
+    "comark": "^0.8.1",
+    "comark-linter": "^0.7.2",
+    "comark-ui": "^0.7.2"
+  }
+}
