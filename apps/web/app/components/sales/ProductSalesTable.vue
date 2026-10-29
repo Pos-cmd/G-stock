@@ -27,7 +27,8 @@ const summary = useQuery(
   })),
 );
 
-defineSlots<{ filters?: () => unknown }>();
+/** `stacked` : les filtres sont dans le menu « Filtres », l'un sous l'autre. */
+defineSlots<{ filters?: (props: { stacked: boolean }) => unknown }>();
 
 // Part de chaque produit dans le chiffre d'affaires de la période.
 const maxRevenue = computed(() =>
@@ -60,8 +61,8 @@ const columns: TableColumn<ProductSalesRow>[] = [
     :item-label="['produit', 'produits']"
     storage-key="product-sales"
   >
-    <template v-if="$slots.filters" #filters>
-      <slot name="filters" />
+    <template v-if="$slots.filters" #filters="{ stacked }">
+      <slot name="filters" :stacked="stacked" />
     </template>
     <template #productName-cell="{ row }">
       <NuxtLink

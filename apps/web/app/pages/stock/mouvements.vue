@@ -62,8 +62,8 @@ const resetFilters = () => {
     description="Chaque entrée, sortie et correction de stock, lot par lot."
   >
     <MovementsTable :filters="filters">
-      <template #filters>
-        <UFieldGroup>
+      <template #filters="{ stacked }">
+        <UFieldGroup :orientation="stacked ? 'vertical' : 'horizontal'">
           <USelectMenu
             v-model="productId"
             :items="productItems"
@@ -71,11 +71,15 @@ const resetFilters = () => {
             placeholder="Tous les produits"
             :search-input="{ placeholder: 'Rechercher…' }"
             clear
-            class="w-64"
+            :class="stacked ? 'w-full' : 'w-64'"
           />
-          <USelect v-model="type" :items="typeItems" class="w-44" />
+          <USelect v-model="type" :items="typeItems" :class="stacked ? 'w-full' : 'w-44'" />
         </UFieldGroup>
-        <DateRangeField v-model:from="from" v-model:to="to" class="w-full sm:w-72" />
+        <DateRangeField
+          v-model:from="from"
+          v-model:to="to"
+          :class="stacked ? 'w-full' : 'w-full sm:w-72'"
+        />
         <UButton
           v-if="hasFilters"
           color="neutral"

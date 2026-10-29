@@ -439,6 +439,34 @@ describe("historique et fiche client", () => {
     expect(days.slice(1, -1).every((day) => day.saleCount === 0)).toBe(true);
   });
 
+  it("trie l'historique côté serveur sans changer les totaux", async () => {
+    await seedHistory();
+    const byDate = await listSales(db, { page: 1, pageSize: 25 });
+    const byAmount = await listSales(db, {
+      page: 1,
+      pageSize: 25,
+      sort: { desc: false, id: "netFcfa" },
+    });
+    expect(byAmount.items.map((sale) => sale.netFcfa)).toEqual(
+      byDate.items.map((sale) => sale.netFcfa).toSorted((a, b) => a - b),
+    );
+    expect(byAmount.totals).toEqual(byDate.totals);
+    expect(byAmount.total).toBe(3);
+  });
+
+  it("met à jour les comptes gardés en mémoire après une annulation", async () => {
+    await seedHistory();
+    const before = await listSales(db, { page: 1, pageSize: 25 });
+    expect(before.totals.dueFcfa).toBe(4500);
+    const credit = before.items.find((sale) => sale.dueFcfa > 0);
+    if (!credit) {
+      throw new Error("Vente à crédit introuvable");
+    }
+    await db.transaction((tx) => cancelSale(tx, { id: credit.id, reason: "Erreur de saisie" }));
+    const after = await listSales(db, { page: 1, pageSize: 25 });
+    expect(after.totals.dueFcfa).toBe(0);
+  });
+
   it("filtre l'activité par produit et par client", async () => {
     const { bazin, moussa } = await seedHistory();
     const march = new Date(2026, 2, 10, 18);

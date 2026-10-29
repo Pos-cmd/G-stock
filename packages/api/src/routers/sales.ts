@@ -12,6 +12,7 @@ import {
   saleListSchema,
   saleQuoteSchema,
 } from "../schemas/sales";
+import { invalidateLedgers } from "../services/customers";
 import {
   addSaleDiscount,
   cancelPayment,
@@ -51,11 +52,14 @@ export const salesRouter = {
 
   byHour: protectedProcedure.handler(({ context }) => salesByHour(context.db)),
 
-  cancel: protectedProcedure
-    .input(saleCancelSchema)
-    .handler(({ context, input }) =>
-      context.db.transaction((tx) => cancelSale(tx, input, context.session.user.id)),
-    ),
+  cancel: protectedProcedure.input(saleCancelSchema).handler(async ({ context, input }) => {
+    const result = await context.db.transaction((tx) =>
+      cancelSale(tx, input, context.session.user.id),
+    );
+    // Après la validation : les comptes en mémoire ne doivent pas garder l'état d'avant.
+    invalidateLedgers();
+    return result;
+  }),
 
   create: protectedProcedure
     .input(saleInputSchema)

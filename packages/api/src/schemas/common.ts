@@ -14,6 +14,10 @@ export const idSchema = z.uuid("Identifiant invalide");
 
 export const byIdSchema = z.object({ id: idSchema });
 
+/** Tri d'une liste paginée par le serveur : colonne (parmi `columns`) et sens. */
+export const sortSchema = <T extends readonly [string, ...string[]]>(columns: T) =>
+  z.object({ desc: z.boolean(), id: z.enum(columns) }).nullish();
+
 /** Motif obligatoire d'une annulation ou d'une remise. */
 export const reasonSchema = z
   .string()

@@ -231,8 +231,8 @@ const confirmCancelPayment = async (reason: string) => {
         <template #sales>
           <div class="space-y-3 pt-2">
             <SalesTable :filters="filters" :customer-id="customerId" :show-customer="false">
-              <template #filters>
-                <SalesFilters v-model="filters" />
+              <template #filters="{ stacked }">
+                <SalesFilters v-model="filters" :stacked="stacked" />
               </template>
             </SalesTable>
           </div>
@@ -241,8 +241,8 @@ const confirmCancelPayment = async (reason: string) => {
         <template #products>
           <div class="space-y-3 pt-2">
             <ProductSalesTable :from="filters.from" :to="filters.to" :customer-id="customerId">
-              <template #filters>
-                <SalesFilters v-model="filters" period-only />
+              <template #filters="{ stacked }">
+                <SalesFilters v-model="filters" period-only :stacked="stacked" />
               </template>
             </ProductSalesTable>
           </div>

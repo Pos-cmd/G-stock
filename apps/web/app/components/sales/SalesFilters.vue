@@ -11,11 +11,14 @@ const {
   periodOnly = false,
   showSearch = false,
   showStatus = true,
+  stacked = false,
 } = defineProps<{
   showSearch?: boolean;
   showStatus?: boolean;
   /** Seulement la période (résumé par produit). */
   periodOnly?: boolean;
+  /** Dans le menu « Filtres » : les champs l'un sous l'autre, sur toute la largeur. */
+  stacked?: boolean;
 }>();
 const filters = defineModel<SalesFilterState>({ required: true });
 
@@ -50,7 +53,7 @@ const hasFilters = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-2">
+  <div :class="stacked ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-2'">
     <UInput
       v-if="showSearch && !periodOnly"
       v-model="filters.search"
@@ -58,8 +61,12 @@ const hasFilters = computed(() => {
       placeholder="N° de vente, client…"
       class="w-full sm:w-56"
     />
-    <DateRangeField v-model:from="filters.from" v-model:to="filters.to" class="w-full sm:w-72" />
-    <UFieldGroup v-if="!periodOnly">
+    <DateRangeField
+      v-model:from="filters.from"
+      v-model:to="filters.to"
+      :class="stacked ? 'w-full' : 'w-full sm:w-72'"
+    />
+    <UFieldGroup v-if="!periodOnly" :orientation="stacked ? 'vertical' : 'horizontal'">
       <USelectMenu
         v-model="filters.productId"
         :items="productItems"
@@ -67,10 +74,19 @@ const hasFilters = computed(() => {
         placeholder="Tous les produits"
         :search-input="{ placeholder: 'Rechercher…' }"
         clear
-        class="w-52"
+        :class="stacked ? 'w-full' : 'w-52'"
       />
-      <USelect v-if="showStatus" v-model="filters.status" :items="statusItems" class="w-40" />
-      <USelect v-model="filters.paymentState" :items="paymentItems" class="w-40" />
+      <USelect
+        v-if="showStatus"
+        v-model="filters.status"
+        :items="statusItems"
+        :class="stacked ? 'w-full' : 'w-40'"
+      />
+      <USelect
+        v-model="filters.paymentState"
+        :items="paymentItems"
+        :class="stacked ? 'w-full' : 'w-40'"
+      />
     </UFieldGroup>
     <UButton
       v-if="hasFilters"

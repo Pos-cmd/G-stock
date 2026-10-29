@@ -7,7 +7,7 @@ import { products } from "@G-stock/db/schema/catalog";
 import { purchaseOrderItems, purchaseOrders } from "@G-stock/db/schema/purchasing";
 import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
-import { and, asc, count, desc, eq, getColumns, gt, gte, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, getColumns, gt, gte, lte, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 import type { MovementFilters, UnpackInput } from "../schemas/stock";
@@ -292,7 +292,26 @@ export const listMovements = async (executor: Executor, filters: MovementFilters
   if (filters.to) {
     conditions.push(lte(stockMovements.createdAt, filters.to));
   }
+  if (filters.search) {
+    const needle = filters.search.toLowerCase();
+    conditions.push(
+      or(
+        sql`instr(lower(${products.name}), ${needle}) > 0`,
+        sql`instr(lower(${stockLots.lotCode}), ${needle}) > 0`,
+        sql`instr(lower(coalesce(${stockMovements.reason}, '')), ${needle}) > 0`,
+      ) as SQL,
+    );
+  }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
+  // Valeur d'un mouvement : quantité (sans signe) × coût unitaire.
+  const sortColumns = {
+    createdAt: stockMovements.createdAt,
+    productName: products.name,
+    qty: stockMovements.qty,
+    unitCostFcfa: sql`abs(${stockMovements.qty}) * ${stockMovements.unitCostFcfa}`,
+  };
+  const sortColumn = sortColumns[filters.sort?.id ?? "createdAt"];
+  const descending = filters.sort ? filters.sort.desc : true;
 
   const [items, [totals]] = await Promise.all([
     executor
@@ -317,10 +336,15 @@ export const listMovements = async (executor: Executor, filters: MovementFilters
       .innerJoin(stockLots, eq(stockLots.id, stockMovements.lotId))
       .leftJoin(user, eq(user.id, stockMovements.createdBy))
       .where(where)
-      .orderBy(desc(stockMovements.createdAt), desc(stockMovements.id))
+      .orderBy(descending ? desc(sortColumn) : asc(sortColumn), desc(stockMovements.id))
       .limit(filters.pageSize)
       .offset((filters.page - 1) * filters.pageSize),
-    executor.select({ total: count() }).from(stockMovements).where(where),
+    executor
+      .select({ total: count() })
+      .from(stockMovements)
+      .innerJoin(products, eq(products.id, stockMovements.productId))
+      .innerJoin(stockLots, eq(stockLots.id, stockMovements.lotId))
+      .where(where),
   ]);
 
   return { items, total: totals?.total ?? 0 };

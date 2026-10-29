@@ -21,13 +21,26 @@ const {
   showCustomer?: boolean;
 }>();
 
-defineSlots<{ filters?: () => unknown }>();
+/** `stacked` : les filtres sont dans le menu « Filtres », l'un sous l'autre. */
+defineSlots<{ filters?: (props: { stacked: boolean }) => unknown }>();
 
 const SEARCH_DEBOUNCE_MS = 300;
 
 const { $orpc } = useNuxtApp();
 const page = ref(1);
 const pageSize = ref(25);
+// Tri demandé au serveur ; la colonne « Vente » trie par date.
+const sorting = ref<{ desc: boolean; id: string }[]>([]);
+const SORT_KEYS = {
+  customerName: "customerName",
+  netFcfa: "netFcfa",
+  reference: "saleDate",
+} as const;
+const sort = computed(() => {
+  const [first] = sorting.value;
+  const id = first ? SORT_KEYS[first.id as keyof typeof SORT_KEYS] : undefined;
+  return first && id ? { desc: first.desc, id } : null;
+});
 // La recherche se tape dans le tableau ; le serveur cherche (référence, client).
 const search = ref(filters.search);
 const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
@@ -36,12 +49,24 @@ const input = computed(() => ({
   ...toSaleListInput({ ...filters, search: debouncedSearch.value }, customerId ?? undefined),
   page: page.value,
   pageSize: pageSize.value,
+  sort: sort.value,
 }));
 watch(
   () => JSON.stringify({ ...input.value, page: 0, pageSize: 0 }),
   () => {
     page.value = 1;
   },
+);
+
+// Filtres actifs (la période compte pour un), pour le bouton « Filtres ».
+const activeFilters = computed(
+  () =>
+    [
+      filters.from || filters.to,
+      filters.productId,
+      filters.status !== ALL,
+      filters.paymentState !== ALL,
+    ].filter(Boolean).length,
 );
 
 const sales = useQuery(
@@ -113,6 +138,10 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
       v-model:page="page"
       v-model:page-size="pageSize"
       v-model:search="search"
+      v-model:sorting="sorting"
+      :server-sortable="['reference', 'customerName', 'netFcfa']"
+      filters-menu
+      :active-filters="activeFilters"
       :total="sales.data.value?.total ?? 0"
       search-placeholder="N° de vente, client…"
       :item-label="['vente', 'ventes']"
@@ -121,8 +150,8 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
       :columns="columns"
       :loading="sales.isFetching.value"
     >
-      <template v-if="$slots.filters" #filters>
-        <slot name="filters" />
+      <template v-if="$slots.filters" #filters="{ stacked }">
+        <slot name="filters" :stacked="stacked" />
       </template>
       <template #reference-cell="{ row }">
         <NuxtLink :to="`/ventes/${row.original.id}`" class="group block">

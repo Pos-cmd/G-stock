@@ -52,6 +52,7 @@ export type AccentColor = Exclude<PrimaryColor, "black">;
 export type ThemeFont = (typeof FONTS)[number];
 
 export interface ThemeSettings {
+  icons: IconLibrary;
   primary: PrimaryColor;
   neutral: NeutralColor;
   accent: AccentColor;
@@ -72,6 +73,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "encre",
     label: "Encre",
     settings: {
+      icons: "tabler",
       accent: "indigo",
       font: "Inter",
       neutral: "sand",
@@ -84,6 +86,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "ocean",
     label: "Océan",
     settings: {
+      icons: "lucide",
       accent: "sky",
       font: "Public Sans",
       neutral: "slate",
@@ -96,6 +99,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "foret",
     label: "Forêt",
     settings: {
+      icons: "phosphor",
       accent: "emerald",
       font: "DM Sans",
       neutral: "stone",
@@ -108,6 +112,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "terre-cuite",
     label: "Terre cuite",
     settings: {
+      icons: "phosphor",
       accent: "amber",
       font: "Manrope",
       neutral: "taupe",
@@ -120,6 +125,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "amethyste",
     label: "Améthyste",
     settings: {
+      icons: "lucide",
       accent: "violet",
       font: "Geist",
       neutral: "zinc",
@@ -132,6 +138,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "graphite",
     label: "Graphite",
     settings: {
+      icons: "tabler",
       accent: "cyan",
       font: "Geist",
       neutral: "zinc",
@@ -144,6 +151,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     id: "corail",
     label: "Corail",
     settings: {
+      icons: "phosphor",
       accent: "rose",
       font: "Outfit",
       neutral: "mauve",
@@ -198,6 +206,7 @@ export const sanitizeTheme = (value: unknown): ThemeSettings => {
   >;
   return {
     accent: oneOf(ACCENT_COLORS, input.accent, DEFAULT_THEME.accent),
+    icons: oneOf(ICON_LIBRARIES, input.icons, DEFAULT_THEME.icons),
     font: oneOf(FONTS, input.font, DEFAULT_THEME.font),
     neutral: oneOf(NEUTRAL_COLORS, input.neutral, DEFAULT_THEME.neutral),
     primary: oneOf(PRIMARY_COLORS, input.primary, DEFAULT_THEME.primary),
@@ -214,6 +223,7 @@ export const randomTheme = (): ThemeSettings => {
   return {
     accent,
     font: pickOne(FONTS),
+    icons: pickOne(ICON_LIBRARIES),
     neutral: pickOne(NEUTRAL_COLORS),
     primary,
     radius: pickOne(RADII),
@@ -225,4 +235,5 @@ export const sameTheme = (a: ThemeSettings, b: ThemeSettings): boolean =>
   a.neutral === b.neutral &&
   a.accent === b.accent &&
   a.radius === b.radius &&
-  a.font === b.font;
+  a.font === b.font &&
+  a.icons === b.icons;

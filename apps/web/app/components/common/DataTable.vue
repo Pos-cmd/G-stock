@@ -31,7 +31,10 @@ const {
   maxRows = 10,
   searchPlaceholder = "Rechercher…",
   searchText,
+  activeFilters = 0,
+  filtersMenu = false,
   searchable = true,
+  serverSortable = [],
   storageKey = "",
   title = "",
   total,
@@ -54,6 +57,12 @@ const {
   storageKey?: string;
   /** Mode serveur : nombre total de lignes. */
   total?: number;
+  /** Mode serveur : colonnes que le serveur sait trier (`v-model:sorting`). */
+  serverSortable?: string[];
+  /** Filtres nombreux : rangés dans un bouton « Filtres » plutôt qu'en ligne. */
+  filtersMenu?: boolean;
+  /** Nombre de filtres actifs, affiché sur le bouton « Filtres ». */
+  activeFilters?: number;
 }>();
 
 const search = defineModel<string>("search", { default: "" });
@@ -72,6 +81,9 @@ const UButton = resolveComponent("UButton");
 const PAGE_SIZES = [10, 25, 50, 100];
 const OWN_SLOTS = new Set(["actions", "filters", "toolbar", "footer"]);
 const isServer = computed(() => total !== undefined);
+// Sur un écran étroit, les filtres passent toujours dans le bouton « Filtres ».
+const isWide = useMediaQuery("(min-width: 1024px)");
+const filtersInMenu = computed(() => filtersMenu || !isWide.value);
 
 // Préférences gardées dans le navigateur (colonnes, taille de page).
 const storageName = computed(() => (storageKey ? `gstock-table-${storageKey}` : ""));
@@ -110,7 +122,10 @@ watch([columnVisibility, pageSize], () => {
   }
 });
 
-const sorting = ref<SortingState>(initialSorting);
+const sorting = defineModel<SortingState>("sorting", { default: () => [] });
+if (sorting.value.length === 0 && initialSorting.length > 0) {
+  sorting.value = initialSorting;
+}
 const pagination = computed<PaginationState>({
   get: () => ({ pageIndex: page.value - 1, pageSize: pageSize.value }),
   set: (value) => {
@@ -149,10 +164,10 @@ const tableColumns = computed<TableColumn<T>[]>(() =>
       return column;
     }
     const label = column.header;
-    const sortable =
-      !isServer.value &&
-      column.enableSorting !== false &&
-      ("accessorKey" in column || "accessorFn" in column);
+    const id = column.id ?? ("accessorKey" in column ? String(column.accessorKey) : "");
+    const sortable = isServer.value
+      ? serverSortable.includes(id)
+      : column.enableSorting !== false && ("accessorKey" in column || "accessorFn" in column);
     if (!sortable) {
       return column;
     }
@@ -299,7 +314,23 @@ const forwardedSlots = computed(() =>
             <UKbd v-else value="/" />
           </template>
         </UInput>
-        <slot name="filters" />
+        <template v-if="$slots.filters">
+          <UPopover
+            v-if="filtersInMenu"
+            :content="{ align: 'start', sideOffset: 6 }"
+            :ui="{ content: 'w-[min(20rem,calc(100vw-2rem))] p-3' }"
+          >
+            <UChip :show="activeFilters > 0" :text="activeFilters" size="lg" inset>
+              <UButton color="neutral" variant="outline" :icon="icons.filter" label="Filtres" />
+            </UChip>
+            <template #content>
+              <div class="flex flex-col gap-2">
+                <slot name="filters" :stacked="true" />
+              </div>
+            </template>
+          </UPopover>
+          <slot v-else name="filters" :stacked="false" />
+        </template>
         <div class="ms-auto flex flex-wrap items-center gap-2">
           <slot name="toolbar" />
           <UDropdownMenu
@@ -337,6 +368,7 @@ const forwardedSlots = computed(() =>
             ? { manualPagination: true, rowCount: total }
             : { getPaginationRowModel: getPaginationRowModel() }
         "
+        :sorting-options="{ manualSorting: isServer }"
         :global-filter-options="{
           globalFilterFn: isServer ? () => true : globalFilterFn,
         }"

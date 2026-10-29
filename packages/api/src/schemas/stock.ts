@@ -1,7 +1,7 @@
 import { MOVEMENT_TYPES } from "@G-stock/core/enums";
 import { z } from "zod";
 
-import { idSchema, optionalText } from "./common";
+import { idSchema, optionalText, sortSchema } from "./common";
 
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
@@ -34,11 +34,17 @@ export const lotListSchema = z.object({
   productId: idSchema,
 });
 
+/** Colonnes de tri de l'historique des mouvements. */
+export const MOVEMENT_SORT_COLUMNS = ["createdAt", "productName", "qty", "unitCostFcfa"] as const;
+
 export const movementListSchema = z.object({
   from: z.date().nullish(),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   productId: idSchema.nullish(),
+  /** Produit, code de lot ou motif. */
+  search: z.string().trim().nullish(),
+  sort: sortSchema(MOVEMENT_SORT_COLUMNS),
   to: z.date().nullish(),
   type: z.enum(MOVEMENT_TYPES).nullish(),
 });

@@ -52,13 +52,13 @@ const views: TabsItem[] = [
     </template>
 
     <SalesTable v-if="view === 'sales'" :filters="filters">
-      <template #filters>
-        <SalesFilters v-model="filters" />
+      <template #filters="{ stacked }">
+        <SalesFilters v-model="filters" :stacked="stacked" />
       </template>
     </SalesTable>
     <ProductSalesTable v-else :from="filters.from" :to="filters.to">
-      <template #filters>
-        <SalesFilters v-model="filters" period-only />
+      <template #filters="{ stacked }">
+        <SalesFilters v-model="filters" period-only :stacked="stacked" />
       </template>
     </ProductSalesTable>
   </PagePanel>

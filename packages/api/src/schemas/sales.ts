@@ -1,7 +1,7 @@
 import { PAYMENT_METHODS, PAYMENT_TYPES, SALE_STATUSES } from "@G-stock/core/enums";
 import { z } from "zod";
 
-import { idSchema, optionalText, reasonSchema } from "./common";
+import { idSchema, optionalText, reasonSchema, sortSchema } from "./common";
 
 const MAX_LINES = 100;
 const MAX_PAGE_SIZE = 100;
@@ -35,6 +35,9 @@ export const saleQuoteSchema = z.object({
 
 export const PAYMENT_STATES = ["paid", "due"] as const;
 
+/** Colonnes de tri de l'historique des ventes. */
+export const SALE_SORT_COLUMNS = ["saleDate", "reference", "customerName", "netFcfa"] as const;
+
 export const saleListSchema = z.object({
   customerId: idSchema.nullish(),
   from: z.date().nullish(),
@@ -43,6 +46,7 @@ export const saleListSchema = z.object({
   paymentState: z.enum(PAYMENT_STATES).nullish(),
   productId: idSchema.nullish(),
   search: z.string().trim().nullish(),
+  sort: sortSchema(SALE_SORT_COLUMNS),
   status: z.enum(SALE_STATUSES).nullish(),
   to: z.date().nullish(),
 });

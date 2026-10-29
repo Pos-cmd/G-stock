@@ -26,7 +26,7 @@ export interface CustomerLedger extends PaymentAllocation {
  * Compte de chaque client : ventes validées (nettes de remises) et paiements non annulés,
  * affectés vente par vente. Limité à un client si `customerId` est donné.
  */
-export const loadLedgers = async (
+const computeLedgers = async (
   executor: Executor,
   customerId?: string | null,
 ): Promise<Map<string, CustomerLedger>> => {
@@ -85,6 +85,54 @@ export const loadLedgers = async (
       saleCount: customerSales.length,
     });
   }
+  return ledgers;
+};
+
+/** Incrémenté par les annulations (ventes, paiements) : les seules modifications d'une ligne. */
+let ledgerRevision = 0;
+export const invalidateLedgers = () => {
+  ledgerRevision += 1;
+};
+
+/**
+ * Empreinte des données qui font les comptes : nombre de lignes et dernier identifiant interne de
+ * chaque table (une insertion la change), plus le compteur des annulations. Instantané : ni
+ * parcours de table ni tri.
+ */
+const ledgerFingerprint = async (executor: Executor) => {
+  const [row] = await executor.all<{ value: string }>(sql`select
+    (select count(*) || ':' || coalesce(max(rowid), 0) from ${sales}) || '|' ||
+    (select count(*) || ':' || coalesce(max(rowid), 0) from ${payments}) || '|' ||
+    (select count(*) || ':' || coalesce(max(rowid), 0) from ${saleDiscounts}) as value`);
+  return `${row?.value ?? ""}|${ledgerRevision}`;
+};
+
+/** Comptes de tous les clients gardés en mémoire, par base, tant que l'empreinte ne change pas. */
+const ledgerCache = new WeakMap<
+  object,
+  { fingerprint: string; ledgers: Map<string, CustomerLedger> }
+>();
+
+/**
+ * Comptes clients (voir `computeLedgers`). Ceux de tous les clients sont réutilisés d'un appel à
+ * l'autre tant qu'aucune vente, aucun paiement ni aucune remise n'a changé : la liste des ventes,
+ * le tableau de bord et la liste des clients ne recalculent plus tout l'historique à chaque fois.
+ * Le résultat est partagé : ne pas le modifier.
+ */
+export const loadLedgers = async (
+  executor: Executor,
+  customerId?: string | null,
+): Promise<Map<string, CustomerLedger>> => {
+  if (customerId) {
+    return computeLedgers(executor, customerId);
+  }
+  const fingerprint = await ledgerFingerprint(executor);
+  const cached = ledgerCache.get(executor);
+  if (cached?.fingerprint === fingerprint) {
+    return cached.ledgers;
+  }
+  const ledgers = await computeLedgers(executor);
+  ledgerCache.set(executor, { fingerprint, ledgers });
   return ledgers;
 };
 

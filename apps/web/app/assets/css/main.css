@@ -115,6 +115,67 @@
   }
 }
 
+/*
+ * Mouvement : courbes communes. Rapide au départ, posé à l'arrivée ; les interfaces de saisie
+ * restent sous 300 ms.
+ */
+:root {
+  --ease-snappy: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* Changement de thème : les couleurs glissent au lieu de basculer (classe posée 400 ms). */
+.theme-changing,
+.theme-changing *,
+.theme-changing *::before,
+.theme-changing *::after {
+  transition-property:
+    color, background-color, border-color, fill, stroke, box-shadow, outline-color !important;
+  transition-duration: 320ms !important;
+  transition-timing-function: var(--ease-snappy) !important;
+}
+
+/* Clair ↔ sombre : la nouvelle apparence se révèle en cercle depuis le bouton. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: theme-reveal 480ms var(--ease-in-out-strong);
+}
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--reveal-x, 50%) var(--reveal-y, 0%));
+  }
+  to {
+    clip-path: circle(var(--reveal-radius, 150vmax) at var(--reveal-x, 50%) var(--reveal-y, 0%));
+  }
+}
+
+/* Petit tour d'icône (bouton « thème au hasard »). */
+@keyframes spin-once {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin-once {
+  animation: spin-once 450ms var(--ease-snappy);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+  }
+  .spin-once {
+    animation: none;
+  }
+  .theme-changing,
+  .theme-changing * {
+    transition-duration: 1ms !important;
+  }
+}
+
 /* Barres de défilement fines */
 * {
   scrollbar-width: thin;

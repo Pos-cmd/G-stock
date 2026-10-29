@@ -28,8 +28,24 @@ export const useAppNavigation = () => {
   });
   const criticalDebtors = computed(() => sales.data.value?.criticalDebtorCount ?? 0);
 
+  // Commandes en cours (passées ou en route) : un simple compte, en gris.
+  const purchases = useQuery($orpc.purchases.list.queryOptions({ input: {} }));
+  const ordersInProgress = computed(
+    () =>
+      (purchases.data.value ?? []).filter(
+        (order) => order.status === "ordered" || order.status === "in_transit",
+      ).length,
+  );
+
+  // Badges : rouge plein pour ce qui demande une action, gris pour un simple compte.
+  const alertBadge = (count: number) =>
+    count > 0
+      ? { color: "error" as const, label: String(count), variant: "solid" as const }
+      : undefined;
   const countBadge = (count: number) =>
-    count > 0 ? { color: "error" as const, label: String(count) } : undefined;
+    count > 0
+      ? { color: "neutral" as const, label: String(count), variant: "subtle" as const }
+      : undefined;
 
   const sections = computed<NavSection[]>(() => [
     {
@@ -46,7 +62,7 @@ export const useAppNavigation = () => {
       items: [
         {
           active: isUnder("/produits"),
-          badge: countBadge(stockAlerts.value),
+          badge: alertBadge(stockAlerts.value),
           icon: icons.products,
           label: "Produits",
           to: "/produits",
@@ -62,7 +78,7 @@ export const useAppNavigation = () => {
         { active: isUnder("/ventes"), icon: icons.sales, label: "Ventes", to: "/ventes" },
         {
           active: isUnder("/clients"),
-          badge: countBadge(criticalDebtors.value),
+          badge: alertBadge(criticalDebtors.value),
           icon: icons.customers,
           label: "Clients",
           to: "/clients",
@@ -76,6 +92,7 @@ export const useAppNavigation = () => {
       items: [
         {
           active: isUnder("/achats") && !isUnder("/achats/fournisseurs"),
+          badge: countBadge(ordersInProgress.value),
           icon: icons.purchases,
           label: "Commandes",
           to: "/achats",

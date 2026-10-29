@@ -13,6 +13,25 @@ const modes = [
   { icon: icons.system, label: "Système", value: "system" },
 ] as const;
 
+// Aperçu de chaque bibliothèque : trois icônes de l'application.
+const ICON_SAMPLES = ["package", "shopping-cart", "settings"] as const;
+const sampleIcon = (name: string, library: IconLibrary) => {
+  if (library === "lucide") {
+    return LUCIDE_ICONS[name] ?? `i-tabler-${name}`;
+  }
+  return library === "phosphor" ? (PHOSPHOR_ICONS[name] ?? `i-tabler-${name}`) : `i-tabler-${name}`;
+};
+
+// L'icône du bouton « au hasard » fait un tour à chaque tirage.
+const spinning = ref(false);
+const shuffle = () => {
+  randomize();
+  spinning.value = false;
+  requestAnimationFrame(() => {
+    spinning.value = true;
+  });
+};
+
 const sectionTitle = "text-muted font-mono text-[10px] font-medium tracking-[0.08em] uppercase";
 </script>
 
@@ -38,7 +57,9 @@ const sectionTitle = "text-muted font-mono text-[10px] font-medium tracking-[0.0
                 variant="outline"
                 :icon="icons.shuffle"
                 aria-label="Thème au hasard"
-                @click="randomize"
+                :ui="{ leadingIcon: spinning ? 'spin-once' : '' }"
+                @click="shuffle"
+                @animationend="spinning = false"
               />
             </UTooltip>
             <UTooltip text="Revenir au thème d'origine">
@@ -61,7 +82,7 @@ const sectionTitle = "text-muted font-mono text-[10px] font-medium tracking-[0.0
               v-for="preset in THEME_PRESETS"
               :key="preset.id"
               type="button"
-              class="ring-default hover:bg-muted flex items-center gap-2.5 rounded-lg p-2 text-left ring transition-colors"
+              class="ring-default hover:bg-muted flex items-center gap-2.5 rounded-lg p-2 text-left ring transition-[background-color,transform] duration-150 ease-(--ease-snappy) active:scale-[0.97]"
               :class="activePreset?.id === preset.id ? 'bg-muted ring-inverted ring-2' : ''"
               :aria-pressed="activePreset?.id === preset.id"
               @click="applyPreset(preset)"
@@ -180,6 +201,33 @@ const sectionTitle = "text-muted font-mono text-[10px] font-medium tracking-[0.0
               :aria-pressed="settings.font === font"
               @click="settings.font = font"
             />
+          </div>
+        </section>
+
+        <!-- Icônes -->
+        <section class="space-y-2">
+          <p :class="sectionTitle">Icônes</p>
+          <div class="grid grid-cols-3 gap-1.5">
+            <UButton
+              v-for="library in ICON_LIBRARIES"
+              :key="library"
+              size="sm"
+              color="neutral"
+              :variant="settings.icons === library ? 'subtle' : 'outline'"
+              class="flex-col justify-center gap-1 py-2"
+              :aria-pressed="settings.icons === library"
+              @click="settings.icons = library"
+            >
+              <span class="flex items-center gap-1.5">
+                <UIcon
+                  v-for="sample in ICON_SAMPLES"
+                  :key="sample"
+                  :name="sampleIcon(sample, library)"
+                  class="size-4"
+                />
+              </span>
+              <span class="text-xs">{{ ICON_LIBRARY_LABELS[library] }}</span>
+            </UButton>
           </div>
         </section>
 

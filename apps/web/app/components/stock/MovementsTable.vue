@@ -18,11 +18,25 @@ const { filters = {}, showProduct = true } = defineProps<{
   showProduct?: boolean;
 }>();
 
-defineSlots<{ filters?: () => unknown }>();
+/** `stacked` : les filtres sont dans le menu « Filtres », l'un sous l'autre. */
+defineSlots<{ filters?: (props: { stacked: boolean }) => unknown }>();
 
 const { $orpc } = useNuxtApp();
 const page = ref(1);
 const pageSize = ref(25);
+const SEARCH_DEBOUNCE_MS = 300;
+const search = ref("");
+const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
+const sorting = ref<{ desc: boolean; id: string }[]>([]);
+const MOVEMENT_SORT_KEYS = ["createdAt", "productName", "qty", "unitCostFcfa"] as const;
+const sort = computed(() => {
+  const [first] = sorting.value;
+  const id = MOVEMENT_SORT_KEYS.find((key) => key === first?.id);
+  return first && id ? { desc: first.desc, id } : null;
+});
+watch([debouncedSearch, sort], () => {
+  page.value = 1;
+});
 
 watch(
   () => filters,
@@ -32,10 +46,20 @@ watch(
   { deep: true },
 );
 
+const activeFilters = computed(
+  () => [filters.productId, filters.type, filters.from || filters.to].filter(Boolean).length,
+);
+
 const movements = useQuery(
   computed(() => ({
     ...$orpc.stock.movements.list.queryOptions({
-      input: { ...filters, page: page.value, pageSize: pageSize.value },
+      input: {
+        ...filters,
+        page: page.value,
+        pageSize: pageSize.value,
+        search: debouncedSearch.value || null,
+        sort: sort.value,
+      },
     }),
     placeholderData: keepPreviousData,
   })),
@@ -68,12 +92,17 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
     :columns="columns"
     :loading="movements.isFetching.value"
     :total="movements.data.value?.total ?? 0"
-    :searchable="false"
+    v-model:search="search"
+    v-model:sorting="sorting"
+    :server-sortable="['createdAt', 'productName', 'qty', 'unitCostFcfa']"
+    filters-menu
+    :active-filters="activeFilters"
+    search-placeholder="Produit, lot, motif…"
     :item-label="['mouvement', 'mouvements']"
     storage-key="movements"
   >
-    <template v-if="$slots.filters" #filters>
-      <slot name="filters" />
+    <template v-if="$slots.filters" #filters="{ stacked }">
+      <slot name="filters" :stacked="stacked" />
     </template>
 
     <template #createdAt-cell="{ row }">

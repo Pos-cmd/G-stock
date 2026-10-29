@@ -82,6 +82,7 @@ const actionIcons = {
   customerAdd: "i-tabler-user-plus",
   download: "i-tabler-download",
   expand: "i-tabler-arrows-diagonal",
+  filter: "i-tabler-filter",
   moreActions: "i-tabler-dots-vertical",
   pdf: "i-tabler-file-download",
   pin: "i-tabler-pin",
@@ -254,8 +255,22 @@ export default defineAppConfig({
       slots: {
         link: "text-default",
         linkLeadingIcon: "size-[18px] text-muted",
+        // Petit carré arrondi, chiffres alignés (comme une pastille de compteur).
+        linkTrailingBadge:
+          "min-w-5 shrink-0 justify-center rounded-md px-1.5 font-semibold tabular-nums",
       },
       compoundVariants: [
+        // Barre réduite : l'icône est centrée dans son cadre (sinon calée à gauche) et le
+        // compteur devient une pastille dans son coin.
+        {
+          collapsed: true,
+          orientation: "vertical",
+          class: {
+            link: "justify-center px-0",
+            linkTrailing: "pointer-events-none absolute end-1.5 top-1 flex",
+            linkTrailingBadge: "size-2 min-w-0 rounded-full p-0 text-[0px] ring-2 ring-(--ui-bg)",
+          },
+        },
         {
           active: false,
           disabled: false,
@@ -334,7 +349,15 @@ export default defineAppConfig({
           },
         },
       },
-      compoundVariants: [{ to: true, variant: "subtle", class: { root: "hover:bg-elevated" } }],
+      compoundVariants: [
+        {
+          to: true,
+          variant: "subtle",
+          class: {
+            root: "transition-[background-color,transform] duration-150 ease-(--ease-snappy) hover:bg-elevated active:scale-[0.985]",
+          },
+        },
+      ],
     },
     card: {
       slots: {

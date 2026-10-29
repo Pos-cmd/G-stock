@@ -106,9 +106,9 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
         :item-label="['commande', 'commandes']"
         storage-key="purchases"
       >
-        <template #filters>
-          <UFieldGroup>
-            <USelect v-model="status" :items="statusItems" class="w-40" />
+        <template #filters="{ stacked }">
+          <UFieldGroup :orientation="stacked ? 'vertical' : 'horizontal'">
+            <USelect v-model="status" :items="statusItems" :class="stacked ? 'w-full' : 'w-40'" />
             <USelectMenu
               v-model="supplierId"
               :items="supplierItems"
@@ -116,7 +116,7 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
               placeholder="Tous les fournisseurs"
               :search-input="{ placeholder: 'Rechercher…' }"
               clear
-              class="w-56"
+              :class="stacked ? 'w-full' : 'w-56'"
             />
           </UFieldGroup>
         </template>

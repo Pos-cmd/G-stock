@@ -14,7 +14,7 @@ import {
 } from "@G-stock/db/schema/sales";
 import { stockLots } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
-import { and, asc, desc, eq, exists, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type {
@@ -24,7 +24,7 @@ import type {
   SaleFilters,
   SaleInput,
 } from "../schemas/sales";
-import { loadLedgers, saleDiscountSql } from "./customers";
+import { invalidateLedgers, loadLedgers, saleDiscountSql } from "./customers";
 import { nextReference } from "./references";
 import { getSettings } from "./settings";
 import { consumeFifo, listAvailableLots, returnToLots } from "./stock";
@@ -355,7 +355,21 @@ const saleConditions = (filters: {
   return conditions;
 };
 
-/** Historique filtrable des ventes, avec les totaux de la sélection (hors ventes annulées). */
+const saleNetSql = sql<number>`(${sales.totalFcfa} - ${saleDiscountSql})`;
+
+const SALE_SORT_SQL = {
+  customerName: customers.name,
+  netFcfa: saleNetSql,
+  reference: sales.reference,
+  saleDate: sales.saleDate,
+} as const;
+
+/**
+ * Historique filtrable des ventes, avec les totaux de la sélection (hors ventes annulées).
+ * La page, le décompte et les totaux sont calculés par SQL ; seul le reste dû vient des comptes
+ * clients (gardés en mémoire, voir `loadLedgers`). Le filtre « payées ou non » dépend du reste
+ * dû : il charge alors toute la sélection.
+ */
 export const listSales = async (executor: Executor, filters: SaleFilters) => {
   const conditions = saleConditions(filters);
   if (filters.status) {
@@ -379,8 +393,12 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
       ) as SQL,
     );
   }
+  const where = and(...conditions);
+  const sortColumn = SALE_SORT_SQL[filters.sort?.id ?? "saleDate"];
+  const descending = filters.sort ? filters.sort.desc : true;
+  const order = [descending ? desc(sortColumn) : asc(sortColumn), desc(sales.id)];
 
-  const [rows, ledgers] = await Promise.all([
+  const rowQuery = () =>
     executor
       .select({
         costFcfa: saleCostSql,
@@ -396,12 +414,13 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
       })
       .from(sales)
       .innerJoin(customers, eq(customers.id, sales.customerId))
-      .where(and(...conditions))
-      .orderBy(desc(sales.saleDate), desc(sales.id)),
-    loadLedgers(executor, filters.customerId),
-  ]);
+      .where(where)
+      .orderBy(...order)
+      .$dynamic();
 
-  const enriched = rows.map((row) => {
+  const ledgers = await loadLedgers(executor, filters.customerId);
+  type SaleRowData = Awaited<ReturnType<typeof rowQuery>>[number];
+  const enrich = (row: SaleRowData) => {
     const active = row.status === "active";
     const netFcfa = row.totalFcfa - row.discountFcfa;
     const settlement = active ? ledgers.get(row.customerId)?.sales.get(row.id) : undefined;
@@ -412,33 +431,92 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
       netFcfa,
       paidFcfa: settlement?.paidFcfa ?? 0,
     };
-  });
-  const filtered = filters.paymentState
-    ? enriched.filter((sale) =>
+  };
+  const dueOf = (customerId: string, saleId: string) =>
+    ledgers.get(customerId)?.sales.get(saleId)?.dueFcfa ?? 0;
+
+  const onlyByCustomer =
+    !filters.from && !filters.to && !filters.productId && !filters.search && !filters.status;
+  let page: ReturnType<typeof enrich>[];
+  let total: number;
+  const totals = { costFcfa: 0, count: 0, dueFcfa: 0, marginFcfa: 0, netFcfa: 0 };
+
+  if (filters.paymentState) {
+    // Le reste dû vient des comptes : toute la sélection est chargée puis filtrée.
+    const filtered = (await rowQuery())
+      .map(enrich)
+      .filter((sale) =>
         filters.paymentState === "due"
           ? sale.dueFcfa > 0
           : sale.status === "active" && sale.dueFcfa === 0,
-      )
-    : enriched;
-
-  const totals = {
-    costFcfa: 0,
-    count: filtered.length,
-    dueFcfa: 0,
-    marginFcfa: 0,
-    netFcfa: 0,
-  };
-  for (const sale of filtered) {
-    if (sale.status === "active") {
-      totals.netFcfa += sale.netFcfa;
-      totals.costFcfa += sale.costFcfa;
-      totals.marginFcfa += sale.marginFcfa;
-      totals.dueFcfa += sale.dueFcfa;
+      );
+    for (const sale of filtered) {
+      if (sale.status === "active") {
+        totals.netFcfa += sale.netFcfa;
+        totals.costFcfa += sale.costFcfa;
+        totals.marginFcfa += sale.marginFcfa;
+        totals.dueFcfa += sale.dueFcfa;
+      }
     }
+    total = filtered.length;
+    const start = (filters.page - 1) * filters.pageSize;
+    page = filtered.slice(start, start + filters.pageSize);
+  } else {
+    const [rows, [aggregate], activeIds] = await Promise.all([
+      rowQuery()
+        .limit(filters.pageSize)
+        .offset((filters.page - 1) * filters.pageSize),
+      Promise.all([
+        executor
+          .select({ count: count() })
+          .from(sales)
+          .innerJoin(customers, eq(customers.id, sales.customerId))
+          .where(where),
+        executor
+          .select({ value: sql<number>`coalesce(sum(${sales.totalFcfa}), 0)` })
+          .from(sales)
+          .innerJoin(customers, eq(customers.id, sales.customerId))
+          .where(and(where, eq(sales.status, "active"))),
+        executor
+          .select({ value: sql<number>`coalesce(sum(${saleDiscounts.amountFcfa}), 0)` })
+          .from(saleDiscounts)
+          .innerJoin(sales, eq(sales.id, saleDiscounts.saleId))
+          .innerJoin(customers, eq(customers.id, sales.customerId))
+          .where(and(where, eq(sales.status, "active"))),
+        executor
+          .select({ value: sql<number>`coalesce(sum(${saleItems.costFcfa}), 0)` })
+          .from(saleItems)
+          .innerJoin(sales, eq(sales.id, saleItems.saleId))
+          .innerJoin(customers, eq(customers.id, sales.customerId))
+          .where(and(where, eq(sales.status, "active"))),
+      ]).then(([[counted], [gross], [discounts], [cost]]) => [
+        {
+          costFcfa: cost?.value ?? 0,
+          count: counted?.count ?? 0,
+          netFcfa: (gross?.value ?? 0) - (discounts?.value ?? 0),
+        },
+      ]),
+      // Reste dû de la sélection : sans autre filtre que le client, c'est celui des comptes ;
+      // sinon les identifiants suffisent, les montants sont dans les comptes.
+      onlyByCustomer
+        ? Promise.resolve(null)
+        : executor
+            .select({ customerId: sales.customerId, id: sales.id })
+            .from(sales)
+            .innerJoin(customers, eq(customers.id, sales.customerId))
+            .where(and(where, eq(sales.status, "active"))),
+    ]);
+    page = rows.map(enrich);
+    total = aggregate?.count ?? 0;
+    totals.netFcfa = aggregate?.netFcfa ?? 0;
+    totals.costFcfa = aggregate?.costFcfa ?? 0;
+    totals.marginFcfa = totals.netFcfa - totals.costFcfa;
+    totals.dueFcfa = activeIds
+      ? activeIds.reduce((sum, sale) => sum + dueOf(sale.customerId, sale.id), 0)
+      : [...ledgers.values()].reduce((sum, ledger) => sum + ledger.totalDueFcfa, 0);
   }
+  totals.count = total;
 
-  const start = (filters.page - 1) * filters.pageSize;
-  const page = filtered.slice(start, start + filters.pageSize);
   const lines =
     page.length > 0
       ? await executor
@@ -465,7 +543,7 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
       ...sale,
       lines: linesBySale.get(sale.id) ?? [],
     })),
-    total: filtered.length,
+    total,
     totals,
   };
 };
@@ -557,6 +635,7 @@ export const cancelSale = async (
     })
     .where(eq(sales.id, sale.id));
 
+  invalidateLedgers();
   return {
     cancelledPaymentsFcfa: cancelledPayments.reduce((sum, payment) => sum + payment.amountFcfa, 0),
     id: sale.id,
@@ -631,6 +710,7 @@ export const cancelPayment = async (executor: Executor, params: { id: string; re
     .set({ cancelReason: params.reason, cancelledAt: new Date() })
     .where(eq(payments.id, payment.id))
     .returning();
+  invalidateLedgers();
   return updated;
 };
 
