@@ -3,6 +3,7 @@ import type { BreadcrumbItem } from "@nuxt/ui";
 
 import AlertsMenu from "~/components/layout/AlertsMenu.vue";
 import NowPill from "~/components/layout/NowPill.vue";
+import ThemeMenu from "~/components/layout/ThemeMenu.vue";
 import ThemeToggle from "~/components/layout/ThemeToggle.vue";
 import UserMenu from "~/components/layout/UserMenu.vue";
 
@@ -48,6 +49,7 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => [...parents, { label: title 
         </template>
         <template #right>
           <NowPill class="max-sm:hidden" />
+          <ThemeMenu />
           <ThemeToggle />
           <AlertsMenu />
           <USeparator orientation="vertical" class="mx-0.5 h-5" />

@@ -4,6 +4,7 @@ import { formatDateTime } from "@G-stock/core/format";
 import type { TableColumn } from "@nuxt/ui";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
 
+import DataTable from "~/components/common/DataTable.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import { useSettingsStore } from "~/stores/settings";
 import type { DocumentRow } from "~/types/api";
@@ -11,8 +12,6 @@ import type { DocumentRow } from "~/types/api";
 const icons = useIcons();
 
 useHead({ title: "Documents" });
-
-const SEARCH_DEBOUNCE_MS = 300;
 
 const { $orpc } = useNuxtApp();
 const settingsStore = useSettingsStore();
@@ -29,15 +28,12 @@ const TYPE_LABELS: Record<GeneratedDocumentType, { label: string; icon: string }
   simulation: { icon: icons.simulations, label: "Simulation" },
 };
 
-const search = ref("");
-const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 const type = ref<GeneratedDocumentType | typeof ALL>(ALL);
 
 const documents = useQuery(
   computed(() => ({
     ...$orpc.documents.list.queryOptions({
       input: {
-        search: debouncedSearch.value || null,
         type: type.value === ALL ? null : type.value,
       },
     }),
@@ -74,7 +70,7 @@ const copyPath = async (filePath: string) => {
 };
 
 const columns: TableColumn<DocumentRow>[] = [
-  { accessorKey: "title", header: "Document" },
+  { accessorKey: "title", enableHiding: false, header: "Document" },
   { accessorKey: "type", header: "Type" },
   { accessorKey: "createdAt", header: "Généré le" },
   { accessorKey: "filePath", header: "Emplacement" },
@@ -92,25 +88,11 @@ const columns: TableColumn<DocumentRow>[] = [
     title="Documents"
     description="Reçus, fiches de coût et simulations générés en PDF."
   >
-    <template #toolbar>
-      <div class="flex w-full flex-wrap items-center gap-2 py-1">
-        <UFieldGroup class="w-full sm:w-auto">
-          <UInput
-            v-model="search"
-            :icon="icons.search"
-            placeholder="Référence, client, simulation…"
-            class="min-w-0 flex-1 sm:w-72 sm:flex-none"
-          />
-          <USelect v-model="type" :items="typeItems" class="w-48" />
-        </UFieldGroup>
-        <span v-if="settingsStore.settings" class="text-muted ms-auto truncate text-xs">
-          <UIcon :name="icons.folder" class="me-1 align-middle" />
-          {{ settingsStore.settings.documentsFolder }}
-        </span>
-      </div>
-    </template>
-
-    <UTable
+    <DataTable
+      search-placeholder="Référence, client, simulation…"
+      :initial-sorting="[{ desc: true, id: 'createdAt' }]"
+      :item-label="['document', 'documents']"
+      storage-key="documents"
       :data="documents.data.value ?? []"
       :columns="columns"
       :loading="documents.isFetching.value"
@@ -179,6 +161,15 @@ const columns: TableColumn<DocumentRow>[] = [
           />
         </div>
       </template>
+      <template #filters>
+        <USelect v-model="type" :items="typeItems" class="w-48" />
+      </template>
+      <template #footer>
+        <span v-if="settingsStore.settings" class="flex min-w-0 items-center gap-1 truncate">
+          <UIcon :name="icons.folder" class="size-3.5 shrink-0" />
+          {{ settingsStore.settings.documentsFolder }}
+        </span>
+      </template>
       <template #empty>
         <div class="flex flex-col items-center gap-2 py-10 text-center">
           <UIcon :name="icons.documents" class="text-dimmed size-10" />
@@ -187,6 +178,6 @@ const columns: TableColumn<DocumentRow>[] = [
           </p>
         </div>
       </template>
-    </UTable>
+    </DataTable>
   </PagePanel>
 </template>

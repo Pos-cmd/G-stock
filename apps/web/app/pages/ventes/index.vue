@@ -51,11 +51,15 @@ const views: TabsItem[] = [
       <UButton :icon="icons.plus" label="Nouvelle vente" @click="create.openSale()" />
     </template>
 
-    <template #toolbar>
-      <SalesFilters v-model="filters" :period-only="view === 'products'" />
-    </template>
-
-    <SalesTable v-if="view === 'sales'" :filters="filters" />
-    <ProductSalesTable v-else :from="filters.from" :to="filters.to" />
+    <SalesTable v-if="view === 'sales'" :filters="filters">
+      <template #filters>
+        <SalesFilters v-model="filters" />
+      </template>
+    </SalesTable>
+    <ProductSalesTable v-else :from="filters.from" :to="filters.to">
+      <template #filters>
+        <SalesFilters v-model="filters" period-only />
+      </template>
+    </ProductSalesTable>
   </PagePanel>
 </template>

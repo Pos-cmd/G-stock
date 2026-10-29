@@ -860,3 +860,91 @@ export const salesByHour = async (executor: Executor, now = new Date()) => {
   }
   return { currentHour: now.getHours(), today: todayHours, todayCount, yesterday: yesterdayHours };
 };
+
+const DAYS_PER_WEEK = 7;
+
+export type TrendGrouping = "customer" | "product";
+
+/**
+ * Ventes semaine par semaine, par produit ou par client : les `weeks` dernières semaines (la
+ * dernière finit aujourd'hui) et autant juste avant, pour comparer. Montants nets de remises par
+ * client, avant remises par produit (comme le résumé par produit).
+ */
+export const salesTrends = async (
+  executor: Executor,
+  by: TrendGrouping,
+  weeks: number,
+  now = new Date(),
+) => {
+  const today = startOfDay(now);
+  const since = new Date(today);
+  since.setDate(today.getDate() - (2 * weeks * DAYS_PER_WEEK - 1));
+  const conditions = [eq(sales.status, "active"), gte(sales.saleDate, since)];
+
+  const rows =
+    by === "product"
+      ? (
+          await executor
+            .select({
+              id: saleItems.productId,
+              qty: saleItems.qty,
+              saleDate: sales.saleDate,
+              unitPriceFcfa: saleItems.unitPriceFcfa,
+            })
+            .from(saleItems)
+            .innerJoin(sales, eq(sales.id, saleItems.saleId))
+            .where(and(...conditions))
+        ).map((row) => ({
+          amountFcfa: lineAmountFcfa(row.qty, row.unitPriceFcfa),
+          id: row.id,
+          qty: row.qty,
+          saleDate: row.saleDate,
+        }))
+      : (
+          await executor
+            .select({
+              discountFcfa: saleDiscountSql,
+              id: sales.customerId,
+              saleDate: sales.saleDate,
+              totalFcfa: sales.totalFcfa,
+            })
+            .from(sales)
+            .where(and(...conditions))
+        ).map((row) => ({
+          amountFcfa: row.totalFcfa - row.discountFcfa,
+          id: row.id,
+          qty: 1,
+          saleDate: row.saleDate,
+        }));
+
+  const series = new Map<
+    string,
+    { current: number[]; currentQty: number; id: string; previous: number[]; previousQty: number }
+  >();
+  for (const row of rows) {
+    const daysAgo = Math.round((today.getTime() - startOfDay(row.saleDate).getTime()) / 86_400_000);
+    const weekAgo = Math.floor(daysAgo / DAYS_PER_WEEK);
+    if (weekAgo < 0 || weekAgo >= 2 * weeks) {
+      continue;
+    }
+    const entry = series.get(row.id) ?? {
+      current: Array.from({ length: weeks }, () => 0),
+      currentQty: 0,
+      id: row.id,
+      previous: Array.from({ length: weeks }, () => 0),
+      previousQty: 0,
+    };
+    // Index 0 : la semaine la plus ancienne de la période.
+    if (weekAgo < weeks) {
+      const index = weeks - 1 - weekAgo;
+      entry.current[index] = (entry.current[index] ?? 0) + row.amountFcfa;
+      entry.currentQty = roundQty(entry.currentQty + row.qty);
+    } else {
+      const index = 2 * weeks - 1 - weekAgo;
+      entry.previous[index] = (entry.previous[index] ?? 0) + row.amountFcfa;
+      entry.previousQty = roundQty(entry.previousQty + row.qty);
+    }
+    series.set(row.id, entry);
+  }
+  return [...series.values()];
+};

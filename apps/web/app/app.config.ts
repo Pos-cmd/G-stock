@@ -60,6 +60,7 @@ const navigationIcons = {
   documents: "i-tabler-file-text",
   logo: "i-tabler-packages",
   notifications: "i-tabler-bell",
+  palette: "i-tabler-palette",
   lots: "i-tabler-stack-2",
   movements: "i-tabler-history",
   product: "i-tabler-package",
@@ -76,6 +77,7 @@ const navigationIcons = {
 const actionIcons = {
   archive: "i-tabler-archive",
   calculate: "i-tabler-calculator",
+  columns: "i-tabler-columns-3",
   cancel: "i-tabler-ban",
   customerAdd: "i-tabler-user-plus",
   download: "i-tabler-download",
@@ -86,6 +88,7 @@ const actionIcons = {
   productAdd: "i-tabler-square-rounded-plus",
   save: "i-tabler-device-floppy",
   send: "i-tabler-send",
+  shuffle: "i-tabler-arrows-shuffle",
   unarchive: "i-tabler-archive-off",
   undo: "i-tabler-arrow-back-up",
   whatsapp: "i-tabler-brand-whatsapp",
@@ -134,6 +137,8 @@ const salesIcons = {
   receivables: "i-tabler-coins",
   receivablesCritical: "i-tabler-urgent",
   revenue: "i-tabler-trending-up",
+  trendDown: "i-tabler-trending-down",
+  trendUp: "i-tabler-trending-up",
 };
 
 // Application : achats fournisseurs
@@ -239,6 +244,8 @@ export default defineAppConfig({
       },
       compoundVariants: [
         { active: false, disabled: false, to: true, class: { link: "hover:text-highlighted" } },
+        // La page en cours reste en gris foncé, quelle que soit la couleur du thème.
+        { active: true, color: "primary", class: { link: "text-highlighted" } },
       ],
     },
     dashboardSearchButton: { slots: { base: "text-muted" } },

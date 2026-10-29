@@ -92,6 +92,23 @@
   --app-shadow-overlay: 0 20px 44px -12px rgb(0 0 0 / 0.7), 0 4px 12px -4px rgb(0 0 0 / 0.4);
 }
 
+/* Polices du sélecteur de thème : citées ici pour que @nuxt/fonts les embarque. */
+.theme-font-geist {
+  font-family: "Geist", sans-serif;
+}
+.theme-font-dm-sans {
+  font-family: "DM Sans", sans-serif;
+}
+.theme-font-public-sans {
+  font-family: "Public Sans", sans-serif;
+}
+.theme-font-manrope {
+  font-family: "Manrope", sans-serif;
+}
+.theme-font-outfit {
+  font-family: "Outfit", sans-serif;
+}
+
 @layer base {
   body {
     font-feature-settings: "cv11";

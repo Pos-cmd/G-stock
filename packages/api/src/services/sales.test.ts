@@ -21,6 +21,7 @@ import {
   salesActivity,
   salesByHour,
   salesSummary,
+  salesTrends,
 } from "./sales";
 import { createLot } from "./stock";
 
@@ -448,6 +449,19 @@ describe("historique et fiche client", () => {
     expect(moussaDays.filter((day) => day.saleCount > 0).map((day) => day.date)).toEqual([
       "2026-03-10",
     ]);
+  });
+
+  it("donne la tendance par produit et par client, semaine par semaine", async () => {
+    const { awa, bazin, moussa } = await seedHistory();
+    const march10 = new Date(2026, 2, 10, 18);
+    // 2 semaines : du 25 février au 10 mars, et les 2 semaines d'avant.
+    const byProduct = await salesTrends(db, "product", 2, march10);
+    const bazinTrend = byProduct.find((row) => row.id === bazin.id);
+    expect(bazinTrend?.current).toEqual([4500, 0]);
+    expect(bazinTrend?.currentQty).toBe(6);
+    const byCustomer = await salesTrends(db, "customer", 2, march10);
+    expect(byCustomer.find((row) => row.id === moussa.id)?.current).toEqual([0, 1600]);
+    expect(byCustomer.find((row) => row.id === awa.id)?.currentQty).toBe(1);
   });
 
   it("répartit les ventes du jour et de la veille heure par heure", async () => {

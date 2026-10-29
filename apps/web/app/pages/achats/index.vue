@@ -6,6 +6,7 @@ import { PURCHASE_ORDER_STATUS_LABELS } from "@G-stock/core/labels";
 import type { TableColumn } from "@nuxt/ui";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
 
+import DataTable from "~/components/common/DataTable.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue";
 import type { PurchaseOrderRow } from "~/types/api";
@@ -16,13 +17,10 @@ const create = useCreateDialogs();
 useHead({ title: "Commandes fournisseurs" });
 
 const ALL = "all";
-const SEARCH_DEBOUNCE_MS = 300;
 
 const { $orpc } = useNuxtApp();
 const route = useRoute();
 
-const search = ref("");
-const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 const status = ref<PurchaseOrderStatus | typeof ALL>(ALL);
 // Lien « commandes de ce fournisseur » depuis la page Fournisseurs.
 const supplierId = ref<string | undefined>(
@@ -33,7 +31,6 @@ const orders = useQuery(
   computed(() => ({
     ...$orpc.purchases.list.queryOptions({
       input: {
-        search: debouncedSearch.value || null,
         status: status.value === ALL ? null : status.value,
         supplierId: supplierId.value ?? null,
       },
@@ -59,16 +56,32 @@ const totals = computed(() => {
   };
 });
 
+/** Part déjà payée au fournisseur, en FCFA. */
+const paidShare = (order: PurchaseOrderRow) => {
+  const due = order.payment.paidFcfa + order.payment.remainingFcfa;
+  return due > 0 ? Math.min(1, order.payment.paidFcfa / due) : 0;
+};
+const feesShare = (order: PurchaseOrderRow) =>
+  order.totalFcfa > 0 ? Math.round((order.feesFcfa / order.totalFcfa) * 100) : 0;
+const orderSearchText = (order: PurchaseOrderRow) =>
+  `${order.reference} ${order.supplierName ?? ""} ${order.notes ?? ""}`;
+const plural = (count: number, word: string) => `${count} ${word}${count > 1 ? "s" : ""}`;
+
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns: TableColumn<PurchaseOrderRow>[] = [
-  { accessorKey: "reference", header: "Commande" },
+  { accessorKey: "reference", enableHiding: false, header: "Commande" },
   { accessorKey: "orderDate", header: "Date" },
-  { accessorKey: "supplierName", header: "Fournisseur" },
   { accessorKey: "status", header: "Statut" },
   { accessorKey: "goodsAmount", header: "Marchandise", meta: rightAligned },
-  { accessorKey: "feesFcfa", header: "Frais", meta: rightAligned },
   { accessorKey: "totalFcfa", header: "Prix de revient", meta: rightAligned },
-  { id: "payment", header: "Paiement", meta: rightAligned },
+  {
+    accessorFn: (order) =>
+      order.status === "cancelled" || (order.status === "draft" && order.payment.paidFcfa === 0)
+        ? -1
+        : order.payment.remainingFcfa,
+    header: "Paiement",
+    id: "payment",
+  },
 ];
 </script>
 
@@ -83,53 +96,52 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
       <UButton :icon="icons.plus" label="Nouvelle commande" @click="create.openPurchase()" />
     </template>
 
-    <template #toolbar>
-      <div class="flex w-full flex-wrap items-center gap-2 py-1">
-        <UInput
-          v-model="search"
-          :icon="icons.search"
-          placeholder="Référence, fournisseur, notes…"
-          class="w-full sm:w-72"
-        />
-        <UFieldGroup>
-          <USelect v-model="status" :items="statusItems" class="w-44" />
-          <USelectMenu
-            v-model="supplierId"
-            :items="supplierItems"
-            value-key="value"
-            placeholder="Tous les fournisseurs"
-            :search-input="{ placeholder: 'Rechercher…' }"
-            clear
-            class="w-56"
-          />
-        </UFieldGroup>
-      </div>
-    </template>
-
     <div class="space-y-3">
-      <UTable :data="orders.data.value ?? []" :columns="columns" :loading="orders.isFetching.value">
+      <DataTable
+        :data="orders.data.value ?? []"
+        :columns="columns"
+        :loading="orders.isFetching.value"
+        :search-text="orderSearchText"
+        search-placeholder="Référence, fournisseur, notes…"
+        :item-label="['commande', 'commandes']"
+        storage-key="purchases"
+      >
+        <template #filters>
+          <UFieldGroup>
+            <USelect v-model="status" :items="statusItems" class="w-40" />
+            <USelectMenu
+              v-model="supplierId"
+              :items="supplierItems"
+              value-key="value"
+              placeholder="Tous les fournisseurs"
+              :search-input="{ placeholder: 'Rechercher…' }"
+              clear
+              class="w-56"
+            />
+          </UFieldGroup>
+        </template>
+
         <template #reference-cell="{ row }">
-          <NuxtLink :to="`/achats/${row.original.id}`" class="group block">
-            <span class="text-highlighted font-mono text-sm font-medium group-hover:underline">
+          <NuxtLink :to="`/achats/${row.original.id}`" class="group block min-w-40">
+            <span class="text-highlighted font-mono text-[13px] font-medium group-hover:underline">
               {{ row.original.reference }}
             </span>
             <p class="text-dimmed text-xs">
-              {{ row.original.itemCount }} ligne{{ row.original.itemCount > 1 ? "s" : "" }}
+              {{ row.original.supplierName ?? "Sans fournisseur" }} ·
+              {{ plural(row.original.itemCount, "ligne") }}
             </p>
           </NuxtLink>
         </template>
 
         <template #orderDate-cell="{ row }">
           {{ formatDate(row.original.orderDate) }}
-          <p v-if="row.original.receivedAt" class="text-dimmed text-xs">
-            reçue le {{ formatDate(row.original.receivedAt) }}
+          <p class="text-dimmed text-xs">
+            {{
+              row.original.receivedAt
+                ? `reçue le ${formatDate(row.original.receivedAt)}`
+                : formatDaysAgo(row.original.orderDate)
+            }}
           </p>
-        </template>
-
-        <template #supplierName-cell="{ row }">
-          <span :class="row.original.supplierName ? '' : 'text-dimmed'">
-            {{ row.original.supplierName ?? "—" }}
-          </span>
         </template>
 
         <template #status-cell="{ row }">
@@ -148,41 +160,43 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
           </p>
         </template>
 
-        <template #feesFcfa-cell="{ row }">
-          <span class="text-muted tabular-nums">{{ formatFcfa(row.original.feesFcfa) }}</span>
-        </template>
-
         <template #totalFcfa-cell="{ row }">
           <span class="text-highlighted font-semibold tabular-nums">{{
             formatFcfa(row.original.totalFcfa)
           }}</span>
+          <p class="text-dimmed text-xs tabular-nums">
+            dont {{ feesShare(row.original) }} % de frais
+          </p>
         </template>
 
         <template #payment-cell="{ row }">
-          <template v-if="row.original.status === 'cancelled'">
-            <span class="text-dimmed">—</span>
-          </template>
-          <UBadge
-            v-else-if="row.original.payment.isPaid"
-            color="success"
-            variant="subtle"
-            label="Soldée"
-          />
-          <template v-else>
-            <span class="tabular-nums"
-              >Reste
-              {{
-                formatCurrency(row.original.payment.remainingAmount, row.original.currency)
-              }}</span
-            >
-            <p class="text-dimmed text-xs tabular-nums">
-              {{
-                row.original.payment.paidFcfa > 0
-                  ? `${formatFcfa(row.original.payment.paidFcfa)} versés`
-                  : "Aucun versement"
-              }}
+          <span v-if="row.original.status === 'cancelled'" class="text-dimmed">—</span>
+          <span
+            v-else-if="row.original.status === 'draft' && row.original.payment.paidFcfa === 0"
+            class="text-dimmed text-xs"
+          >
+            Pas encore engagée
+          </span>
+          <div v-else class="w-36 space-y-1">
+            <div class="bg-accented/60 h-1.5 overflow-hidden rounded-full">
+              <div
+                class="h-full rounded-full"
+                :class="row.original.payment.isPaid ? 'bg-success' : 'bg-(--ui-chart-1)'"
+                :style="{ width: `${paidShare(row.original) * 100}%` }"
+              />
+            </div>
+            <p class="text-xs tabular-nums">
+              <span v-if="row.original.payment.isPaid" class="text-success">Soldée</span>
+              <span v-else-if="row.original.payment.paidFcfa === 0" class="text-muted">
+                Rien versé · reste
+                {{ formatCurrency(row.original.payment.remainingAmount, row.original.currency) }}
+              </span>
+              <span v-else class="text-warning">
+                Reste
+                {{ formatCurrency(row.original.payment.remainingAmount, row.original.currency) }}
+              </span>
             </p>
-          </template>
+          </div>
         </template>
 
         <template #empty>
@@ -197,7 +211,7 @@ const columns: TableColumn<PurchaseOrderRow>[] = [
             />
           </div>
         </template>
-      </UTable>
+      </DataTable>
     </div>
   </PagePanel>
 </template>

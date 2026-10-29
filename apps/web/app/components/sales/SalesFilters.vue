@@ -9,7 +9,7 @@ const icons = useIcons();
 /** Filtres de l'historique : recherche, période (avec raccourcis), produit, statut, paiement. */
 const {
   periodOnly = false,
-  showSearch = true,
+  showSearch = false,
   showStatus = true,
 } = defineProps<{
   showSearch?: boolean;
@@ -50,7 +50,7 @@ const hasFilters = computed(() => {
 </script>
 
 <template>
-  <div class="flex w-full flex-wrap items-center gap-2 py-1">
+  <div class="flex flex-wrap items-center gap-2">
     <UInput
       v-if="showSearch && !periodOnly"
       v-model="filters.search"

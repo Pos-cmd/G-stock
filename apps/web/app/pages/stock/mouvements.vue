@@ -61,8 +61,8 @@ const resetFilters = () => {
     title="Mouvements de stock"
     description="Chaque entrée, sortie et correction de stock, lot par lot."
   >
-    <template #toolbar>
-      <div class="flex w-full flex-wrap items-center gap-2 py-1">
+    <MovementsTable :filters="filters">
+      <template #filters>
         <UFieldGroup>
           <USelectMenu
             v-model="productId"
@@ -84,9 +84,7 @@ const resetFilters = () => {
           label="Réinitialiser"
           @click="resetFilters"
         />
-      </div>
-    </template>
-
-    <MovementsTable :filters="filters" />
+      </template>
+    </MovementsTable>
   </PagePanel>
 </template>

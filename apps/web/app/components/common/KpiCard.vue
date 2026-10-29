@@ -85,9 +85,10 @@ const trendIsGood = computed(() => trend !== null && trend >= 0 !== trendInverte
     </div>
     <USkeleton v-if="loading" class="h-8 w-32" />
     <div v-else class="flex items-baseline gap-2">
-      <span class="text-highlighted text-[1.75rem]/9 font-semibold tracking-tight tabular-nums">{{
-        value
-      }}</span>
+      <span
+        class="text-highlighted text-[clamp(1.25rem,1.6vw,1.75rem)]/9 font-semibold tracking-tight whitespace-nowrap tabular-nums"
+        >{{ value }}</span
+      >
       <UBadge v-if="upcoming" color="neutral" variant="subtle" size="sm">À venir</UBadge>
     </div>
     <p v-if="hint" class="text-muted text-xs">{{ hint }}</p>

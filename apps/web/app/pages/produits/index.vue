@@ -5,7 +5,12 @@ import { formatFcfa, formatQty } from "@G-stock/core/format";
 import type { DropdownMenuItem, TableColumn, TabsItem } from "@nuxt/ui";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/vue-query";
 
+import PeriodTabs from "~/components/charts/PeriodTabs.vue";
+import Sparkline from "~/components/charts/Sparkline.vue";
+import TrendLegend from "~/components/charts/TrendLegend.vue";
+import TrendValue from "~/components/charts/TrendValue.vue";
 import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
+import DataTable from "~/components/common/DataTable.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import ProductFormModal from "~/components/products/ProductFormModal.vue";
 import StockStatusBadge from "~/components/products/StockStatusBadge.vue";
@@ -17,14 +22,11 @@ const icons = useIcons();
 useHead({ title: "Produits" });
 
 const ALL = "all";
-const SEARCH_DEBOUNCE_MS = 300;
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();
 const invalidateStock = useInvalidateStock();
 
-const search = ref("");
-const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 const category = ref<string>(ALL);
 
 // Statut choisi par les onglets ; `?statut=low` (alertes) les ouvre sur le stock bas.
@@ -46,7 +48,6 @@ const products = useQuery(
       input: {
         category: category.value === ALL ? null : category.value,
         includeArchived: includeArchived.value,
-        search: debouncedSearch.value || null,
         status: status.value === ALL ? null : status.value,
       },
     }),
@@ -177,21 +178,79 @@ const rowActions = (product: ProductRow): DropdownMenuItem[][] => [
   ],
 ];
 
+// Ventes de chaque produit sur la période choisie, comparées à la précédente.
+const weeks = ref<TrendPeriod>(13);
+const trends = useQuery(
+  computed(() => ({
+    ...$orpc.sales.trends.queryOptions({ input: { by: "product", weeks: weeks.value } }),
+    placeholderData: keepPreviousData,
+  })),
+);
+const trendsById = computed(() => new Map((trends.data.value ?? []).map((row) => [row.id, row])));
+
+/** Couverture : jours de vente que le stock tient au rythme de la période. */
+const COVERAGE_FULL_DAYS = 90;
+const coverageClass = (days: number | null) => {
+  if (days === null) {
+    return "bg-accented";
+  }
+  if (days < 15) {
+    return "bg-error";
+  }
+  return days < 30 ? "bg-warning" : "bg-success";
+};
+
+const rows = computed(() =>
+  (products.data.value ?? []).map((product) => {
+    const trend = trendsById.value.get(product.id);
+    const revenueFcfa = sumOf(trend?.current ?? [], (value) => value);
+    const perDay = (trend?.currentQty ?? 0) / (weeks.value * 7);
+    return {
+      ...product,
+      coverageDays: perDay > 0 ? Math.round(product.stockQty / perDay) : null,
+      previous: trend?.previous ?? [],
+      revenueFcfa,
+      revenueTrend: trendRatio(
+        revenueFcfa,
+        sumOf(trend?.previous ?? [], (value) => value),
+      ),
+      soldQty: trend?.currentQty ?? 0,
+      weekly: trend?.current ?? [],
+    };
+  }),
+);
+type Row = (typeof rows.value)[number];
+
+const unitMarginRate = (row: Row) =>
+  row.suggestedSalePriceFcfa && row.stockQty > 0
+    ? formatMarginRate(row.suggestedSalePriceFcfa - row.averageCostFcfa, row.suggestedSalePriceFcfa)
+    : null;
+const coverageWidth = (row: Row) =>
+  `${Math.min(100, ((row.coverageDays ?? 0) / COVERAGE_FULL_DAYS) * 100)}%`;
+const coverageText = (row: Row) => {
+  if (row.coverageDays === null) {
+    return `Pas de ventes · seuil ${formatQty(row.alertThreshold)}`;
+  }
+  return `≈ ${row.coverageDays} j · seuil ${formatQty(row.alertThreshold)}`;
+};
+const productSearchText = (row: Row) => `${row.name} ${row.reference ?? ""} ${row.category ?? ""}`;
+
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 
-const columns: TableColumn<ProductRow>[] = [
-  { accessorKey: "name", header: "Produit" },
-  { accessorKey: "category", header: "Catégorie" },
-  { accessorKey: "stockQty", header: "Stock", meta: rightAligned },
-  { accessorKey: "status", header: "Statut" },
-  { accessorKey: "averageCostFcfa", header: "Coût moyen", meta: rightAligned },
-  { accessorKey: "stockValueFcfa", header: "Valeur stock", meta: rightAligned },
+const columns: TableColumn<Row>[] = [
+  { accessorKey: "name", enableHiding: false, header: "Produit" },
+  { accessorKey: "revenueFcfa", header: "Ventes", meta: rightAligned },
   {
-    accessorKey: "suggestedSalePriceFcfa",
-    header: "Prix conseillé",
-    meta: rightAligned,
+    enableSorting: false,
+    header: "Tendance",
+    id: "trend",
+    meta: { class: { td: "w-36 min-w-28" } },
   },
-  { header: "", id: "actions", meta: rightAligned },
+  { accessorKey: "stockQty", header: "Stock", meta: rightAligned },
+  { accessorKey: "coverageDays", header: "Couverture", sortUndefined: "last" },
+  { accessorKey: "stockValueFcfa", header: "Valeur stock", meta: rightAligned },
+  { accessorKey: "suggestedSalePriceFcfa", header: "Prix conseillé", meta: rightAligned },
+  { enableHiding: false, header: "", id: "actions", meta: rightAligned },
 ];
 </script>
 
@@ -208,109 +267,129 @@ const columns: TableColumn<ProductRow>[] = [
       <UButton :icon="icons.plus" label="Nouveau produit" @click="openCreate" />
     </template>
 
-    <template #toolbar>
-      <div class="flex w-full flex-wrap items-center gap-2 py-1">
-        <UFieldGroup class="w-full sm:w-auto">
-          <UInput
-            v-model="search"
-            :icon="icons.search"
-            placeholder="Rechercher un produit, une référence…"
-            class="min-w-0 flex-1 sm:w-72 sm:flex-none"
+    <DataTable
+      :data="rows"
+      :columns="columns"
+      :loading="products.isFetching.value"
+      :search-text="productSearchText"
+      search-placeholder="Produit, référence, catégorie…"
+      :initial-sorting="[{ desc: true, id: 'revenueFcfa' }]"
+      :item-label="['produit', 'produits']"
+      storage-key="products"
+    >
+      <template #filters>
+        <USelect v-model="category" :items="categoryItems" class="w-48" />
+        <USwitch v-model="includeArchived" label="Archivés" />
+      </template>
+      <template #toolbar>
+        <PeriodTabs v-model="weeks" />
+      </template>
+
+      <template #name-cell="{ row }">
+        <NuxtLink :to="`/produits/${row.original.id}`" class="group block min-w-44">
+          <span class="text-highlighted font-medium group-hover:underline">{{
+            row.original.name
+          }}</span>
+          <UBadge
+            v-if="row.original.archivedAt"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            class="ms-2"
+          >
+            Archivé
+          </UBadge>
+          <p class="text-dimmed text-xs">
+            {{ [row.original.reference, row.original.category].filter(Boolean).join(" · ") || "—" }}
+          </p>
+        </NuxtLink>
+      </template>
+
+      <template #revenueFcfa-cell="{ row }">
+        <template v-if="row.original.revenueFcfa > 0">
+          <TrendValue
+            :value="formatFcfa(row.original.revenueFcfa)"
+            :ratio="row.original.revenueTrend"
           />
-          <USelect v-model="category" :items="categoryItems" class="w-48" />
-        </UFieldGroup>
-        <USwitch v-model="includeArchived" label="Afficher les archivés" class="ms-auto" />
-      </div>
-    </template>
-
-    <div class="space-y-3">
-      <UTable
-        :data="products.data.value ?? []"
-        :columns="columns"
-        :loading="products.isFetching.value"
-      >
-        <template #name-cell="{ row }">
-          <NuxtLink :to="`/produits/${row.original.id}`" class="group block">
-            <span class="text-highlighted font-medium group-hover:underline">{{
-              row.original.name
-            }}</span>
-            <UBadge
-              v-if="row.original.archivedAt"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              class="ms-2"
-            >
-              Archivé
-            </UBadge>
-            <p v-if="row.original.reference" class="text-dimmed text-xs">
-              {{ row.original.reference }}
-            </p>
-          </NuxtLink>
+          <p class="text-dimmed text-xs tabular-nums">
+            {{ formatQty(row.original.soldQty, row.original.unit) }} vendus
+          </p>
         </template>
+        <span v-else class="text-dimmed">Aucune vente</span>
+      </template>
 
-        <template #category-cell="{ row }">
-          <span class="text-muted">{{ row.original.category ?? "—" }}</span>
-        </template>
+      <template #trend-cell="{ row }">
+        <Sparkline
+          v-if="row.original.weekly.length > 0"
+          :values="row.original.weekly"
+          :compare="row.original.previous"
+        />
+        <span v-else class="text-dimmed text-xs">—</span>
+      </template>
 
-        <template #stockQty-cell="{ row }">
-          <span class="font-medium tabular-nums">{{
-            formatQty(row.original.stockQty, row.original.unit)
-          }}</span>
-          <p class="text-dimmed text-xs">seuil {{ formatQty(row.original.alertThreshold) }}</p>
-        </template>
+      <template #stockQty-cell="{ row }">
+        <span class="font-medium tabular-nums">{{
+          formatQty(row.original.stockQty, row.original.unit)
+        }}</span>
+        <div class="mt-0.5"><StockStatusBadge :status="row.original.status" /></div>
+      </template>
 
-        <template #status-cell="{ row }">
-          <StockStatusBadge :status="row.original.status" />
-        </template>
-
-        <template #averageCostFcfa-cell="{ row }">
-          <span class="tabular-nums">{{
-            row.original.stockQty > 0 ? formatFcfa(row.original.averageCostFcfa) : "—"
-          }}</span>
-        </template>
-
-        <template #stockValueFcfa-cell="{ row }">
-          <span class="font-medium tabular-nums">{{
-            formatFcfa(row.original.stockValueFcfa)
-          }}</span>
-        </template>
-
-        <template #suggestedSalePriceFcfa-cell="{ row }">
-          <span class="tabular-nums">
-            {{
-              row.original.suggestedSalePriceFcfa === null
-                ? "—"
-                : formatFcfa(row.original.suggestedSalePriceFcfa)
-            }}
-          </span>
-        </template>
-
-        <template #actions-cell="{ row }">
-          <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
-            <UButton
-              :icon="icons.moreActions"
-              color="neutral"
-              variant="ghost"
-              :aria-label="`Actions pour ${row.original.name}`"
-            />
-          </UDropdownMenu>
-        </template>
-
-        <template #empty>
-          <div class="flex flex-col items-center gap-3 py-10 text-center">
-            <UIcon :name="icons.products" class="text-dimmed size-10" />
-            <p class="text-muted">Aucun produit ne correspond à ces critères.</p>
-            <UButton
-              variant="soft"
-              :icon="icons.plus"
-              label="Créer un produit"
-              @click="openCreate"
+      <template #coverageDays-cell="{ row }">
+        <div class="w-28 space-y-1">
+          <div class="bg-accented/60 h-1.5 overflow-hidden rounded-full">
+            <div
+              class="h-full rounded-full"
+              :class="coverageClass(row.original.coverageDays)"
+              :style="{ width: coverageWidth(row.original) }"
             />
           </div>
-        </template>
-      </UTable>
-    </div>
+          <p class="text-muted text-xs tabular-nums">{{ coverageText(row.original) }}</p>
+        </div>
+      </template>
+
+      <template #stockValueFcfa-cell="{ row }">
+        <span class="font-medium tabular-nums">{{ formatFcfa(row.original.stockValueFcfa) }}</span>
+        <p v-if="row.original.stockQty > 0" class="text-dimmed text-xs tabular-nums">
+          {{ formatFcfa(row.original.averageCostFcfa) }} / {{ row.original.unit }}
+        </p>
+      </template>
+
+      <template #suggestedSalePriceFcfa-cell="{ row }">
+        <span class="tabular-nums">
+          {{
+            row.original.suggestedSalePriceFcfa === null
+              ? "—"
+              : formatFcfa(row.original.suggestedSalePriceFcfa)
+          }}
+        </span>
+        <p v-if="unitMarginRate(row.original)" class="text-dimmed text-xs tabular-nums">
+          marge {{ unitMarginRate(row.original) }}
+        </p>
+      </template>
+
+      <template #actions-cell="{ row }">
+        <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
+          <UButton
+            :icon="icons.moreActions"
+            color="neutral"
+            variant="ghost"
+            :aria-label="`Actions pour ${row.original.name}`"
+          />
+        </UDropdownMenu>
+      </template>
+
+      <template #empty>
+        <div class="flex flex-col items-center gap-3 py-10 text-center">
+          <UIcon :name="icons.products" class="text-dimmed size-10" />
+          <p class="text-muted">Aucun produit ne correspond à ces critères.</p>
+          <UButton variant="soft" :icon="icons.plus" label="Créer un produit" @click="openCreate" />
+        </div>
+      </template>
+
+      <template #footer>
+        <TrendLegend :weeks="weeks" />
+      </template>
+    </DataTable>
 
     <ProductFormModal v-model:open="formOpen" :product="editedProduct" />
     <LotEntryModal v-model:open="entryOpen" :product="entryProduct" />

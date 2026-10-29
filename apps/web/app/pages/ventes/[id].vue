@@ -4,6 +4,7 @@ import { PAYMENT_METHOD_LABELS, PAYMENT_TYPE_LABELS } from "@G-stock/core/labels
 import type { DropdownMenuItem, TableColumn } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 
+import DataTable from "~/components/common/DataTable.vue";
 import ReasonDialog from "~/components/common/ReasonDialog.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import DiscountModal from "~/components/sales/DiscountModal.vue";
@@ -268,7 +269,14 @@ const columns: TableColumn<SaleItem>[] = [
         </UPageCard>
       </div>
 
-      <UTable :data="data.items" :columns="columns">
+      <DataTable
+        title="Articles vendus"
+        :data="data.items"
+        :columns="columns"
+        :searchable="false"
+        :item-label="['article', 'articles']"
+        storage-key="sale-lines"
+      >
         <template #productName-cell="{ row }">
           <NuxtLink
             :to="`/produits/${row.original.productId}`"
@@ -308,7 +316,7 @@ const columns: TableColumn<SaleItem>[] = [
             </p>
           </div>
         </template>
-      </UTable>
+      </DataTable>
 
       <div class="grid gap-6 lg:grid-cols-2">
         <UPageCard variant="subtle" title="Remises" :icon="icons.discount">

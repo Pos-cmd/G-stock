@@ -3,6 +3,7 @@ import { formatDate, formatFcfa, formatQty } from "@G-stock/core/format";
 import type { TableColumn } from "@nuxt/ui";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
 
+import DataTable from "~/components/common/DataTable.vue";
 import KpiCard from "~/components/common/KpiCard.vue";
 import SaleStatusBadge from "~/components/sales/SaleStatusBadge.vue";
 import type { SaleRow } from "~/types/api";
@@ -20,23 +21,24 @@ const {
   showCustomer?: boolean;
 }>();
 
-const PAGE_SIZE = 25;
+defineSlots<{ filters?: () => unknown }>();
+
 const SEARCH_DEBOUNCE_MS = 300;
 
 const { $orpc } = useNuxtApp();
 const page = ref(1);
-const debouncedSearch = refDebounced(
-  toRef(() => filters.search),
-  SEARCH_DEBOUNCE_MS,
-);
+const pageSize = ref(25);
+// La recherche se tape dans le tableau ; le serveur cherche (référence, client).
+const search = ref(filters.search);
+const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 
 const input = computed(() => ({
   ...toSaleListInput({ ...filters, search: debouncedSearch.value }, customerId ?? undefined),
   page: page.value,
-  pageSize: PAGE_SIZE,
+  pageSize: pageSize.value,
 }));
 watch(
-  () => JSON.stringify({ ...input.value, page: 0 }),
+  () => JSON.stringify({ ...input.value, page: 0, pageSize: 0 }),
   () => {
     page.value = 1;
   },
@@ -63,12 +65,10 @@ const linesLabel = (sale: SaleRow) => {
 
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns = computed<TableColumn<SaleRow>[]>(() => [
-  { accessorKey: "reference", header: "Vente" },
-  { accessorKey: "saleDate", header: "Date" },
+  { accessorKey: "reference", enableHiding: false, header: "Vente" },
   ...(showCustomer ? [{ accessorKey: "customerName", header: "Client" }] : []),
   { accessorKey: "lines", header: "Articles" },
   { accessorKey: "netFcfa", header: "Montant", meta: rightAligned },
-  { accessorKey: "marginFcfa", header: "Marge", meta: rightAligned },
   { accessorKey: "dueFcfa", header: "Reste dû", meta: rightAligned },
   { accessorKey: "status", header: "Statut" },
 ]);
@@ -109,21 +109,30 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
       />
     </div>
 
-    <UTable
+    <DataTable
+      v-model:page="page"
+      v-model:page-size="pageSize"
+      v-model:search="search"
+      :total="sales.data.value?.total ?? 0"
+      search-placeholder="N° de vente, client…"
+      :item-label="['vente', 'ventes']"
+      storage-key="sales"
       :data="sales.data.value?.items ?? []"
       :columns="columns"
       :loading="sales.isFetching.value"
     >
-      <template #reference-cell="{ row }">
-        <NuxtLink
-          :to="`/ventes/${row.original.id}`"
-          class="text-highlighted font-mono text-sm font-medium hover:underline"
-        >
-          {{ row.original.reference }}
-        </NuxtLink>
+      <template v-if="$slots.filters" #filters>
+        <slot name="filters" />
       </template>
-      <template #saleDate-cell="{ row }">
-        {{ formatDate(row.original.saleDate) }}
+      <template #reference-cell="{ row }">
+        <NuxtLink :to="`/ventes/${row.original.id}`" class="group block">
+          <span class="text-highlighted font-mono text-[13px] font-medium group-hover:underline">
+            {{ row.original.reference }}
+          </span>
+          <p class="text-dimmed text-xs">
+            {{ formatDate(row.original.saleDate) }} · {{ formatDaysAgo(row.original.saleDate) }}
+          </p>
+        </NuxtLink>
       </template>
       <template #customerName-cell="{ row }">
         <NuxtLink :to="`/clients/${row.original.customerId}`" class="hover:underline">
@@ -142,16 +151,13 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
         >
           {{ formatFcfa(row.original.netFcfa) }}
         </span>
-      </template>
-      <template #marginFcfa-cell="{ row }">
-        <span
+        <p
           v-if="row.original.status === 'active'"
-          class="tabular-nums"
-          :class="row.original.marginFcfa < 0 ? 'text-error' : 'text-muted'"
+          class="text-xs tabular-nums"
+          :class="row.original.marginFcfa < 0 ? 'text-error' : 'text-dimmed'"
         >
-          {{ formatFcfa(row.original.marginFcfa) }}
-        </span>
-        <span v-else class="text-dimmed">—</span>
+          marge {{ formatFcfa(row.original.marginFcfa) }}
+        </p>
       </template>
       <template #dueFcfa-cell="{ row }">
         <span v-if="row.original.dueFcfa > 0" class="text-warning font-medium tabular-nums">
@@ -168,14 +174,6 @@ const columns = computed<TableColumn<SaleRow>[]>(() => [
           <p class="text-muted">Aucune vente ne correspond à ces critères.</p>
         </div>
       </template>
-    </UTable>
-
-    <div v-if="(sales.data.value?.total ?? 0) > PAGE_SIZE" class="flex justify-end">
-      <UPagination
-        v-model:page="page"
-        :total="sales.data.value?.total ?? 0"
-        :items-per-page="PAGE_SIZE"
-      />
-    </div>
+    </DataTable>
   </div>
 </template>

@@ -4,6 +4,7 @@ import type { TableColumn, TabsItem } from "@nuxt/ui";
 import { useQuery } from "@tanstack/vue-query";
 
 import ActivityHeatmap from "~/components/charts/ActivityHeatmap.vue";
+import DataTable from "~/components/common/DataTable.vue";
 import KpiCard from "~/components/common/KpiCard.vue";
 import LiveSalesCard from "~/components/dashboard/LiveSalesCard.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
@@ -283,41 +284,42 @@ const columns: TableColumn<ProductRow>[] = [
         />
       </div>
 
-      <UPageCard
+      <DataTable
         title="À réapprovisionner"
         description="Produits en rupture ou sous leur seuil d'alerte."
-        variant="subtle"
+        :searchable="false"
+        :item-label="['produit', 'produits']"
+        storage-key="restock"
+        :data="toRestock"
+        :columns="columns"
+        :loading="products.isFetching.value"
       >
-        <UTable :data="toRestock" :columns="columns" :loading="products.isFetching.value">
-          <template #name-cell="{ row }">
-            <NuxtLink
-              :to="`/produits/${row.original.id}`"
-              class="text-highlighted font-medium hover:underline"
-            >
-              {{ row.original.name }}
-            </NuxtLink>
-          </template>
-          <template #stockQty-cell="{ row }">
-            <span class="tabular-nums">{{
-              formatQty(row.original.stockQty, row.original.unit)
-            }}</span>
-          </template>
-          <template #alertThreshold-cell="{ row }">
-            <span class="text-muted tabular-nums">{{
-              formatQty(row.original.alertThreshold)
-            }}</span>
-          </template>
-          <template #status-cell="{ row }">
-            <StockStatusBadge :status="row.original.status" />
-          </template>
-          <template #empty>
-            <div class="text-muted flex items-center justify-center gap-2 py-6">
-              <UIcon :name="icons.success" class="text-success size-5" />
-              Tous les produits sont au-dessus de leur seuil.
-            </div>
-          </template>
-        </UTable>
-      </UPageCard>
+        <template #name-cell="{ row }">
+          <NuxtLink
+            :to="`/produits/${row.original.id}`"
+            class="text-highlighted font-medium hover:underline"
+          >
+            {{ row.original.name }}
+          </NuxtLink>
+        </template>
+        <template #stockQty-cell="{ row }">
+          <span class="tabular-nums">{{
+            formatQty(row.original.stockQty, row.original.unit)
+          }}</span>
+        </template>
+        <template #alertThreshold-cell="{ row }">
+          <span class="text-muted tabular-nums">{{ formatQty(row.original.alertThreshold) }}</span>
+        </template>
+        <template #status-cell="{ row }">
+          <StockStatusBadge :status="row.original.status" />
+        </template>
+        <template #empty>
+          <div class="text-muted flex items-center justify-center gap-2 py-6">
+            <UIcon :name="icons.success" class="text-success size-5" />
+            Tous les produits sont au-dessus de leur seuil.
+          </div>
+        </template>
+      </DataTable>
     </div>
   </PagePanel>
 </template>

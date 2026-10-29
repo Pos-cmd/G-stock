@@ -6,6 +6,7 @@ import type { TableColumn, TabsItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 
 import SalesInsights from "~/components/charts/SalesInsights.vue";
+import DataTable from "~/components/common/DataTable.vue";
 import KpiCard from "~/components/common/KpiCard.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import ProductFormModal from "~/components/products/ProductFormModal.vue";
@@ -364,12 +365,18 @@ const lotColumns: TableColumn<StockLot>[] = [
       <UTabs :items="tabs">
         <template #lots>
           <div class="space-y-3 pt-2">
-            <USwitch v-model="showEmptyLots" label="Afficher les lots épuisés" />
-            <UTable
+            <DataTable
+              search-placeholder="Lot, commande…"
+              :initial-sorting="[{ desc: true, id: 'receivedAt' }]"
+              :item-label="['lot', 'lots']"
+              storage-key="product-lots"
               :data="lots.data.value ?? []"
               :columns="lotColumns"
               :loading="lots.isFetching.value"
             >
+              <template #filters>
+                <USwitch v-model="showEmptyLots" label="Lots épuisés" />
+              </template>
               <template #lotCode-cell="{ row }">
                 <span class="font-mono text-xs">{{ row.original.lotCode }}</span>
                 <p v-if="row.original.notes" class="text-dimmed line-clamp-1 max-w-56 text-xs">
@@ -433,7 +440,7 @@ const lotColumns: TableColumn<StockLot>[] = [
                   />
                 </div>
               </template>
-            </UTable>
+            </DataTable>
           </div>
         </template>
 

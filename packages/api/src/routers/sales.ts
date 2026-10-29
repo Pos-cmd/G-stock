@@ -26,9 +26,11 @@ import {
   salesActivity,
   salesByHour,
   salesSummary,
+  salesTrends,
 } from "../services/sales";
 
 const MAX_ACTIVITY_DAYS = 731;
+const MAX_TREND_WEEKS = 52;
 
 export const salesRouter = {
   activity: protectedProcedure
@@ -78,6 +80,15 @@ export const salesRouter = {
     .handler(({ context, input }) => quoteSale(context.db, input.lines)),
 
   summary: protectedProcedure.handler(({ context }) => salesSummary(context.db)),
+
+  trends: protectedProcedure
+    .input(
+      z.object({
+        by: z.enum(["customer", "product"]),
+        weeks: z.number().int().min(1).max(MAX_TREND_WEEKS),
+      }),
+    )
+    .handler(({ context, input }) => salesTrends(context.db, input.by, input.weeks)),
 };
 
 export const paymentsRouter = {

@@ -4,6 +4,7 @@ import type { DropdownMenuItem, TableColumn } from "@nuxt/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 
 import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
+import DataTable from "~/components/common/DataTable.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import type { SimulationRow } from "~/types/api";
 
@@ -92,16 +93,19 @@ const rowActions = (simulation: SimulationRow): DropdownMenuItem[][] => [
 
 const percent = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1, style: "percent" });
 
+const simulationSearchText = (simulation: SimulationRow) =>
+  `${simulation.name} ${simulation.orderReference ?? ""}`;
+
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns: TableColumn<SimulationRow>[] = [
   { header: "", id: "select" },
-  { accessorKey: "name", header: "Simulation" },
+  { accessorKey: "name", enableHiding: false, header: "Simulation" },
   { accessorKey: "updatedAt", header: "Modifiée" },
   { accessorKey: "totalCostFcfa", header: "Prix de revient", meta: rightAligned },
   { accessorKey: "revenueFcfa", header: "CA prévu", meta: rightAligned },
   { accessorKey: "marginFcfa", header: "Marge", meta: rightAligned },
   { accessorKey: "orderReference", header: "Commande" },
-  { header: "", id: "actions", meta: rightAligned },
+  { enableHiding: false, header: "", id: "actions", meta: rightAligned },
 ];
 </script>
 
@@ -122,7 +126,12 @@ const columns: TableColumn<SimulationRow>[] = [
       <UButton :icon="icons.plus" label="Nouvelle simulation" @click="create.openSimulation" />
     </template>
 
-    <UTable
+    <DataTable
+      :search-text="simulationSearchText"
+      search-placeholder="Nom, commande…"
+      :initial-sorting="[{ desc: true, id: 'updatedAt' }]"
+      :item-label="['simulation', 'simulations']"
+      storage-key="simulations"
       :data="simulations.data.value ?? []"
       :columns="columns"
       :loading="simulations.isFetching.value"
@@ -200,7 +209,7 @@ const columns: TableColumn<SimulationRow>[] = [
           />
         </div>
       </template>
-    </UTable>
+    </DataTable>
 
     <ConfirmDialog
       v-model:open="deleteOpen"

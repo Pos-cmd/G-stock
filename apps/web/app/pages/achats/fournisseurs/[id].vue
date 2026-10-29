@@ -3,6 +3,7 @@ import { formatDate, formatFcfa, formatQty } from "@G-stock/core/format";
 import type { TableColumn } from "@nuxt/ui";
 import { useQuery } from "@tanstack/vue-query";
 
+import DataTable from "~/components/common/DataTable.vue";
 import KpiCard from "~/components/common/KpiCard.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue";
@@ -214,97 +215,98 @@ const orderColumns: TableColumn<OrderRow>[] = [
         </UPageCard>
       </div>
 
-      <UPageCard
+      <DataTable
         title="Produits achetés"
         description="Quantités reçues (ou commandées) et coût de revient unitaire, frais compris."
-        variant="subtle"
+        search-placeholder="Produit…"
+        :initial-sorting="[{ desc: true, id: 'totalCostFcfa' }]"
+        :item-label="['produit', 'produits']"
+        storage-key="supplier-products"
+        :data="data?.products ?? []"
+        :columns="productColumns"
+        :loading="supplier.isFetching.value"
       >
-        <UTable
-          :data="data?.products ?? []"
-          :columns="productColumns"
-          :loading="supplier.isFetching.value"
-        >
-          <template #productName-cell="{ row }">
-            <NuxtLink
-              :to="`/produits/${row.original.productId}`"
-              class="text-highlighted font-medium hover:underline"
-            >
-              {{ row.original.productName }}
-            </NuxtLink>
-          </template>
-          <template #qty-cell="{ row }">
-            <span class="tabular-nums">{{ formatQty(row.original.qty, row.original.unit) }}</span>
-          </template>
-          <template #lastUnitCostFcfa-cell="{ row }">
-            <span class="tabular-nums">{{ formatFcfa(row.original.lastUnitCostFcfa) }}</span>
-          </template>
-          <template #averageUnitCostFcfa-cell="{ row }">
-            <span class="text-muted tabular-nums">{{
-              formatFcfa(row.original.averageUnitCostFcfa)
-            }}</span>
-          </template>
-          <template #totalCostFcfa-cell="{ row }">
-            <span class="text-highlighted font-medium tabular-nums">{{
-              formatFcfa(row.original.totalCostFcfa)
-            }}</span>
-          </template>
-          <template #lastOrderDate-cell="{ row }">
-            <span class="text-muted">{{ formatDate(row.original.lastOrderDate) }}</span>
-          </template>
-          <template #empty>
-            <p class="text-muted py-6 text-center">Aucun produit acheté chez ce fournisseur.</p>
-          </template>
-        </UTable>
-      </UPageCard>
+        <template #productName-cell="{ row }">
+          <NuxtLink
+            :to="`/produits/${row.original.productId}`"
+            class="text-highlighted font-medium hover:underline"
+          >
+            {{ row.original.productName }}
+          </NuxtLink>
+        </template>
+        <template #qty-cell="{ row }">
+          <span class="tabular-nums">{{ formatQty(row.original.qty, row.original.unit) }}</span>
+        </template>
+        <template #lastUnitCostFcfa-cell="{ row }">
+          <span class="tabular-nums">{{ formatFcfa(row.original.lastUnitCostFcfa) }}</span>
+        </template>
+        <template #averageUnitCostFcfa-cell="{ row }">
+          <span class="text-muted tabular-nums">{{
+            formatFcfa(row.original.averageUnitCostFcfa)
+          }}</span>
+        </template>
+        <template #totalCostFcfa-cell="{ row }">
+          <span class="text-highlighted font-medium tabular-nums">{{
+            formatFcfa(row.original.totalCostFcfa)
+          }}</span>
+        </template>
+        <template #lastOrderDate-cell="{ row }">
+          <span class="text-muted">{{ formatDate(row.original.lastOrderDate) }}</span>
+        </template>
+        <template #empty>
+          <p class="text-muted py-6 text-center">Aucun produit acheté chez ce fournisseur.</p>
+        </template>
+      </DataTable>
 
-      <UPageCard title="Commandes" variant="subtle">
-        <UTable
-          :data="data?.orders ?? []"
-          :columns="orderColumns"
-          :loading="supplier.isFetching.value"
-        >
-          <template #reference-cell="{ row }">
-            <NuxtLink
-              :to="`/achats/${row.original.id}`"
-              class="text-highlighted font-mono text-[13px] font-medium hover:underline"
-            >
-              {{ row.original.reference }}
-            </NuxtLink>
-          </template>
-          <template #orderDate-cell="{ row }">
-            <span class="text-muted">{{ formatDate(row.original.orderDate) }}</span>
-          </template>
-          <template #status-cell="{ row }">
-            <PurchaseStatusBadge :status="row.original.status" />
-          </template>
-          <template #totalFcfa-cell="{ row }">
-            <span class="tabular-nums">{{ formatFcfa(row.original.totalFcfa) }}</span>
-          </template>
-          <template #remaining-cell="{ row }">
-            <span
-              v-if="
-                !['cancelled', 'draft'].includes(row.original.status) &&
-                !row.original.payment.isPaid
-              "
-              class="text-warning font-medium tabular-nums"
-            >
-              ≈ {{ formatFcfa(row.original.payment.remainingFcfa) }}
-            </span>
-            <span v-else class="text-dimmed">—</span>
-          </template>
-          <template #empty>
-            <div class="flex flex-col items-center gap-3 py-8 text-center">
-              <p class="text-muted">Aucune commande chez ce fournisseur.</p>
-              <UButton
-                variant="soft"
-                :icon="icons.plus"
-                label="Créer une commande"
-                @click="create.openPurchase(supplierId)"
-              />
-            </div>
-          </template>
-        </UTable>
-      </UPageCard>
+      <DataTable
+        title="Commandes"
+        search-placeholder="Référence…"
+        :item-label="['commande', 'commandes']"
+        storage-key="supplier-orders"
+        :data="data?.orders ?? []"
+        :columns="orderColumns"
+        :loading="supplier.isFetching.value"
+      >
+        <template #reference-cell="{ row }">
+          <NuxtLink
+            :to="`/achats/${row.original.id}`"
+            class="text-highlighted font-mono text-[13px] font-medium hover:underline"
+          >
+            {{ row.original.reference }}
+          </NuxtLink>
+        </template>
+        <template #orderDate-cell="{ row }">
+          <span class="text-muted">{{ formatDate(row.original.orderDate) }}</span>
+        </template>
+        <template #status-cell="{ row }">
+          <PurchaseStatusBadge :status="row.original.status" />
+        </template>
+        <template #totalFcfa-cell="{ row }">
+          <span class="tabular-nums">{{ formatFcfa(row.original.totalFcfa) }}</span>
+        </template>
+        <template #remaining-cell="{ row }">
+          <span
+            v-if="
+              !['cancelled', 'draft'].includes(row.original.status) && !row.original.payment.isPaid
+            "
+            class="text-warning font-medium tabular-nums"
+          >
+            ≈ {{ formatFcfa(row.original.payment.remainingFcfa) }}
+          </span>
+          <span v-else class="text-dimmed">—</span>
+        </template>
+        <template #empty>
+          <div class="flex flex-col items-center gap-3 py-8 text-center">
+            <p class="text-muted">Aucune commande chez ce fournisseur.</p>
+            <UButton
+              variant="soft"
+              :icon="icons.plus"
+              label="Créer une commande"
+              @click="create.openPurchase(supplierId)"
+            />
+          </div>
+        </template>
+      </DataTable>
     </div>
 
     <SupplierFormModal v-model:open="formOpen" :supplier="data" />

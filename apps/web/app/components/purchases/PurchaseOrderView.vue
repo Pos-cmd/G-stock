@@ -14,6 +14,7 @@ import {
 } from "@G-stock/core/labels";
 import type { TableColumn } from "@nuxt/ui";
 
+import DataTable from "~/components/common/DataTable.vue";
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
 import type { PurchaseOrderDetail, PurchaseOrderItemRow } from "~/types/api";
 
@@ -112,7 +113,15 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
       />
     </div>
 
-    <UTable :data="order.items" :columns="columns">
+    <DataTable
+      title="Lignes de la commande"
+      :data="order.items"
+      :columns="columns"
+      :searchable="order.items.length > 8"
+      search-placeholder="Produit…"
+      :item-label="['ligne', 'lignes']"
+      storage-key="order-lines"
+    >
       <template #productName-cell="{ row }">
         <NuxtLink
           :to="`/produits/${row.original.productId}`"
@@ -173,6 +182,6 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
         }}</span>
         <span v-else class="text-dimmed">—</span>
       </template>
-    </UTable>
+    </DataTable>
   </div>
 </template>

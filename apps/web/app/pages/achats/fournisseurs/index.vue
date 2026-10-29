@@ -4,6 +4,7 @@ import type { DropdownMenuItem, TableColumn } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 
 import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
+import DataTable from "~/components/common/DataTable.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import SupplierFormModal from "~/components/purchases/SupplierFormModal.vue";
 import type { SupplierRow } from "~/types/api";
@@ -73,15 +74,17 @@ const rowActions = (supplier: SupplierRow): DropdownMenuItem[][] => [
     : []),
 ];
 
+const supplierSearchText = (supplier: SupplierRow) =>
+  `${supplier.name} ${supplier.country} ${supplier.contact ?? ""} ${supplier.phone ?? ""}`;
+
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns: TableColumn<SupplierRow>[] = [
-  { accessorKey: "name", header: "Fournisseur" },
+  { accessorKey: "name", enableHiding: false, header: "Fournisseur" },
   { accessorKey: "country", header: "Pays" },
-  { accessorKey: "phone", header: "Téléphone" },
   { accessorKey: "orderCount", header: "Commandes", meta: rightAligned },
   { accessorKey: "lastOrderDate", header: "Dernière commande" },
   { accessorKey: "remainingFcfa", header: "Reste à payer", meta: rightAligned },
-  { header: "", id: "actions", meta: rightAligned },
+  { enableHiding: false, header: "", id: "actions", meta: rightAligned },
 ];
 </script>
 
@@ -95,7 +98,12 @@ const columns: TableColumn<SupplierRow>[] = [
       <UButton :icon="icons.plus" label="Nouveau fournisseur" @click="openCreate" />
     </template>
 
-    <UTable
+    <DataTable
+      :search-text="supplierSearchText"
+      search-placeholder="Nom, pays, contact…"
+      :initial-sorting="[{ desc: true, id: 'lastOrderDate' }]"
+      :item-label="['fournisseur', 'fournisseurs']"
+      storage-key="suppliers"
       :data="suppliers.data.value ?? []"
       :columns="columns"
       :loading="suppliers.isFetching.value"
@@ -107,12 +115,9 @@ const columns: TableColumn<SupplierRow>[] = [
         >
           {{ row.original.name }}
         </NuxtLink>
-        <p v-if="row.original.contact" class="text-dimmed text-xs">{{ row.original.contact }}</p>
-      </template>
-      <template #phone-cell="{ row }">
-        <span :class="row.original.phone ? '' : 'text-dimmed'">{{
-          row.original.phone ?? "—"
-        }}</span>
+        <p class="text-dimmed text-xs">
+          {{ [row.original.contact, row.original.phone].filter(Boolean).join(" · ") || "—" }}
+        </p>
       </template>
       <template #orderCount-cell="{ row }">
         <ULink
@@ -140,9 +145,11 @@ const columns: TableColumn<SupplierRow>[] = [
       </template>
 
       <template #lastOrderDate-cell="{ row }">
-        <span :class="row.original.lastOrderDate ? '' : 'text-dimmed'">
-          {{ row.original.lastOrderDate ? formatDate(row.original.lastOrderDate) : "—" }}
-        </span>
+        <template v-if="row.original.lastOrderDate">
+          <span>{{ formatDaysAgo(row.original.lastOrderDate) }}</span>
+          <p class="text-dimmed text-xs">{{ formatDate(row.original.lastOrderDate) }}</p>
+        </template>
+        <span v-else class="text-dimmed">—</span>
       </template>
       <template #actions-cell="{ row }">
         <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
@@ -166,7 +173,7 @@ const columns: TableColumn<SupplierRow>[] = [
           />
         </div>
       </template>
-    </UTable>
+    </DataTable>
 
     <SupplierFormModal v-model:open="formOpen" :supplier="editedSupplier" />
     <ConfirmDialog

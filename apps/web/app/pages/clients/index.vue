@@ -3,6 +3,11 @@ import { formatDate, formatFcfa } from "@G-stock/core/format";
 import type { DropdownMenuItem, TableColumn, TabsItem } from "@nuxt/ui";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
 
+import PeriodTabs from "~/components/charts/PeriodTabs.vue";
+import Sparkline from "~/components/charts/Sparkline.vue";
+import TrendLegend from "~/components/charts/TrendLegend.vue";
+import TrendValue from "~/components/charts/TrendValue.vue";
+import DataTable from "~/components/common/DataTable.vue";
 import KpiCard from "~/components/common/KpiCard.vue";
 import CustomerFormModal from "~/components/customers/CustomerFormModal.vue";
 import ReceivableBadge from "~/components/customers/ReceivableBadge.vue";
@@ -15,13 +20,9 @@ const create = useCreateDialogs();
 
 useHead({ title: "Clients" });
 
-const SEARCH_DEBOUNCE_MS = 300;
-
 const route = useRoute();
 const { $orpc } = useNuxtApp();
 
-const search = ref("");
-const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 // Lien « débiteurs » depuis le tableau de bord et les alertes.
 const withDebtOnly = ref(route.query.debiteurs !== undefined);
 watch(
@@ -45,7 +46,6 @@ const customers = useQuery(
   computed(() => ({
     ...$orpc.customers.list.queryOptions({
       input: {
-        search: debouncedSearch.value || null,
         withDebtOnly: withDebtOnly.value,
       },
     }),
@@ -111,14 +111,51 @@ const rowActions = (customer: CustomerRow): DropdownMenuItem[][] => [
   ],
 ];
 
+// Achats de chaque client sur la période choisie, comparés à la précédente.
+const weeks = ref<TrendPeriod>(13);
+const trends = useQuery(
+  computed(() => ({
+    ...$orpc.sales.trends.queryOptions({ input: { by: "customer", weeks: weeks.value } }),
+    placeholderData: keepPreviousData,
+  })),
+);
+const trendsById = computed(() => new Map((trends.data.value ?? []).map((row) => [row.id, row])));
+
+const rows = computed(() =>
+  (customers.data.value ?? []).map((customer) => {
+    const trend = trendsById.value.get(customer.id);
+    const periodFcfa = sumOf(trend?.current ?? [], (value) => value);
+    return {
+      ...customer,
+      periodCount: trend?.currentQty ?? 0,
+      periodFcfa,
+      periodTrend: trendRatio(
+        periodFcfa,
+        sumOf(trend?.previous ?? [], (value) => value),
+      ),
+      previous: trend?.previous ?? [],
+      weekly: trend?.current ?? [],
+    };
+  }),
+);
+type Row = (typeof rows.value)[number];
+const customerSearchText = (row: Row) =>
+  `${row.name} ${row.phone ?? ""} ${row.address ?? ""} ${row.notes ?? ""}`;
+
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
-const columns: TableColumn<CustomerRow>[] = [
-  { accessorKey: "name", header: "Client" },
-  { accessorKey: "purchasedFcfa", header: "Achats", meta: rightAligned },
-  { accessorKey: "lastSaleDate", header: "Dernier achat" },
+const columns: TableColumn<Row>[] = [
+  { accessorKey: "name", enableHiding: false, header: "Client" },
+  { accessorKey: "periodFcfa", header: "Achats", meta: rightAligned },
+  {
+    enableSorting: false,
+    header: "Tendance",
+    id: "trend",
+    meta: { class: { td: "w-36 min-w-28" } },
+  },
+  { accessorKey: "purchasedFcfa", header: "Depuis le début", meta: rightAligned },
+  { accessorKey: "lastSaleDate", header: "Dernier achat", sortUndefined: "last" },
   { accessorKey: "dueFcfa", header: "Solde", meta: rightAligned },
-  { accessorKey: "receivableLevel", header: "Ancienneté" },
-  { header: "", id: "actions", meta: rightAligned },
+  { enableHiding: false, header: "", id: "actions", meta: rightAligned },
 ];
 </script>
 
@@ -133,17 +170,6 @@ const columns: TableColumn<CustomerRow>[] = [
     </template>
     <template #actions>
       <UButton :icon="icons.customerAdd" label="Nouveau client" @click="openCreate" />
-    </template>
-
-    <template #toolbar>
-      <div class="flex w-full flex-wrap items-center gap-2 py-1">
-        <UInput
-          v-model="search"
-          :icon="icons.search"
-          placeholder="Nom, téléphone, quartier…"
-          class="w-full sm:w-72"
-        />
-      </div>
     </template>
 
     <div class="space-y-4">
@@ -173,45 +199,78 @@ const columns: TableColumn<CustomerRow>[] = [
         />
       </div>
 
-      <UTable
-        :data="customers.data.value ?? []"
+      <DataTable
+        :data="rows"
         :columns="columns"
         :loading="customers.isFetching.value"
+        :search-text="customerSearchText"
+        search-placeholder="Nom, téléphone, quartier…"
+        :initial-sorting="[{ desc: true, id: 'periodFcfa' }]"
+        :item-label="['client', 'clients']"
+        storage-key="customers"
       >
+        <template #toolbar>
+          <PeriodTabs v-model="weeks" />
+        </template>
+
         <template #name-cell="{ row }">
-          <NuxtLink :to="`/clients/${row.original.id}`" class="group block">
+          <NuxtLink :to="`/clients/${row.original.id}`" class="group block min-w-44">
             <span class="text-highlighted font-medium group-hover:underline">{{
               row.original.name
             }}</span>
-            <p v-if="row.original.phone || row.original.address" class="text-dimmed text-xs">
-              {{ [row.original.phone, row.original.address].filter(Boolean).join(" · ") }}
+            <p class="text-dimmed text-xs">
+              {{ [row.original.phone, row.original.address].filter(Boolean).join(" · ") || "—" }}
             </p>
           </NuxtLink>
         </template>
+        <template #periodFcfa-cell="{ row }">
+          <template v-if="row.original.periodFcfa > 0">
+            <TrendValue
+              :value="formatFcfa(row.original.periodFcfa)"
+              :ratio="row.original.periodTrend"
+            />
+            <p class="text-dimmed text-xs tabular-nums">
+              {{ row.original.periodCount }} achat{{ row.original.periodCount > 1 ? "s" : "" }}
+            </p>
+          </template>
+          <span v-else class="text-dimmed">Aucun achat</span>
+        </template>
+        <template #trend-cell="{ row }">
+          <Sparkline
+            v-if="row.original.weekly.length > 0"
+            :values="row.original.weekly"
+            :compare="row.original.previous"
+          />
+          <span v-else class="text-dimmed text-xs">—</span>
+        </template>
         <template #purchasedFcfa-cell="{ row }">
           <span class="tabular-nums">{{ formatFcfa(row.original.purchasedFcfa) }}</span>
-          <p class="text-dimmed text-xs">{{ row.original.saleCount }} vente(s)</p>
+          <p class="text-dimmed text-xs tabular-nums">
+            {{ row.original.saleCount }} vente{{ row.original.saleCount > 1 ? "s" : "" }}
+          </p>
         </template>
         <template #lastSaleDate-cell="{ row }">
-          <span :class="row.original.lastSaleDate ? '' : 'text-dimmed'">
-            {{ row.original.lastSaleDate ? formatDate(row.original.lastSaleDate) : "—" }}
-          </span>
-        </template>
-        <template #dueFcfa-cell="{ row }">
-          <span v-if="row.original.dueFcfa > 0" class="text-warning font-semibold tabular-nums">
-            {{ formatFcfa(row.original.dueFcfa) }}
-          </span>
-          <span v-else-if="row.original.creditFcfa > 0" class="text-success tabular-nums">
-            Avoir {{ formatFcfa(row.original.creditFcfa) }}
-          </span>
+          <template v-if="row.original.lastSaleDate">
+            <span>{{ formatDaysAgo(row.original.lastSaleDate) }}</span>
+            <p class="text-dimmed text-xs">{{ formatDate(row.original.lastSaleDate) }}</p>
+          </template>
           <span v-else class="text-dimmed">—</span>
         </template>
-        <template #receivableLevel-cell="{ row }">
-          <ReceivableBadge
-            v-if="row.original.receivableLevel && row.original.daysOverdue !== null"
-            :level="row.original.receivableLevel"
-            :days="row.original.daysOverdue"
-          />
+        <template #dueFcfa-cell="{ row }">
+          <div class="flex flex-col items-end gap-1">
+            <span v-if="row.original.dueFcfa > 0" class="text-warning font-semibold tabular-nums">
+              {{ formatFcfa(row.original.dueFcfa) }}
+            </span>
+            <span v-else-if="row.original.creditFcfa > 0" class="text-success tabular-nums">
+              Avoir {{ formatFcfa(row.original.creditFcfa) }}
+            </span>
+            <span v-else class="text-dimmed">À jour</span>
+            <ReceivableBadge
+              v-if="row.original.receivableLevel && row.original.daysOverdue !== null"
+              :level="row.original.receivableLevel"
+              :days="row.original.daysOverdue"
+            />
+          </div>
         </template>
         <template #actions-cell="{ row }">
           <UDropdownMenu :items="rowActions(row.original)" :content="{ align: 'end' }">
@@ -237,7 +296,10 @@ const columns: TableColumn<CustomerRow>[] = [
             />
           </div>
         </template>
-      </UTable>
+        <template #footer>
+          <TrendLegend :weeks="weeks" />
+        </template>
+      </DataTable>
     </div>
 
     <CustomerFormModal v-model:open="formOpen" :customer="editedCustomer" />

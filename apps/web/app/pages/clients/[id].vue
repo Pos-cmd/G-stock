@@ -230,15 +230,21 @@ const confirmCancelPayment = async (reason: string) => {
       <UTabs v-model="tab" :items="tabs">
         <template #sales>
           <div class="space-y-3 pt-2">
-            <SalesFilters v-model="filters" :show-search="false" />
-            <SalesTable :filters="filters" :customer-id="customerId" :show-customer="false" />
+            <SalesTable :filters="filters" :customer-id="customerId" :show-customer="false">
+              <template #filters>
+                <SalesFilters v-model="filters" />
+              </template>
+            </SalesTable>
           </div>
         </template>
 
         <template #products>
           <div class="space-y-3 pt-2">
-            <SalesFilters v-model="filters" period-only />
-            <ProductSalesTable :from="filters.from" :to="filters.to" :customer-id="customerId" />
+            <ProductSalesTable :from="filters.from" :to="filters.to" :customer-id="customerId">
+              <template #filters>
+                <SalesFilters v-model="filters" period-only />
+              </template>
+            </ProductSalesTable>
           </div>
         </template>
 
