@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppSearch from "~/components/layout/AppSearch.vue";
+import AppTour from "~/components/layout/AppTour.vue";
 import CreateDialogs from "~/components/layout/CreateDialogs.vue";
 import { useSettingsStore } from "~/stores/settings";
 
@@ -49,9 +50,19 @@ const companyName = computed(() => settingsStore.settings?.companyName || undefi
       </template>
 
       <template #default="{ collapsed }">
-        <UDashboardSearchButton :collapsed="collapsed" label="Rechercher" class="mb-1" />
+        <UDashboardSearchButton
+          :collapsed="collapsed"
+          label="Rechercher"
+          class="mb-1"
+          data-tour="search"
+        />
 
-        <nav v-for="section in sections" :key="section.id" :aria-label="section.label">
+        <nav
+          v-for="section in sections"
+          :key="section.id"
+          :aria-label="section.label"
+          :data-tour="`nav-${section.id}`"
+        >
           <div v-if="!collapsed" class="flex h-7 items-center justify-between ps-2.5 pe-0.5">
             <span class="text-dimmed font-mono text-[11px] font-medium tracking-[0.08em] uppercase">
               {{ section.label }}
@@ -63,6 +74,7 @@ const companyName = computed(() => settingsStore.settings?.companyName || undefi
                 size="xs"
                 :icon="icons.plus"
                 :aria-label="section.create.label"
+                :data-tour="`create-${section.id}`"
                 @click="section.create.onSelect"
               />
             </UTooltip>
@@ -90,5 +102,6 @@ const companyName = computed(() => settingsStore.settings?.companyName || undefi
 
     <AppSearch />
     <CreateDialogs />
+    <AppTour />
   </UDashboardGroup>
 </template>

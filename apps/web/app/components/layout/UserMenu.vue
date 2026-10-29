@@ -7,6 +7,7 @@ const icons = useIcons();
 const { $authClient } = useNuxtApp();
 const session = $authClient.useSession();
 const notify = useNotify();
+const { startTour } = useAppTour();
 
 const user = computed(() => session.value.data?.user);
 
@@ -28,7 +29,10 @@ const items = computed<DropdownMenuItem[][]>(() => [
       type: "label",
     },
   ],
-  [{ icon: icons.settings, label: "Paramètres", to: "/parametres" }],
+  [
+    { icon: icons.settings, label: "Paramètres", to: "/parametres" },
+    { icon: icons.tour, label: "Visite guidée", onSelect: startTour },
+  ],
   [{ color: "error", icon: icons.signOut, label: "Se déconnecter", onSelect: handleSignOut }],
 ]);
 </script>

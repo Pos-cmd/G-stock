@@ -49,11 +49,17 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => [...parents, { label: title 
         </template>
         <template #right>
           <NowPill class="max-sm:hidden" />
-          <ThemeMenu />
+          <div data-tour="theme" class="flex">
+            <ThemeMenu />
+          </div>
           <ThemeToggle />
-          <AlertsMenu />
+          <div data-tour="alerts" class="flex">
+            <AlertsMenu />
+          </div>
           <USeparator orientation="vertical" class="mx-0.5 h-5" />
-          <UserMenu />
+          <div data-tour="user" class="flex">
+            <UserMenu />
+          </div>
         </template>
       </UDashboardNavbar>
     </template>
@@ -85,6 +91,7 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => [...parents, { label: title 
         <div
           v-if="$slots.tabs || $slots.actions"
           class="flex w-full flex-wrap items-center gap-2 sm:w-auto"
+          data-tour="page-actions"
         >
           <slot name="tabs" />
           <slot name="actions" />

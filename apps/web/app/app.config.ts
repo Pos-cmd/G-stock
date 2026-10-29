@@ -91,6 +91,7 @@ const actionIcons = {
   send: "i-tabler-send",
   shuffle: "i-tabler-arrows-shuffle",
   unarchive: "i-tabler-archive-off",
+  tour: "i-tabler-route",
   undo: "i-tabler-arrow-back-up",
   whatsapp: "i-tabler-brand-whatsapp",
 };

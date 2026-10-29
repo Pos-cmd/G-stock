@@ -133,6 +133,7 @@ export const LUCIDE_ICONS: Record<string, string> = {
   "user-plus": "i-lucide-user-plus",
   users: "i-lucide-users",
   wallet: "i-lucide-wallet",
+  route: "i-lucide-route",
   x: "i-lucide-x",
 };
 
@@ -257,5 +258,6 @@ export const PHOSPHOR_ICONS: Record<string, string> = {
   "user-plus": "i-ph-user-plus-bold",
   users: "i-ph-users-bold",
   wallet: "i-ph-wallet-bold",
+  route: "i-ph-path-bold",
   x: "i-ph-x-bold",
 };
