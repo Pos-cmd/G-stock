@@ -1,4 +1,4 @@
-::screenshot{src="/captures/nouvelle-vente.png" alt="Formulaire de nouvelle vente" viewport="1280x800"}
+::screenshot{src="/captures/nouvelle-vente.webp" alt="Formulaire de nouvelle vente" viewport="1280x800"}
 :::annotation{x=90.6 y=5.5 w=3.1 h=5}
 **Pleine page** : le même formulaire, sur toute la fenêtre.
 :::

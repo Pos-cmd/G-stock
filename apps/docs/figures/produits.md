@@ -1,4 +1,4 @@
-::screenshot{src="/captures/produits.png" alt="Liste des produits avec ventes, tendance, stock et couverture" viewport="1280x800"}
+::screenshot{src="/captures/produits.webp" alt="Liste des produits avec ventes, tendance, stock et couverture" viewport="1280x800"}
 :::annotation{x=58.2 y=11.6 w=26.4 h=5}
 Filtrer d'un clic : tous, en stock, stock bas, ruptures.
 :::

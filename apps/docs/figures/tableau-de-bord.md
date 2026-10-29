@@ -1,4 +1,4 @@
-::screenshot{src="/captures/tableau-de-bord.png" alt="Tableau de bord : cartes de chiffres, ventes du jour et meilleures ventes du mois" viewport="1280x800"}
+::screenshot{src="/captures/tableau-de-bord.webp" alt="Tableau de bord : cartes de chiffres, ventes du jour et meilleures ventes du mois" viewport="1280x800"}
 :::annotation{x=20.3 y=19.7 w=77.5 h=24.8}
 **Cartes de chiffres** : les 30 derniers jours, comparés aux 30 précédents.
 :::

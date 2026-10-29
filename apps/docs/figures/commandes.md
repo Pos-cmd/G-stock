@@ -1,4 +1,4 @@
-::screenshot{src="/captures/commandes.png" alt="Commandes fournisseurs avec leur statut et leur paiement" viewport="1280x800"}
+::screenshot{src="/captures/commandes.webp" alt="Commandes fournisseurs avec leur statut et leur paiement" viewport="1280x800"}
 :::annotation{x=44.7 y=21.4 w=13.1 h=5}
 Filtrer par **statut** ou par **fournisseur**.
 :::

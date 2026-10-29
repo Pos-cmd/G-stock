@@ -1,4 +1,4 @@
-::screenshot{src="/captures/produit-fiche.png" alt="Fiche d'un produit : informations, ventes mois par mois et lots" viewport="1280x800"}
+::screenshot{src="/captures/produit-fiche.webp" alt="Fiche d'un produit : informations, ventes mois par mois et lots" viewport="1280x800"}
 :::annotation{x=68 y=11.6 w=29.8 h=5}
 **Modifier**, archiver, ou enregistrer une **entrée de stock**.
 :::

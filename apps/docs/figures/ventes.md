@@ -1,4 +1,4 @@
-::screenshot{src="/captures/ventes.png" alt="Historique des ventes avec ses totaux" viewport="1280x800"}
+::screenshot{src="/captures/ventes.webp" alt="Historique des ventes avec ses totaux" viewport="1280x800"}
 :::annotation{x=20.3 y=19.7 w=77.5 h=19}
 **Totaux** de la sélection : ils suivent les filtres.
 :::
