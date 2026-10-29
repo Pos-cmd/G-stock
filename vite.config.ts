@@ -19,6 +19,8 @@ export default defineConfig({
       "apps/docs/.data/**",
       "apps/docs/app/figures/**",
       "apps/docs/public/comark.js",
+      "apps/landing/.nuxt/**",
+      "apps/landing/.output/**",
     ],
     options: {
       typeAware: false,
@@ -43,6 +45,8 @@ export default defineConfig({
       "apps/docs/.data/**",
       "apps/docs/app/figures/**",
       "apps/docs/public/comark.js",
+      "apps/landing/.nuxt/**",
+      "apps/landing/.output/**",
       // Pages MDC et figures comark-ui : le formateur Markdown casse les blocs `::`.
       "apps/docs/content/**",
       "apps/docs/figures/**",

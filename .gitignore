@@ -60,3 +60,8 @@ coverage
 .cache
 tmp
 temp
+
+# Impeccable : maquettes, questions et captures de revue (le contrat et design.json sont versionnés)
+.impeccable/mocks/
+.impeccable/questions/
+**/.impeccable/review/

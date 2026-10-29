@@ -11,6 +11,8 @@ pnpm install
 pnpm run dev:web
 ```
 
+`pnpm dev` lance tout en même temps : l'application (http://localhost:3001), le guide d'utilisation (`apps/docs`, http://localhost:3005) et la page de présentation (`apps/landing`, http://localhost:3006). Chacun a aussi son script : `pnpm dev:docs`, `pnpm dev:landing`.
+
 Ouvrez http://localhost:3001 et créez un compte. Au démarrage, le serveur crée la base `local.db` à la racine du dépôt et applique les migrations : aucune commande de base de données n'est nécessaire.
 
 ## Base de démonstration

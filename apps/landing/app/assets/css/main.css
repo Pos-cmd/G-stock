@@ -1,0 +1,143 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme {
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --color-ink: oklch(21% 0.006 60);
+  --color-due: oklch(62% 0.17 58);
+  --color-data: oklch(58.5% 0.233 277);
+  --ease-snappy: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* Le gris chaud de l'application : le même sable, des fonds aux textes. */
+@theme static {
+  --color-sand-50: oklch(98.6% 0.003 80);
+  --color-sand-100: oklch(96.4% 0.005 80);
+  --color-sand-200: oklch(92.2% 0.007 75);
+  --color-sand-300: oklch(86.8% 0.009 75);
+  --color-sand-400: oklch(71% 0.011 70);
+  --color-sand-500: oklch(55.5% 0.012 65);
+  --color-sand-600: oklch(44.5% 0.011 65);
+  --color-sand-700: oklch(37.5% 0.01 60);
+  --color-sand-800: oklch(27.5% 0.008 60);
+  --color-sand-900: oklch(21% 0.006 60);
+  --color-sand-950: oklch(15.5% 0.005 60);
+}
+
+@theme inline {
+  --background-color-canvas: var(--ui-bg-canvas);
+  --shadow-bubble: 0 1px 2px 0 rgb(41 37 36 / 0.05), 0 8px 24px -16px rgb(41 37 36 / 0.25);
+  --shadow-float: 0 18px 40px -18px rgb(28 25 23 / 0.35), 0 4px 10px -4px rgb(28 25 23 / 0.08);
+}
+
+:root {
+  --ui-radius: 0.375rem;
+  --ui-bg-canvas: var(--ui-color-neutral-100);
+  --ui-bg: #fff;
+  --ui-bg-muted: var(--ui-color-neutral-50);
+  --ui-bg-elevated: var(--ui-color-neutral-100);
+  --ui-bg-accented: var(--ui-color-neutral-200);
+  --ui-bg-inverted: var(--ui-color-neutral-900);
+  --ui-border: var(--ui-color-neutral-200);
+  --ui-border-accented: var(--ui-color-neutral-300);
+  --ui-text-highlighted: var(--ui-color-neutral-900);
+  --ui-text-muted: var(--ui-color-neutral-600);
+  --ui-primary: var(--ui-color-neutral-900);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    background: var(--ui-bg-canvas);
+    color: var(--ui-text-highlighted);
+    font-feature-settings: "cv11";
+  }
+  ::selection {
+    background: oklch(58.5% 0.233 277 / 0.18);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-data);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  a {
+    text-underline-offset: 0.2em;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sand-300) transparent;
+}
+
+/*
+ * Le fil d'ouverture se joue une fois : la question arrive, G-stock « écrit », le reçu arrive.
+ * Sans mouvement réduit seulement ; sinon tout est là d'emblée.
+ */
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+    filter: blur(4px);
+  }
+}
+@keyframes typing {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  12%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes dot {
+  0%,
+  60%,
+  100% {
+    transform: none;
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .play-in {
+    animation: bubble-in 520ms var(--ease-snappy) both;
+    animation-delay: var(--at, 0ms);
+    transform-origin: var(--from, bottom left);
+  }
+  .typing {
+    animation: typing 900ms var(--ease-snappy) both;
+    animation-delay: var(--at, 0ms);
+  }
+  .typing i {
+    animation: dot 900ms ease-in-out infinite;
+  }
+  .typing i:nth-child(2) {
+    animation-delay: 120ms;
+  }
+  .typing i:nth-child(3) {
+    animation-delay: 240ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing {
+    display: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

@@ -175,6 +175,12 @@
       "skillPath": "skills/global-toolbar-controls/SKILL.md",
       "computedHash": "1315e463d96d6e648252e0e5a350cc80f553b084a91b9dc301d7e90963bba31a"
     },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "58ed3306678b241316905ffaee23efdf098247a181f593ad125c4c299e63ad8c"
+    },
     "improve-animations": {
       "source": "emilkowalski/skill",
       "sourceType": "github",
