@@ -55,6 +55,12 @@
       "skillPath": "skills/authentic-product-representation/SKILL.md",
       "computedHash": "1f5328879b171eeecf94a644e39ad4607db6f6c254024da5781f0ed9838f8652"
     },
+    "before-after-evidence": {
+      "source": "onmax/comark-ui",
+      "sourceType": "github",
+      "skillPath": "skills/before-after-evidence/SKILL.md",
+      "computedHash": "59a7c9ea28c95c3ecdca678fa23ba91775ccf47b92de45e1257c61c27fdd3eb5"
+    },
     "brand-visual-language": {
       "source": "dembrandt/dembrandt-skills",
       "sourceType": "github",
@@ -84,6 +90,12 @@
       "sourceType": "github",
       "skillPath": "skills/color-mode-and-theme/SKILL.md",
       "computedHash": "4416a107a02d9225325456f11b6878b27852c38ac4be8cc402265bdb3733d4a1"
+    },
+    "comark-ui": {
+      "source": "onmax/comark-ui",
+      "sourceType": "github",
+      "skillPath": "skills/comark-ui/SKILL.md",
+      "computedHash": "ad7dc2a2d5a2ccd5c1eff9e81012bc1f40f893de46b5faf27d8dbb38d0234b50"
     },
     "component-family-consistency": {
       "source": "dembrandt/dembrandt-skills",
@@ -289,6 +301,12 @@
       "skillPath": "skills/review-animations/SKILL.md",
       "computedHash": "8c2befeb28bb484bf2de7b2fc228774857e266d32a65d76895e78651a536d8cf"
     },
+    "review-document": {
+      "source": "onmax/comark-ui",
+      "sourceType": "github",
+      "skillPath": "skills/review-document/SKILL.md",
+      "computedHash": "9799f3cfa0ad862f92ea61c540fe4c5bebf340854924b5153736208267b37488"
+    },
     "scroll-areas": {
       "source": "dembrandt/dembrandt-skills",
       "sourceType": "github",
@@ -331,6 +349,12 @@
       "skillPath": "skills/tab-navigation/SKILL.md",
       "computedHash": "a429af1598f0a0b7a2aab6aa03106f7a0e6dfe2049aef8c3208a5335ae0c72c5"
     },
+    "teach-lesson": {
+      "source": "onmax/comark-ui",
+      "sourceType": "github",
+      "skillPath": "skills/teach-lesson/SKILL.md",
+      "computedHash": "0d78627d7ba510c7bf824526510d89beb7e38ea1013976919a4ff30b07fe551e"
+    },
     "ui-context-and-scope": {
       "source": "dembrandt/dembrandt-skills",
       "sourceType": "github",
@@ -354,6 +378,12 @@
       "sourceType": "github",
       "skillPath": "skills/visual-emphasis-and-hierarchy/SKILL.md",
       "computedHash": "92104930e36b075bab6d5594ed29c21e99065f56d74224b90bcf7e65f19ddbef"
+    },
+    "visual-explanation": {
+      "source": "onmax/comark-ui",
+      "sourceType": "github",
+      "skillPath": "skills/visual-explanation/SKILL.md",
+      "computedHash": "5c7b72f4bd1a0ac04c58ee0915ce71078a8046fa19a7a27ed43f6b0606ef8e46"
     },
     "wcag-accessibility": {
       "source": "dembrandt/dembrandt-skills",
