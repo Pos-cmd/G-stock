@@ -28,12 +28,20 @@ import {
   salesSummary,
 } from "../services/sales";
 
-const MAX_ACTIVITY_DAYS = 371;
+const MAX_ACTIVITY_DAYS = 731;
 
 export const salesRouter = {
   activity: protectedProcedure
-    .input(z.object({ days: z.number().int().min(7).max(MAX_ACTIVITY_DAYS) }))
-    .handler(({ context, input }) => salesActivity(context.db, input.days)),
+    .input(
+      z.object({
+        customerId: idSchema.nullish(),
+        days: z.number().int().min(7).max(MAX_ACTIVITY_DAYS),
+        productId: idSchema.nullish(),
+      }),
+    )
+    .handler(({ context, input: { days, ...filters } }) =>
+      salesActivity(context.db, days, filters),
+    ),
 
   addDiscount: protectedProcedure
     .input(saleDiscountSchema)

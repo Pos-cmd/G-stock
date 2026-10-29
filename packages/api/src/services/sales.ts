@@ -739,34 +739,90 @@ const activeSalesSince = (executor: Executor, since: Date, column: AnyColumn) =>
     .from(sales)
     .where(and(eq(sales.status, "active"), gte(column, since)));
 
+export interface ActivityFilters {
+  customerId?: string | null;
+  productId?: string | null;
+}
+
 /**
- * Ventes actives jour par jour sur les `days` derniers jours, aujourd'hui compris. Les jours sans
- * vente sont présents, à zéro : courbes des cartes et calendrier d'activité.
+ * Ventes actives depuis `since` : la vente entière (remises déduites), ou seulement les lignes
+ * d'un produit (avant remises, comme le résumé par produit).
  */
-export const salesActivity = async (executor: Executor, days: number, now = new Date()) => {
+const activityRows = async (executor: Executor, since: Date, filters: ActivityFilters) => {
+  const conditions: SQL[] = [eq(sales.status, "active"), gte(sales.saleDate, since)];
+  if (filters.customerId) {
+    conditions.push(eq(sales.customerId, filters.customerId));
+  }
+  if (filters.productId) {
+    const lines = await executor
+      .select({
+        costFcfa: saleItems.costFcfa,
+        qty: saleItems.qty,
+        saleDate: sales.saleDate,
+        saleId: sales.id,
+        unitPriceFcfa: saleItems.unitPriceFcfa,
+      })
+      .from(saleItems)
+      .innerJoin(sales, eq(sales.id, saleItems.saleId))
+      .where(and(...conditions, eq(saleItems.productId, filters.productId)));
+    return lines.map((line) => ({
+      costFcfa: line.costFcfa,
+      netFcfa: lineAmountFcfa(line.qty, line.unitPriceFcfa),
+      qty: line.qty,
+      saleDate: line.saleDate,
+    }));
+  }
+  const rows = await executor
+    .select({
+      costFcfa: saleCostSql,
+      discountFcfa: saleDiscountSql,
+      saleDate: sales.saleDate,
+      totalFcfa: sales.totalFcfa,
+    })
+    .from(sales)
+    .where(and(...conditions));
+  return rows.map((row) => ({
+    costFcfa: row.costFcfa,
+    netFcfa: row.totalFcfa - row.discountFcfa,
+    qty: 0,
+    saleDate: row.saleDate,
+  }));
+};
+
+/**
+ * Ventes actives jour par jour sur les `days` derniers jours, aujourd'hui compris, pour toute la
+ * boutique, un client ou un produit (`qty` : quantité vendue de ce produit). Les jours sans vente
+ * sont présents, à zéro : courbes des cartes et calendrier d'activité.
+ */
+export const salesActivity = async (
+  executor: Executor,
+  days: number,
+  filters: ActivityFilters = {},
+  now = new Date(),
+) => {
   const today = startOfDay(now);
   const since = new Date(today);
   since.setDate(today.getDate() - (days - 1));
 
   const series = new Map<
     string,
-    { date: string; marginFcfa: number; revenueFcfa: number; saleCount: number }
+    { date: string; marginFcfa: number; qty: number; revenueFcfa: number; saleCount: number }
   >();
   for (let offset = 0; offset < days; offset += 1) {
     const day = new Date(since);
     day.setDate(since.getDate() + offset);
     const date = dayKey(day);
-    series.set(date, { date, marginFcfa: 0, revenueFcfa: 0, saleCount: 0 });
+    series.set(date, { date, marginFcfa: 0, qty: 0, revenueFcfa: 0, saleCount: 0 });
   }
 
-  for (const row of await activeSalesSince(executor, since, sales.saleDate)) {
+  for (const row of await activityRows(executor, since, filters)) {
     const entry = series.get(dayKey(row.saleDate));
     if (!entry) {
       continue;
     }
-    const netFcfa = row.totalFcfa - row.discountFcfa;
-    entry.revenueFcfa += netFcfa;
-    entry.marginFcfa += netFcfa - row.costFcfa;
+    entry.revenueFcfa += row.netFcfa;
+    entry.marginFcfa += row.netFcfa - row.costFcfa;
+    entry.qty = roundQty(entry.qty + row.qty);
     entry.saleCount += 1;
   }
   return [...series.values()];

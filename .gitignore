@@ -12,6 +12,10 @@ build
 apps/web/src/routeTree.gen.ts
 local.db
 local.db-*
+# Base de démonstration (pnpm demo:seed) et ses dossiers
+demo.db
+demo.db-*
+demo-data/
 
 # Environment variables
 .env

@@ -282,7 +282,10 @@ const orderColumns: TableColumn<OrderRow>[] = [
           </template>
           <template #remaining-cell="{ row }">
             <span
-              v-if="row.original.status !== 'cancelled' && !row.original.payment.isPaid"
+              v-if="
+                !['cancelled', 'draft'].includes(row.original.status) &&
+                !row.original.payment.isPaid
+              "
               class="text-warning font-medium tabular-nums"
             >
               ≈ {{ formatFcfa(row.original.payment.remainingFcfa) }}

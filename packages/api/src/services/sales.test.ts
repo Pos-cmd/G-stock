@@ -425,16 +425,29 @@ describe("historique et fiche client", () => {
 
   it("donne les ventes jour par jour, jours vides compris", async () => {
     await seedHistory();
-    const days = await salesActivity(db, 10, new Date(2026, 2, 10, 18));
+    const days = await salesActivity(db, 10, {}, new Date(2026, 2, 10, 18));
     expect(days).toHaveLength(10);
     expect(days[0]).toEqual({
       date: "2026-03-01",
       marginFcfa: 1500,
+      qty: 0,
       revenueFcfa: 4500,
       saleCount: 1,
     });
     expect(days.at(-1)).toMatchObject({ date: "2026-03-10", revenueFcfa: 1600, saleCount: 1 });
     expect(days.slice(1, -1).every((day) => day.saleCount === 0)).toBe(true);
+  });
+
+  it("filtre l'activité par produit et par client", async () => {
+    const { bazin, moussa } = await seedHistory();
+    const march = new Date(2026, 2, 10, 18);
+    const bazinDays = await salesActivity(db, 10, { productId: bazin.id }, march);
+    expect(bazinDays[0]).toMatchObject({ qty: 6, revenueFcfa: 4500, saleCount: 1 });
+    expect(bazinDays.at(-1)?.saleCount).toBe(0);
+    const moussaDays = await salesActivity(db, 10, { customerId: moussa.id }, march);
+    expect(moussaDays.filter((day) => day.saleCount > 0).map((day) => day.date)).toEqual([
+      "2026-03-10",
+    ]);
   });
 
   it("répartit les ventes du jour et de la veille heure par heure", async () => {

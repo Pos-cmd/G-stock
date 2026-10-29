@@ -286,7 +286,7 @@ defineExpose({
 
         <UFormField name="lines">
           <div class="border-default overflow-x-auto rounded-lg border">
-            <table class="w-full min-w-[52rem] text-sm">
+            <table class="w-full min-w-208 text-sm">
               <thead
                 class="bg-muted text-muted text-left font-mono text-[11px] tracking-[0.06em] uppercase"
               >

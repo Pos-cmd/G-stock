@@ -4,6 +4,7 @@ import { PAYMENT_METHOD_LABELS } from "@G-stock/core/labels";
 import type { TabsItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 
+import SalesInsights from "~/components/charts/SalesInsights.vue";
 import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
 import KpiCard from "~/components/common/KpiCard.vue";
 import ReasonDialog from "~/components/common/ReasonDialog.vue";
@@ -40,6 +41,15 @@ const paymentList = useQuery(
 useHead({ title: () => data.value?.name ?? "Client" });
 
 const filters = ref<SalesFilterState>(emptySalesFilters());
+const tab = ref("sales");
+const history = useTemplateRef("history");
+
+// Un jour du calendrier d'achats : l'historique s'ouvre filtré sur ce jour.
+const openPurchaseDay = (date: string) => {
+  filters.value = { ...emptySalesFilters(), from: date, to: date };
+  tab.value = "sales";
+  history.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+};
 
 const tabs: TabsItem[] = [
   { label: "Achats", slot: "sales", value: "sales" },
@@ -214,7 +224,10 @@ const confirmCancelPayment = async (reason: string) => {
         </div>
       </UPageCard>
 
-      <UTabs :items="tabs" default-value="sales">
+      <SalesInsights :customer-id="customerId" @select="openPurchaseDay" />
+
+      <span ref="history" class="block" aria-hidden="true" />
+      <UTabs v-model="tab" :items="tabs">
         <template #sales>
           <div class="space-y-3 pt-2">
             <SalesFilters v-model="filters" :show-search="false" />

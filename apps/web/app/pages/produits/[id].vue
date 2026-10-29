@@ -5,6 +5,7 @@ import { LOT_SOURCE_LABELS } from "@G-stock/core/labels";
 import type { TableColumn, TabsItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 
+import SalesInsights from "~/components/charts/SalesInsights.vue";
 import KpiCard from "~/components/common/KpiCard.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import ProductFormModal from "~/components/products/ProductFormModal.vue";
@@ -43,6 +44,28 @@ const lots = useQuery(
 );
 
 useHead({ title: () => product.data.value?.name ?? "Produit" });
+
+// Coût de revient de chaque lot reçu (lots épuisés compris), face au prix de vente conseillé.
+const allLots = useQuery(
+  computed(() =>
+    $orpc.stock.lots.list.queryOptions({
+      input: { includeEmpty: true, productId: productId.value },
+    }),
+  ),
+);
+const costHistory = computed(() =>
+  (allLots.data.value ?? [])
+    .toSorted((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime())
+    .map((lot) => ({
+      cout: lot.unitCostFcfa,
+      label: formatDate(lot.receivedAt),
+      prix: product.data.value?.suggestedSalePriceFcfa ?? 0,
+    })),
+);
+
+// Un jour du calendrier d'activité : les ventes de ce produit ce jour-là.
+const openSalesDay = (date: string) =>
+  navigateTo({ path: "/ventes", query: { au: date, du: date, produit: productId.value } });
 
 const STOCK_COLORS = { low: "warning", ok: "success", out: "error" } as const;
 const stockColor = computed(() => STOCK_COLORS[product.data.value?.status ?? "ok"]);
@@ -307,6 +330,35 @@ const lotColumns: TableColumn<StockLot>[] = [
             </dd>
           </div>
         </dl>
+      </UPageCard>
+
+      <SalesInsights
+        :product-id="productId"
+        :unit="product.data.value?.unit ?? ''"
+        :stock-qty="product.data.value?.stockQty ?? null"
+        @select="openSalesDay"
+      />
+
+      <UPageCard
+        v-if="costHistory.length > 1"
+        title="Coût de revient des lots"
+        description="Coût unitaire de chaque lot reçu (marchandise et frais d'approche), face au prix de vente conseillé."
+        variant="subtle"
+      >
+        <UChart
+          type="line"
+          :data="costHistory"
+          index="label"
+          :categories="[
+            { key: 'cout', label: 'Coût de revient', color: 'var(--ui-chart-1)' },
+            { key: 'prix', label: 'Prix de vente conseillé', color: 'var(--ui-chart-2)' },
+          ]"
+          curve="monotone"
+          :points="true"
+          :height="220"
+          :format="formatFcfa"
+          aria-label="Évolution du coût de revient des lots"
+        />
       </UPageCard>
 
       <UTabs :items="tabs">

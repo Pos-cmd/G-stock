@@ -13,18 +13,34 @@ pnpm run dev:web
 
 Ouvrez http://localhost:3001 et créez un compte. Au démarrage, le serveur crée la base `local.db` à la racine du dépôt et applique les migrations : aucune commande de base de données n'est nécessaire.
 
+## Base de démonstration
+
+Pour tester sans toucher aux vraies données : cinq ans d'activité fictive mais cohérente d'un commerce d'import à Lomé (22 produits, 5 fournisseurs, ~160 commandes, ~11 600 ventes, crédits et remboursements, ruptures en cours).
+
+```bash
+pnpm demo:seed   # crée demo.db à la racine (≈ 2 min) ; arrêter dev:demo avant de relancer
+pnpm dev:demo    # http://localhost:3003, à côté du serveur habituel (3001)
+```
+
+| Compte   | E-mail               | Mot de passe  |
+| -------- | -------------------- | ------------- |
+| Gérant   | `demo@g-stock.local` | `demo-gstock` |
+| Vendeuse | `afi@g-stock.local`  | `demo-gstock` |
+
+`local.db` n'est jamais ouverte : la démonstration vit dans `demo.db` et `demo-data/` (sauvegardes et PDF), ignorés par git. Les dates suivent le jour de la génération : relancer `pnpm demo:seed` remet « aujourd'hui » à jour. Le script est `packages/api/scripts/seed-demo.ts` ; il passe par les services de l'application, donc stock FIFO, coûts de revient et soldes restent justes.
+
 ## État des modules
 
-| Module              | État                                                                                                                                           |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stock & Produits    | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, ouverture de cartons, historique, alertes de stock bas                      |
-| Tableau de bord     | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes                                                       |
-| Paramètres          | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances, sauvegarde quotidienne                                                   |
-| Achats fournisseurs | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock                                             |
-| Ventes              | ✅ Vente comptant ou à crédit (acompte), sortie FIFO, marge, remise et annulation tracées                                                      |
-| Clients             | ✅ Solde, avoir, ancienneté des créances, historique filtrable, achats par produit, paiements                                                  |
-| Simulateur          | ✅ Simulations : revient, prix de vente (3 modes), marges, PDF, comparaison avec d'autres simulations et commandes, transformation en commande |
-| Documents           | ✅ PDF (reçus, fiches de commande, simulations) rangés dans Documents/G-stock, liste et téléchargement                                         |
+| Module | État |
+| --- | --- |
+| Stock & Produits | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, ouverture de cartons, historique, alertes de stock bas |
+| Tableau de bord | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes |
+| Paramètres | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances, sauvegarde quotidienne |
+| Achats fournisseurs | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock |
+| Ventes | ✅ Vente comptant ou à crédit (acompte), sortie FIFO, marge, remise et annulation tracées |
+| Clients | ✅ Solde, avoir, ancienneté des créances, historique filtrable, achats par produit, paiements |
+| Simulateur | ✅ Simulations : revient, prix de vente (3 modes), marges, PDF, comparaison avec d'autres simulations et commandes, transformation en commande |
+| Documents | ✅ PDF (reçus, fiches de commande, simulations) rangés dans Documents/G-stock, liste et téléchargement |
 
 ## Architecture
 

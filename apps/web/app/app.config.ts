@@ -309,6 +309,8 @@ export default defineAppConfig({
 
     pageCard: {
       slots: {
+        // Colonne plafonnée à la carte : un graphique ou un tableau large ne l'élargit pas.
+        container: "lg:grid-cols-[minmax(0,1fr)]",
         description: "text-sm",
         leading: "mb-2",
         leadingIcon: "size-4 text-muted",

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isUuid } from "@G-stock/core/ids";
 import type { TabsItem } from "@nuxt/ui";
 
 import PagePanel from "~/components/layout/PagePanel.vue";
@@ -11,7 +12,7 @@ const create = useCreateDialogs();
 
 useHead({ title: "Ventes" });
 
-// `?du=AAAA-MM-JJ&au=AAAA-MM-JJ` (calendrier d'activité du tableau de bord) fixe la période.
+// `?du=AAAA-MM-JJ&au=AAAA-MM-JJ&produit=…` (calendriers d'activité) fixe la période et le produit.
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const route = useRoute();
 const queryDay = (value: unknown) =>
@@ -19,11 +20,12 @@ const queryDay = (value: unknown) =>
 const filtersFromQuery = (): SalesFilterState => ({
   ...emptySalesFilters(),
   from: queryDay(route.query.du),
+  productId: isUuid(route.query.produit) ? route.query.produit : undefined,
   to: queryDay(route.query.au),
 });
 const filters = ref<SalesFilterState>(filtersFromQuery());
 watch(
-  () => [route.query.du, route.query.au],
+  () => [route.query.du, route.query.au, route.query.produit],
   () => {
     filters.value = filtersFromQuery();
   },

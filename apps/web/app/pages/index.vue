@@ -184,11 +184,12 @@ const columns: TableColumn<ProductRow>[] = [
       </div>
 
       <div class="grid gap-6 lg:grid-cols-3">
-        <LiveSalesCard class="lg:col-span-2" />
+        <LiveSalesCard class="min-w-0 lg:col-span-2" />
 
         <UPageCard
           title="Meilleures ventes du mois"
           variant="subtle"
+          class="min-w-0"
           :ui="{ container: 'content-start gap-y-4' }"
         >
           <p v-if="topProducts.length === 0" class="text-muted text-sm">Aucune vente ce mois-ci.</p>
