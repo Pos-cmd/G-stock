@@ -18,6 +18,12 @@ export const timestamp = (name: string) => integer(name, { mode: "timestamp_ms" 
 
 export const createdAt = () => timestamp("created_at").default(nowMs).notNull();
 
+/**
+ * Date de l'operation (vente, reception, ajustement) : elle classe l'historique metier.
+ * `createdAt` reste la date d'enregistrement, pour l'audit.
+ */
+export const occurredAt = () => timestamp("occurred_at").notNull();
+
 export const updatedAt = () =>
   timestamp("updated_at")
     .default(nowMs)

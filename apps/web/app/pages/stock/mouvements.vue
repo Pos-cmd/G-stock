@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import type { MovementType } from "@G-stock/core/enums";
-import { MOVEMENT_TYPE_LABELS } from "@G-stock/core/labels";
 import { useQuery } from "@tanstack/vue-query";
 
-import DateRangeField from "~/components/common/DateRangeField.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
+import MovementFilters from "~/components/stock/MovementFilters.vue";
 import MovementsTable from "~/components/stock/MovementsTable.vue";
 
 const icons = useIcons();
@@ -20,23 +19,18 @@ const type = ref<MovementType | typeof ALL>(ALL);
 const from = ref("");
 const to = ref("");
 
-const products = useQuery($orpc.products.list.queryOptions({ input: { includeArchived: true } }));
+const products = useQuery(
+  $orpc.products.list.queryOptions({ input: { includeArchived: true } })
+);
 const productItems = computed(() =>
   (products.data.value ?? []).map((product) => ({
     label: product.name,
     value: product.id,
-  })),
+  }))
 );
-const typeItems = [
-  { label: "Tous les types", value: ALL },
-  ...Object.entries(MOVEMENT_TYPE_LABELS).map(([value, label]) => ({
-    label,
-    value,
-  })),
-];
 
 const filters = computed(() => ({
-  // Bornes incluses : du début du premier jour à la fin du dernier.
+  // Bornes incluses, sur la date de l'opération : du début du premier jour à la fin du dernier.
   from: from.value ? new Date(`${from.value}T00:00:00`) : null,
   productId: productId.value ?? null,
   to: to.value ? new Date(`${to.value}T23:59:59.999`) : null,
@@ -44,7 +38,11 @@ const filters = computed(() => ({
 }));
 
 const hasFilters = computed(
-  () => productId.value !== undefined || type.value !== ALL || from.value !== "" || to.value !== "",
+  () =>
+    productId.value !== undefined ||
+    type.value !== ALL ||
+    from.value !== "" ||
+    to.value !== ""
 );
 
 const resetFilters = () => {
@@ -59,7 +57,7 @@ const resetFilters = () => {
   <PagePanel
     id="stock-movements"
     title="Mouvements de stock"
-    description="Chaque entrée, sortie et correction de stock, lot par lot."
+    description="Chaque entrée, sortie et correction de stock, lot par lot, à la date de l'opération."
   >
     <MovementsTable :filters="filters">
       <template #filters="{ stacked }">
@@ -73,13 +71,13 @@ const resetFilters = () => {
             clear
             :class="stacked ? 'w-full' : 'w-64'"
           />
-          <USelect v-model="type" :items="typeItems" :class="stacked ? 'w-full' : 'w-44'" />
+          <MovementFilters
+            v-model:type="type"
+            v-model:from="from"
+            v-model:to="to"
+            :stacked="stacked"
+          />
         </UFieldGroup>
-        <DateRangeField
-          v-model:from="from"
-          v-model:to="to"
-          :class="stacked ? 'w-full' : 'w-full sm:w-72'"
-        />
         <UButton
           v-if="hasFilters"
           color="neutral"

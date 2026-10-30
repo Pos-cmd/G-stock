@@ -2,8 +2,9 @@
 import { formatFcfa, formatQty } from "@G-stock/core/format";
 import { useMutation } from "@tanstack/vue-query";
 
-import type { ProductDetail } from "~/types/api";
+import DateField from "~/components/common/DateField.vue";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
+import type { ProductDetail } from "~/types/api";
 
 const icons = useIcons();
 
@@ -16,17 +17,23 @@ const notify = useNotify();
 const invalidateStock = useInvalidateStock();
 
 const qty = ref(1);
+/** Date de l'ouverture : aujourd'hui par défaut, modifiable pour une saisie en différé. */
+const occurredAt = ref(toDateInputValue());
 watch(open, (isOpen) => {
   if (isOpen) {
     qty.value = 1;
+    occurredAt.value = toDateInputValue();
   }
 });
 
 const piecesPerUnit = computed(() => product.piecesPerUnit ?? 0);
 const maxQty = computed(() => Math.floor(product.stockQty));
-const pieceName = computed(() => product.pieceProduct?.name ?? `${product.name} (pièce)`);
+const pieceName = computed(
+  () => product.pieceProduct?.name ?? `${product.name} (pièce)`
+);
 const valid = computed(
-  () => Number.isInteger(qty.value) && qty.value >= 1 && qty.value <= maxQty.value,
+  () =>
+    Number.isInteger(qty.value) && qty.value >= 1 && qty.value <= maxQty.value
 );
 
 const mutation = useMutation($orpc.stock.unpack.mutationOptions());
@@ -37,13 +44,16 @@ const submit = async () => {
   }
   try {
     const result = await mutation.mutateAsync({
+      occurredAt: occurredAt.value
+        ? fromDateInputValue(occurredAt.value)
+        : null,
       productId: product.id,
       qty: qty.value,
     });
     await invalidateStock();
     notify.success(
       "Cartons ouverts",
-      `${formatQty(result.pieceCount, "pièce")} ajoutées à « ${result.pieceProductName} »`,
+      `${formatQty(result.pieceCount, "pièce")} ajoutées à « ${result.pieceProductName} »`
     );
     open.value = false;
   } catch (error) {
@@ -76,10 +86,16 @@ const submit = async () => {
           />
         </UFormField>
 
+        <UFormField label="Date de l'ouverture">
+          <DateField v-model="occurredAt" class="w-full" />
+        </UFormField>
+
         <div class="bg-elevated/50 space-y-1 rounded-lg px-3 py-2 text-sm">
           <div class="flex justify-between gap-4">
             <span class="text-muted">Sort du stock</span>
-            <span class="tabular-nums">{{ formatQty(qty || 0, product.unit) }}</span>
+            <span class="tabular-nums">{{
+              formatQty(qty || 0, product.unit)
+            }}</span>
           </div>
           <div class="flex justify-between gap-4">
             <span class="text-muted">Entre dans « {{ pieceName }} »</span>
@@ -89,19 +105,27 @@ const submit = async () => {
           </div>
           <p v-if="product.averageCostFcfa > 0" class="text-dimmed text-xs">
             Coût par pièce ≈
-            {{ formatFcfa(Math.round(product.averageCostFcfa / piecesPerUnit)) }}
-            (coût du {{ product.unit }} divisé par {{ piecesPerUnit }}, lot par lot).
+            {{
+              formatFcfa(Math.round(product.averageCostFcfa / piecesPerUnit))
+            }}
+            (coût du {{ product.unit }} divisé par {{ piecesPerUnit }}, lot par
+            lot).
           </p>
           <p v-if="!product.pieceProduct" class="text-info text-xs">
-            Le produit « {{ pieceName }} » sera créé à la première ouverture ; vous pourrez le
-            renommer et fixer son prix de vente.
+            Le produit « {{ pieceName }} » sera créé à la première ouverture ;
+            vous pourrez le renommer et fixer son prix de vente.
           </p>
         </div>
       </form>
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" label="Annuler" @click="open = false" />
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="Annuler"
+          @click="open = false"
+        />
         <UButton
           type="submit"
           form="unpack-form"

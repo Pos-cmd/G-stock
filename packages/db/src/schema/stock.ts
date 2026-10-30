@@ -2,7 +2,7 @@ import { LOT_SOURCES, MOVEMENT_REFERENCE_TYPES, MOVEMENT_TYPES } from "@G-stock/
 import { sql } from "drizzle-orm";
 import { check, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import { createdAt, id, ref, timestamp } from "../columns";
+import { createdAt, id, occurredAt, ref, timestamp } from "../columns";
 import { user } from "./auth";
 import { products } from "./catalog";
 import { purchaseOrderItems } from "./purchasing";
@@ -50,6 +50,9 @@ export const stockMovements = sqliteTable(
     // Signé : positif pour une entrée, négatif pour une sortie.
     qty: real("qty").notNull(),
     unitCostFcfa: integer("unit_cost_fcfa").notNull(),
+    // Date de l'opération : vente, réception, ajustement. C'est elle qui classe et filtre
+    // l'historique ; `createdAt` reste la date d'enregistrement, pour l'audit.
+    occurredAt: occurredAt(),
     reason: text("reason"),
     referenceType: text("reference_type", { enum: MOVEMENT_REFERENCE_TYPES })
       .notNull()
@@ -60,6 +63,8 @@ export const stockMovements = sqliteTable(
   },
   (table) => [
     index("stock_movements_product_date_idx").on(table.productId, table.createdAt),
+    index("stock_movements_product_occurred_idx").on(table.productId, table.occurredAt),
+    index("stock_movements_occurred_idx").on(table.occurredAt),
     index("stock_movements_lot_idx").on(table.lotId),
     index("stock_movements_date_idx").on(table.createdAt),
     index("stock_movements_reference_idx").on(table.referenceType, table.referenceId),

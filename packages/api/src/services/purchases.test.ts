@@ -21,7 +21,7 @@ import {
   setPurchaseStatus,
   updatePurchaseOrder,
 } from "./purchases";
-import { listLots } from "./stock";
+import { listLots, listMovements } from "./stock";
 import { createSupplier, getSupplier, listSuppliers, removeSupplier } from "./suppliers";
 
 let db: Database;
@@ -198,6 +198,41 @@ describe("receivePurchaseOrder", () => {
     const order = await create(input);
     await setPurchaseStatus(db, order.id, "cancelled");
     await expect(receive(order.id)).rejects.toThrow("annulée");
+  });
+});
+
+describe("mouvements de réception", () => {
+  it("date l'entrée au jour de la réception et nomme le fournisseur", async () => {
+    const supplier = await createSupplier(db, {
+      contact: null,
+      country: "Chine",
+      name: "Dalian Jiayi",
+      notes: null,
+      phone: null,
+    });
+    const { input } = await orderInput({ supplierId: supplier.id });
+    const order = await create(input);
+    await receive(order.id);
+
+    const { items } = await listMovements(db, {
+      page: 1,
+      pageSize: 25,
+      type: "in",
+    });
+    expect(items).toHaveLength(2);
+    expect(items.every((item) => item.occurredAt.getTime() === APRIL_15.getTime())).toBe(true);
+    expect(items[0]?.party).toEqual({
+      id: order.id,
+      kind: "supplier",
+      name: "Dalian Jiayi",
+    });
+
+    const found = await listMovements(db, {
+      page: 1,
+      pageSize: 25,
+      search: "dalian",
+    });
+    expect(found.total).toBe(2);
   });
 });
 

@@ -167,6 +167,8 @@ export const createSale = async (executor: Executor, input: SaleInput, userId?: 
       // Séquentiel : deux lignes du même produit se servent l'une après l'autre dans les lots.
       // oxlint-disable-next-line no-await-in-loop
       allocations = await consumeFifo(executor, {
+        // Date de la vente, pas celle de la saisie : l'historique du stock suit le jour réel.
+        occurredAt: input.saleDate,
         productId: line.productId,
         qty: line.qty,
         reason: `Vente ${reference}`,
@@ -604,10 +606,13 @@ export const cancelSale = async (
       : [];
   const lotsByItem = Map.groupBy(lots, (lot) => lot.saleItemId);
 
+  const now = new Date();
   for (const item of items) {
     // oxlint-disable-next-line no-await-in-loop
     await returnToLots(executor, {
       allocations: lotsByItem.get(item.id) ?? [],
+      // La marchandise revient le jour de l'annulation, pas celui de la vente.
+      occurredAt: now,
       productId: item.productId,
       reason: `Annulation ${sale.reference} : ${params.reason}`,
       referenceId: sale.id,
@@ -616,7 +621,6 @@ export const cancelSale = async (
     });
   }
 
-  const now = new Date();
   const cancelledPayments = await executor
     .update(payments)
     .set({

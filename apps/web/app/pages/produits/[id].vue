@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { rmbToFcfa } from "@G-stock/core/currency";
+import type { MovementType } from "@G-stock/core/enums";
 import { formatDate, formatFcfa, formatQty, formatRmb } from "@G-stock/core/format";
 import { LOT_SOURCE_LABELS } from "@G-stock/core/labels";
 import type { TableColumn, TabsItem } from "@nuxt/ui";
@@ -13,6 +14,7 @@ import ProductFormModal from "~/components/products/ProductFormModal.vue";
 import StockStatusBadge from "~/components/products/StockStatusBadge.vue";
 import LotAdjustModal from "~/components/stock/LotAdjustModal.vue";
 import LotEntryModal from "~/components/stock/LotEntryModal.vue";
+import MovementFilters from "~/components/stock/MovementFilters.vue";
 import MovementsTable from "~/components/stock/MovementsTable.vue";
 import UnpackModal from "~/components/stock/UnpackModal.vue";
 import { useSettingsStore } from "~/stores/settings";
@@ -106,6 +108,25 @@ const adjustedLot = ref<StockLot | null>(null);
 const openAdjust = (lot: StockLot) => {
   adjustedLot.value = lot;
   adjustOpen.value = true;
+};
+
+// Mouvements du produit : période et type, sur la date de l'opération.
+const movementType = ref<MovementType | "all">("all");
+const movementFrom = ref("");
+const movementTo = ref("");
+const movementFilters = computed(() => ({
+  from: movementFrom.value ? new Date(`${movementFrom.value}T00:00:00`) : null,
+  productId: productId.value,
+  to: movementTo.value ? new Date(`${movementTo.value}T23:59:59.999`) : null,
+  type: movementType.value === "all" ? null : movementType.value,
+}));
+const hasMovementFilters = computed(
+  () => movementType.value !== "all" || movementFrom.value !== "" || movementTo.value !== ""
+);
+const resetMovementFilters = () => {
+  movementType.value = "all";
+  movementFrom.value = "";
+  movementTo.value = "";
 };
 
 const archiveMutation = useMutation($orpc.products.archive.mutationOptions());
@@ -446,7 +467,26 @@ const lotColumns: TableColumn<StockLot>[] = [
 
         <template #movements>
           <div class="pt-2">
-            <MovementsTable :filters="{ productId }" :show-product="false" />
+            <MovementsTable :filters="movementFilters" :show-product="false">
+              <template #filters="{ stacked }">
+                <UFieldGroup :orientation="stacked ? 'vertical' : 'horizontal'">
+                  <MovementFilters
+                    v-model:type="movementType"
+                    v-model:from="movementFrom"
+                    v-model:to="movementTo"
+                    :stacked="stacked"
+                  />
+                </UFieldGroup>
+                <UButton
+                  v-if="hasMovementFilters"
+                  color="neutral"
+                  variant="ghost"
+                  :icon="icons.close"
+                  label="Réinitialiser"
+                  @click="resetMovementFilters"
+                />
+              </template>
+            </MovementsTable>
           </div>
         </template>
       </UTabs>

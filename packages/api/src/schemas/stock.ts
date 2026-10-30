@@ -18,12 +18,16 @@ export type LotEntryInput = z.input<typeof lotEntrySchema>;
 export const lotAdjustSchema = z.object({
   lotId: idSchema,
   newQty: z.number().min(0, "La quantité ne peut pas être négative"),
+  /** Date de l'inventaire ou de la casse ; aujourd'hui si vide. */
+  occurredAt: z.date().nullish(),
   reason: z.string().trim().min(3, "Indiquez le motif de l'ajustement").max(500),
 });
 export type LotAdjustInput = z.input<typeof lotAdjustSchema>;
 
 /** Ouvrir des cartons : leurs pièces passent dans le produit « pièce ». */
 export const unpackSchema = z.object({
+  /** Date de l'ouverture ; aujourd'hui si vide. */
+  occurredAt: z.date().nullish(),
   productId: idSchema,
   qty: z.number().int("Nombre entier de cartons").positive("Au moins un carton"),
 });
@@ -35,14 +39,14 @@ export const lotListSchema = z.object({
 });
 
 /** Colonnes de tri de l'historique des mouvements. */
-export const MOVEMENT_SORT_COLUMNS = ["createdAt", "productName", "qty", "unitCostFcfa"] as const;
+export const MOVEMENT_SORT_COLUMNS = ["occurredAt", "productName", "qty", "unitCostFcfa"] as const;
 
 export const movementListSchema = z.object({
   from: z.date().nullish(),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   productId: idSchema.nullish(),
-  /** Produit, code de lot ou motif. */
+  /** Produit, code de lot, motif, client ou fournisseur. */
   search: z.string().trim().nullish(),
   sort: sortSchema(MOVEMENT_SORT_COLUMNS),
   to: z.date().nullish(),

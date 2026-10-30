@@ -431,6 +431,7 @@ export const receivePurchaseOrder = async (executor: Executor, params: ReceivePu
     // oxlint-disable-next-line no-await-in-loop
     const lot = await createLot(executor, {
       notes: `Commande ${order.reference}`,
+      occurredAt: params.receivedAt,
       orderItemId: item.id,
       productId: item.productId,
       qty: item.qtyReceived ?? item.qty,

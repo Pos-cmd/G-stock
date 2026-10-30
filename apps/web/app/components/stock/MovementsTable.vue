@@ -28,7 +28,12 @@ const SEARCH_DEBOUNCE_MS = 300;
 const search = ref("");
 const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 const sorting = ref<{ desc: boolean; id: string }[]>([]);
-const MOVEMENT_SORT_KEYS = ["createdAt", "productName", "qty", "unitCostFcfa"] as const;
+const MOVEMENT_SORT_KEYS = [
+  "occurredAt",
+  "productName",
+  "qty",
+  "unitCostFcfa",
+] as const;
 const sort = computed(() => {
   const [first] = sorting.value;
   const id = MOVEMENT_SORT_KEYS.find((key) => key === first?.id);
@@ -43,11 +48,14 @@ watch(
   () => {
     page.value = 1;
   },
-  { deep: true },
+  { deep: true }
 );
 
 const activeFilters = computed(
-  () => [filters.productId, filters.type, filters.from || filters.to].filter(Boolean).length,
+  () =>
+    [filters.productId, filters.type, filters.from || filters.to].filter(
+      Boolean
+    ).length
 );
 
 const movements = useQuery(
@@ -62,7 +70,7 @@ const movements = useQuery(
       },
     }),
     placeholderData: keepPreviousData,
-  })),
+  }))
 );
 
 const typeColors = {
@@ -71,9 +79,18 @@ const typeColors = {
   out: "info",
 } as const;
 
+/** Saisie en différé : le jour de l'opération n'est pas celui de l'enregistrement. */
+const isBackdated = (movement: StockMovementRow) =>
+  toDateInputValue(new Date(movement.occurredAt)) !==
+  toDateInputValue(new Date(movement.createdAt));
+
+/** La vente du client, ou la commande du fournisseur, d'où vient le mouvement. */
+const partyLink = (party: NonNullable<StockMovementRow["party"]>) =>
+  party.kind === "customer" ? `/ventes/${party.id}` : `/achats/${party.id}`;
+
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns = computed<TableColumn<StockMovementRow>[]>(() => [
-  { accessorKey: "createdAt", enableHiding: false, header: "Date" },
+  { accessorKey: "occurredAt", enableHiding: false, header: "Date" },
   showProduct
     ? { accessorKey: "productName", header: "Produit" }
     : { accessorKey: "lotCode", header: "Lot" },
@@ -94,10 +111,10 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
     :total="movements.data.value?.total ?? 0"
     v-model:search="search"
     v-model:sorting="sorting"
-    :server-sortable="['createdAt', 'productName', 'qty', 'unitCostFcfa']"
+    :server-sortable="['occurredAt', 'productName', 'qty', 'unitCostFcfa']"
     filters-menu
     :active-filters="activeFilters"
-    search-placeholder="Produit, lot, motif…"
+    search-placeholder="Produit, lot, motif, client…"
     :item-label="['mouvement', 'mouvements']"
     storage-key="movements"
   >
@@ -105,9 +122,19 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
       <slot name="filters" :stacked="stacked" />
     </template>
 
-    <template #createdAt-cell="{ row }">
-      <span class="whitespace-nowrap">{{ formatDateTime(row.original.createdAt) }}</span>
-      <p class="text-dimmed text-xs">par {{ row.original.authorName ?? "—" }}</p>
+    <template #occurredAt-cell="{ row }">
+      <span class="whitespace-nowrap">{{
+        formatDateTime(row.original.occurredAt)
+      }}</span>
+      <p class="text-dimmed text-xs">
+        par {{ row.original.authorName ?? "—" }}
+      </p>
+      <p
+        v-if="isBackdated(row.original)"
+        class="text-dimmed text-xs whitespace-nowrap"
+      >
+        enregistré le {{ formatDateTime(row.original.createdAt) }}
+      </p>
     </template>
 
     <template #productName-cell="{ row }">
@@ -144,15 +171,33 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
       <span class="tabular-nums">{{
         formatFcfa(Math.abs(row.original.qty) * row.original.unitCostFcfa)
       }}</span>
-      <p class="text-dimmed text-xs">{{ formatFcfa(row.original.unitCostFcfa) }} / u.</p>
+      <p class="text-dimmed text-xs">
+        {{ formatFcfa(row.original.unitCostFcfa) }} / u.
+      </p>
     </template>
 
     <template #reason-cell="{ row }">
-      <span class="text-muted line-clamp-2 max-w-64">{{ row.original.reason ?? "—" }}</span>
+      <span
+        class="text-muted line-clamp-2 max-w-64"
+        :title="row.original.reason ?? undefined"
+      >
+        {{ row.original.reason ?? "—" }}
+      </span>
+      <p v-if="row.original.party" class="mt-0.5 max-w-64 text-xs">
+        <NuxtLink
+          :to="partyLink(row.original.party)"
+          class="text-dimmed hover:text-default truncate hover:underline"
+          :title="row.original.party.name"
+        >
+          {{ row.original.party.name }}
+        </NuxtLink>
+      </p>
     </template>
 
     <template #empty>
-      <div class="text-muted py-8 text-center">Aucun mouvement pour ces critères.</div>
+      <div class="text-muted py-8 text-center">
+        Aucun mouvement pour ces critères.
+      </div>
     </template>
   </DataTable>
 </template>

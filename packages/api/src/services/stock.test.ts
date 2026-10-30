@@ -12,7 +12,15 @@ import {
   updateProduct,
 } from "./products";
 import { getSettings } from "./settings";
-import { adjustLot, buildLotCode, consumeFifo, createLot, listLots, unpackProduct } from "./stock";
+import {
+  adjustLot,
+  buildLotCode,
+  consumeFifo,
+  createLot,
+  listLots,
+  listMovements,
+  unpackProduct,
+} from "./stock";
 
 let db: Database;
 
@@ -256,5 +264,60 @@ describe("unpackProduct (ouverture de cartons)", () => {
     const pack = await getProduct(db, product.id);
     expect(pack.stockQty).toBe(11);
     expect(pack.pieceProduct).toBeNull();
+  });
+});
+
+describe("date de l'operation", () => {
+  it("date l'entree d'un lot au jour de sa reception", async () => {
+    const product = await newProduct("Tissu");
+    await entry(product.id, 3, 1000, JAN_1);
+
+    const [movement] = await db.select().from(stockMovements);
+    expect(movement?.occurredAt).toEqual(JAN_1);
+    // La date d'enregistrement reste celle de la saisie.
+    expect(movement?.createdAt.getTime()).toBeGreaterThan(JAN_1.getTime());
+  });
+
+  it("date un ajustement au jour choisi", async () => {
+    const product = await newProduct("Fil");
+    const lot = await entry(product.id, 10, 200, JAN_1);
+
+    await db.transaction((tx) =>
+      adjustLot(tx, { lotId: lot.id, newQty: 8, occurredAt: FEB_1, reason: "Inventaire" }),
+    );
+
+    const [movement] = await db
+      .select()
+      .from(stockMovements)
+      .where(eq(stockMovements.type, "adjustment"));
+    expect(movement?.occurredAt).toEqual(FEB_1);
+  });
+
+  it("filtre sur la date de l'operation, pas sur celle de la saisie", async () => {
+    const product = await newProduct("Bazin");
+    const lot = await entry(product.id, 10, 1000, JAN_1);
+    await db.transaction((tx) =>
+      adjustLot(tx, { lotId: lot.id, newQty: 9, occurredAt: FEB_1, reason: "Casse" }),
+    );
+
+    const january = await listMovements(db, { from: JAN_1, page: 1, pageSize: 25, to: JAN_1 });
+    expect(january.items.map((item) => item.type)).toEqual(["in"]);
+
+    const february = await listMovements(db, { from: FEB_1, page: 1, pageSize: 25, to: FEB_1 });
+    expect(february.items.map((item) => item.type)).toEqual(["adjustment"]);
+
+    const all = await listMovements(db, { page: 1, pageSize: 25 });
+    expect(all.total).toBe(2);
+  });
+
+  it("ne nomme aucun tiers pour un ajustement manuel", async () => {
+    const product = await newProduct("Bouton");
+    const lot = await entry(product.id, 4, 100, JAN_1);
+    await db.transaction((tx) =>
+      adjustLot(tx, { lotId: lot.id, newQty: 3, reason: "Casse" }),
+    );
+
+    const { items } = await listMovements(db, { page: 1, pageSize: 25 });
+    expect(items.every((item) => item.party === null)).toBe(true);
   });
 });

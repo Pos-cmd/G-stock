@@ -23,7 +23,7 @@ import {
   salesSummary,
   salesTrends,
 } from "./sales";
-import { createLot } from "./stock";
+import { createLot, listMovements } from "./stock";
 
 let db: Database;
 const getDb = useTestDatabase();
@@ -502,5 +502,70 @@ describe("historique et fiche client", () => {
     const march2 = await salesByHour(db, new Date(2026, 2, 2, 9));
     expect(march2.todayCount).toBe(0);
     expect(march2.yesterday.reduce((sum, value) => sum + value, 0)).toBe(4500);
+  });
+});
+
+describe("mouvements de vente", () => {
+  it("date la sortie au jour de la vente, pas au jour de la saisie", async () => {
+    const { awa, wax } = await setup();
+    await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 3, unitPriceFcfa: 1500 }],
+      saleDate: JAN_1,
+    });
+
+    const { items } = await listMovements(db, {
+      from: JAN_1,
+      page: 1,
+      pageSize: 25,
+      to: JAN_1,
+      type: "out",
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0]?.occurredAt).toEqual(JAN_1);
+  });
+
+  it("nomme le client concerne et le retrouve par la recherche", async () => {
+    const { awa, moussa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 3, unitPriceFcfa: 1500 }],
+      saleDate: JAN_1,
+    });
+    await sell({
+      customerId: moussa.id,
+      lines: [{ productId: wax.id, qty: 2, unitPriceFcfa: 1500 }],
+      saleDate: FEB_1,
+    });
+
+    const { items } = await listMovements(db, {
+      from: JAN_1,
+      page: 1,
+      pageSize: 25,
+      to: JAN_1,
+      type: "out",
+    });
+    expect(items[0]?.party).toEqual({
+      id: sale.id,
+      kind: "customer",
+      name: "Awa",
+    });
+
+    const { items: found } = await listMovements(db, {
+      page: 1,
+      pageSize: 25,
+      search: "moussa",
+      type: "out",
+    });
+    expect(found).toHaveLength(1);
+    expect(found[0]?.party?.name).toBe("Moussa");
+
+    const { items: none } = await listMovements(db, {
+      page: 1,
+      pageSize: 25,
+      search: "awa",
+      type: "in",
+    });
+    expect(none).toHaveLength(0);
   });
 });
