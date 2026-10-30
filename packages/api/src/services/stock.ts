@@ -451,6 +451,7 @@ export const listMovements = async (
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   // Valeur d'un mouvement : quantité (sans signe) × coût unitaire.
   const sortColumns = {
+    createdAt: stockMovements.createdAt,
     occurredAt: stockMovements.occurredAt,
     productName: products.name,
     qty: stockMovements.qty,

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { MovementType } from "@G-stock/core/enums";
-import { formatDateTime, formatFcfa, formatQty } from "@G-stock/core/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatFcfa,
+  formatQty,
+} from "@G-stock/core/format";
 import { MOVEMENT_TYPE_LABELS } from "@G-stock/core/labels";
 import type { TableColumn } from "@nuxt/ui";
 import { keepPreviousData, useQuery } from "@tanstack/vue-query";
@@ -30,6 +35,7 @@ const debouncedSearch = refDebounced(search, SEARCH_DEBOUNCE_MS);
 const sorting = ref<{ desc: boolean; id: string }[]>([]);
 const MOVEMENT_SORT_KEYS = [
   "occurredAt",
+  "createdAt",
   "productName",
   "qty",
   "unitCostFcfa",
@@ -79,11 +85,6 @@ const typeColors = {
   out: "info",
 } as const;
 
-/** Saisie en différé : le jour de l'opération n'est pas celui de l'enregistrement. */
-const isBackdated = (movement: StockMovementRow) =>
-  toDateInputValue(new Date(movement.occurredAt)) !==
-  toDateInputValue(new Date(movement.createdAt));
-
 /** La vente du client, ou la commande du fournisseur, d'où vient le mouvement. */
 const partyLink = (party: NonNullable<StockMovementRow["party"]>) =>
   party.kind === "customer" ? `/ventes/${party.id}` : `/achats/${party.id}`;
@@ -98,6 +99,7 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
   { accessorKey: "qty", header: "Quantité", meta: rightAligned },
   { accessorKey: "unitCostFcfa", header: "Valeur", meta: rightAligned },
   { accessorKey: "reason", header: "Motif" },
+  { accessorKey: "createdAt", header: "Enregistré le" },
 ]);
 </script>
 
@@ -111,7 +113,7 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
     :total="movements.data.value?.total ?? 0"
     v-model:search="search"
     v-model:sorting="sorting"
-    :server-sortable="['occurredAt', 'productName', 'qty', 'unitCostFcfa']"
+    :server-sortable="[...MOVEMENT_SORT_KEYS]"
     filters-menu
     :active-filters="activeFilters"
     search-placeholder="Produit, lot, motif, client…"
@@ -123,17 +125,17 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
     </template>
 
     <template #occurredAt-cell="{ row }">
-      <span class="whitespace-nowrap">{{
-        formatDateTime(row.original.occurredAt)
+      <span class="text-highlighted font-medium whitespace-nowrap">{{
+        formatDate(row.original.occurredAt)
+      }}</span>
+    </template>
+
+    <template #createdAt-cell="{ row }">
+      <span class="text-muted whitespace-nowrap">{{
+        formatDateTime(row.original.createdAt)
       }}</span>
       <p class="text-dimmed text-xs">
         par {{ row.original.authorName ?? "—" }}
-      </p>
-      <p
-        v-if="isBackdated(row.original)"
-        class="text-dimmed text-xs whitespace-nowrap"
-      >
-        enregistré le {{ formatDateTime(row.original.createdAt) }}
       </p>
     </template>
 

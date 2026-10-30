@@ -39,7 +39,13 @@ export const lotListSchema = z.object({
 });
 
 /** Colonnes de tri de l'historique des mouvements. */
-export const MOVEMENT_SORT_COLUMNS = ["occurredAt", "productName", "qty", "unitCostFcfa"] as const;
+export const MOVEMENT_SORT_COLUMNS = [
+  "occurredAt",
+  "createdAt",
+  "productName",
+  "qty",
+  "unitCostFcfa",
+] as const;
 
 export const movementListSchema = z.object({
   from: z.date().nullish(),
