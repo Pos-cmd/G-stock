@@ -118,7 +118,7 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
     :active-filters="activeFilters"
     search-placeholder="Produit, lot, motif, client…"
     :item-label="['mouvement', 'mouvements']"
-    storage-key="movements"
+    storage-key="movements-v2"
   >
     <template v-if="$slots.filters" #filters="{ stacked }">
       <slot name="filters" :stacked="stacked" />
