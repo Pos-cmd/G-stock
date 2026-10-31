@@ -15,10 +15,13 @@ import {
 import type { TableColumn } from "@nuxt/ui";
 
 import DataTable from "~/components/common/DataTable.vue";
+import PurchaseAllocationComparison from "~/components/purchases/PurchaseAllocationComparison.vue";
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
 import type { PurchaseOrderDetail, PurchaseOrderItemRow } from "~/types/api";
 
 const { order } = defineProps<{ order: PurchaseOrderDetail }>();
+
+const icons = useIcons();
 
 const isReceived = computed(() => order.status === "received");
 const goodsHint = computed(() => {
@@ -38,6 +41,19 @@ const arrivalInfo = computed(() =>
     { label: "N° BL", value: order.billOfLading },
     { label: "Transitaire", value: order.forwarder },
   ].filter((info) => info.value),
+);
+
+/** Lignes lisibles pour la comparaison des méthodes de répartition. */
+const comparisonLines = computed(() =>
+  order.items.map((item) => ({
+    label: item.productName,
+    pricingBasis: item.pricingBasis,
+    // Une commande réceptionnée se juge sur ce qui est réellement entré en stock.
+    qty: item.qtyReceived ?? item.qty,
+    trips: item.trips,
+    unitPrice: item.unitPrice,
+    weightTons: item.weightTons,
+  })),
 );
 
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
@@ -183,5 +199,32 @@ const columns = computed<TableColumn<PurchaseOrderItemRow>[]>(() => [
         <span v-else class="text-dimmed">—</span>
       </template>
     </DataTable>
+
+    <UCollapsible>
+      <template #default="{ open }">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :icon="icons.compare"
+          label="Comparer les répartitions"
+          :trailing-icon="icons.chevronDown"
+          :ui="{ trailingIcon: open ? 'rotate-180 transition-transform' : 'transition-transform' }"
+          block
+          class="justify-between"
+        />
+      </template>
+      <template #content>
+        <div class="pt-3">
+          <PurchaseAllocationComparison
+            :currency="order.currency"
+            :fees-fcfa="order.costs.feesFcfa"
+            :goods-fcfa="order.receivedGoodsFcfa ?? order.costs.goodsFcfa"
+            :lines="comparisonLines"
+            :rates="{ fcfaPerUsd: order.fcfaPerUsd, rmbPerUsd: order.rmbPerUsd }"
+            :selected="order.allocationMethod"
+          />
+        </div>
+      </template>
+    </UCollapsible>
   </div>
 </template>

@@ -23,6 +23,7 @@ import { z } from "zod";
 
 import DateField from "~/components/common/DateField.vue";
 import ProductFormModal from "~/components/products/ProductFormModal.vue";
+import PurchaseAllocationComparison from "~/components/purchases/PurchaseAllocationComparison.vue";
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
 import SupplierFormModal from "~/components/purchases/SupplierFormModal.vue";
 import { useSettingsStore } from "~/stores/settings";
@@ -288,35 +289,56 @@ const activePayments = computed(() =>
 );
 
 // Calcul en direct, avec la même fonction que le serveur.
-const costs = computed(() => {
-  const items = state.items.map((line) => ({
+const costItems = computed(() =>
+  state.items.map((line) => ({
     pricingBasis: line.pricingBasis,
     qty: line.qty || 0,
     trips: line.trips || 0,
     unitPrice: line.unitPrice || 0,
     weightTons: line.weightTons || null,
-  }));
-  const rates = {
-    fcfaPerUsd: state.fcfaPerUsd > 0 ? state.fcfaPerUsd : 1,
-    rmbPerUsd: state.rmbPerUsd > 0 ? state.rmbPerUsd : 1,
-  };
-  return computeLandedCosts({
+  })),
+);
+const costRates = computed(() => ({
+  fcfaPerUsd: state.fcfaPerUsd > 0 ? state.fcfaPerUsd : 1,
+  rmbPerUsd: state.rmbPerUsd > 0 ? state.rmbPerUsd : 1,
+}));
+/** Marchandise comptée au taux des versements quand il y en a : le coût réel, pas l'estimé. */
+const paidGoods = computed(() =>
+  paidGoodsFcfa({
+    currency: state.currency,
+    goodsAmount: totalGoodsAmount(costItems.value),
+    payments: activePayments.value,
+    rates: costRates.value,
+  }),
+);
+
+const costs = computed(() =>
+  computeLandedCosts({
     allocationMethod: state.allocationMethod,
     currency: state.currency,
     freightCbm: state.freightCbm || 0,
     freightRatePerCbmFcfa: state.freightRatePerCbmFcfa || 0,
-    goodsFcfa: paidGoodsFcfa({
-      currency: state.currency,
-      goodsAmount: totalGoodsAmount(items),
-      payments: activePayments.value,
-      rates,
-    }),
-    items,
+    goodsFcfa: paidGoods.value,
+    items: costItems.value,
     localTransportFcfa: state.localTransportFcfa || 0,
     otherFeesFcfa: state.otherFeesFcfa || 0,
-    rates,
-  });
-});
+    rates: costRates.value,
+  }),
+);
+
+/** Lignes lisibles pour la comparaison des méthodes de répartition. */
+const comparisonLines = computed(() =>
+  state.items.map((line) => ({
+    label: line.productId
+      ? (productsById.value.get(line.productId)?.name ?? "Produit")
+      : "Produit non choisi",
+    pricingBasis: line.pricingBasis,
+    qty: line.qty || 0,
+    trips: line.trips || 0,
+    unitPrice: line.unitPrice || 0,
+    weightTons: line.weightTons || null,
+  })),
+);
 
 const fees = computed(() => ({
   freightCbm: state.freightCbm || 0,
@@ -692,6 +714,25 @@ defineExpose({
         class="lg:self-start"
       />
     </div>
+
+    <UPageCard
+      variant="subtle"
+      title="Effet de la répartition sur les prix"
+      :ui="{ container: 'lg:grid-cols-[minmax(0,1fr)]', wrapper: 'min-w-0' }"
+    >
+      <template #description>
+        Le coût de revient de chaque produit selon les quatre méthodes, à frais constants : seule
+        la part de frais change, pas le total.
+      </template>
+      <PurchaseAllocationComparison
+        :currency="state.currency"
+        :fees-fcfa="costs.feesFcfa"
+        :goods-fcfa="paidGoods"
+        :lines="comparisonLines"
+        :rates="costRates"
+        :selected="state.allocationMethod"
+      />
+    </UPageCard>
 
     <UFormField label="Notes" name="notes">
       <UTextarea
