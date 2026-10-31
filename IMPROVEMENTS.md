@@ -305,6 +305,15 @@ _Liste des features et améliorations à implémenter - Mise à jour: 2026-10-30
 - [ ] Une vente annulée ne peut plus être modifiée
 - **Note technique** : `sales.update` / `sales.addLines` côté API ; la difficulté n'est pas le stock mais la cohérence du dû (ventes − remises − reprises − paiements) et des documents déjà émis
 
+### État livré (v1)
+
+- [x] `sales.update` : lignes ajoutées, quantités corrigées, lignes retirées, prix, date, note — seule la **différence** bouge en stock (`consumeFifo` pour le complément, `returnToLots` pour le retrait), coût de revient recalculé depuis les lots restants
+- [x] Motif obligatoire et journal `sale_revisions` (date, auteur, motif, récapitulatif « + 1 Bazin · total 3 000 → 3 900 FCFA ») affiché sur la fiche vente
+- [x] Garde-fous : vente annulée refusée, stock insuffisant refusé, remises supérieures au nouveau total refusées, produit archivé refusé
+- [x] Écran **Modifier la vente** depuis les actions de la fiche, avec total actuel, nouveau total et écart
+- [ ] Reste à faire : changer le client d'une vente, régénérer le reçu PDF avec la date de dernière modification, KPI « ventes modifiées »
+- **Écart assumé** : la vente est bien corrigée (quantités réduites) plutôt que conservée intacte avec une pièce annexe. C'est ce qui garde **tous** les agrégats justes d'un coup — tableau de bord, marge produit, ventes par période — sans dupliquer chaque calcul ; la trace avant/après vit dans `sale_revisions` et le détail du retour dans `sale_returns`
+
 ---
 
 ## ↩️ Reprises (retours partiels d'une vente)
@@ -367,6 +376,18 @@ _Liste des features et améliorations à implémenter - Mise à jour: 2026-10-30
 3. Reprise revendable, retour au lot d'origine, avoir sur le dû
 4. Reprise d'articles abîmés + perte tracée
 5. Bon de reprise PDF et envoi WhatsApp
+
+### État livré (v1)
+
+- [x] Tables `sale_returns` (date, motif, montant, mode de règlement, auteur) et `sale_return_items` (article, quantité, prix de ligne, remise en stock ou non)
+- [x] `sales.return` : reprise partielle ou totale, plafonnée au restant vendu, cumulable sur plusieurs reprises ; la marchandise revient dans ses **lots d'origine au coût d'origine**, ou reste dehors quand elle est abîmée (`restocked: false`)
+- [x] Règlement au choix : **avoir** gardé pour le client (`credit`, la vente baisse et le crédit apparaît) ou **argent rendu** (`cash`, `mobile_money`, `bank`) — le remboursement sort alors des encaissements du client, en priorité sur les paiements de la vente concernée
+- [x] Écran **Reprendre des articles** depuis la fiche vente : quantités par ligne, interrupteur « remettre en stock », date, motif, mode de règlement, montant repris et reste dû après reprise
+- [x] Bloc **Reprises** sur la fiche vente, ligne **Reprise …** dans les mouvements de stock (client résolu comme pour une vente) et entrée dans le journal des modifications
+- [x] Raccourci **Vendre à un autre client** : ouvre `/ventes/nouvelle` avec les articles repris déjà remplis
+- [x] `cancelSale` reste juste après une reprise : les allocations ont été réduites, donc l'annulation ne rend que ce qui est encore vendu
+- [ ] Reste à faire : type de mouvement dédié (`sale_return`), filtre « reprises » sur la page Mouvements, bon de reprise PDF, KPI dashboard
+- **Écart assumé** : pas d'échange en une seule opération — le raccourci « Vendre à un autre client » fait le travail en deux écrans, sans inventer une écriture comptable que personne ne relira
 
 ---
 
