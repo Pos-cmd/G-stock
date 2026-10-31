@@ -32,19 +32,98 @@ export interface PaymentAllocation {
   oldestUnpaidDate: Date | null;
 }
 
+/** Paiement identifié, pour retrouver ce qu'il règle. */
+export interface CoveragePayment extends DebtPayment {
+  id: string;
+}
+
+/** Part d'un paiement qui revient à une vente. */
+export interface PaymentCoverage {
+  saleId: string;
+  amountFcfa: number;
+}
+
+/**
+ * Quelles ventes chaque paiement règle, avec les mêmes règles que `allocatePayments` : la vente
+ * rattachée d'abord, puis les plus anciennes. Les totaux par vente sont donc identiques : cette
+ * fonction ne sert qu'à l'affichage (« ce jour-là, le client a soldé ces ventes »).
+ * Les paiements doivent être donnés dans l'ordre chronologique.
+ */
+export const allocatePaymentCoverage = (
+  sales: readonly DebtSale[],
+  payments: readonly CoveragePayment[]
+): Map<string, PaymentCoverage[]> => {
+  const ordered = sales.toSorted(
+    (a, b) => a.date.getTime() - b.date.getTime() || a.id.localeCompare(b.id)
+  );
+  const due = new Map(
+    ordered.map((sale) => [sale.id, Math.max(sale.netFcfa, 0)])
+  );
+  const coverage = new Map<string, PaymentCoverage[]>(
+    payments.map((payment) => [payment.id, []])
+  );
+
+  // 1. Une vente choisie au moment du paiement est réglée en priorité.
+  const pool: { amountFcfa: number; id: string }[] = [];
+  for (const payment of payments) {
+    let left = payment.amountFcfa;
+    const targetDue = payment.saleId ? due.get(payment.saleId) : undefined;
+    if (payment.saleId && targetDue !== undefined) {
+      const applied = Math.min(left, targetDue);
+      if (applied > 0) {
+        due.set(payment.saleId, targetDue - applied);
+        coverage
+          .get(payment.id)
+          ?.push({ amountFcfa: applied, saleId: payment.saleId });
+        left -= applied;
+      }
+    }
+    if (left > 0) {
+      pool.push({ amountFcfa: left, id: payment.id });
+    }
+  }
+
+  // 2. Le reste solde les ventes les plus anciennes, dans l'ordre des paiements.
+  let cursor = 0;
+  for (const sale of ordered) {
+    let remaining = due.get(sale.id) ?? 0;
+    while (remaining > 0 && cursor < pool.length) {
+      const entry = pool[cursor];
+      if (!entry) {
+        break;
+      }
+      const applied = Math.min(entry.amountFcfa, remaining);
+      if (applied > 0) {
+        coverage.get(entry.id)?.push({ amountFcfa: applied, saleId: sale.id });
+        entry.amountFcfa -= applied;
+        remaining -= applied;
+        due.set(sale.id, remaining);
+      }
+      if (entry.amountFcfa <= 0) {
+        cursor += 1;
+      }
+    }
+  }
+
+  return coverage;
+};
+
 /**
  * Affecte les paiements d'un client à ses ventes : un paiement rattaché à une vente la règle en
  * priorité ; le reste (paiements libres, excédents) solde les ventes les plus anciennes d'abord.
  */
 export const allocatePayments = (
   sales: readonly DebtSale[],
-  payments: readonly DebtPayment[],
+  payments: readonly DebtPayment[]
 ): PaymentAllocation => {
   const ordered = sales.toSorted(
-    (a, b) => a.date.getTime() - b.date.getTime() || a.id.localeCompare(b.id),
+    (a, b) => a.date.getTime() - b.date.getTime() || a.id.localeCompare(b.id)
   );
   const settlements = new Map<string, SaleSettlement>(
-    ordered.map((sale) => [sale.id, { dueFcfa: Math.max(sale.netFcfa, 0), paidFcfa: 0 }]),
+    ordered.map((sale) => [
+      sale.id,
+      { dueFcfa: Math.max(sale.netFcfa, 0), paidFcfa: 0 },
+    ])
   );
 
   let pool = 0;
@@ -99,7 +178,7 @@ export interface ReceivableThresholds {
 
 export const receivableLevel = (
   days: number,
-  thresholds: ReceivableThresholds,
+  thresholds: ReceivableThresholds
 ): ReceivableLevel => {
   if (days >= thresholds.receivableCriticalDays) {
     return "critical";

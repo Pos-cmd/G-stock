@@ -1,4 +1,9 @@
-import { daysBetween, lineAmountFcfa } from "@G-stock/core/sales";
+import {
+  allocatePaymentCoverage,
+  daysBetween,
+  lineAmountFcfa,
+} from "@G-stock/core/sales";
+import type { PaymentCoverage } from "@G-stock/core/sales";
 import { planFifo, roundQty } from "@G-stock/core/stock";
 import type { FifoLot } from "@G-stock/core/stock";
 import type { Executor } from "@G-stock/db";
@@ -14,7 +19,20 @@ import {
 } from "@G-stock/db/schema/sales";
 import { stockLots } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
-import { and, asc, count, desc, eq, exists, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type {
@@ -35,7 +53,10 @@ const REFERENCE_DIGITS = 5;
 const saleCostSql = sql<number>`coalesce((select sum(${saleItems.costFcfa}) from ${saleItems} where ${saleItems.saleId} = ${sales.id}), 0)`;
 
 const getCustomerRow = async (executor: Executor, id: string) => {
-  const [customer] = await executor.select().from(customers).where(eq(customers.id, id));
+  const [customer] = await executor
+    .select()
+    .from(customers)
+    .where(eq(customers.id, id));
   if (!customer) {
     throw new ORPCError("NOT_FOUND", { message: "Client introuvable" });
   }
@@ -58,10 +79,15 @@ const assertSaleActive = (sale: typeof sales.$inferSelect): void => {
   }
 };
 
-const loadProducts = async (executor: Executor, productIds: readonly string[]) => {
+const loadProducts = async (
+  executor: Executor,
+  productIds: readonly string[]
+) => {
   const ids = [...new Set(productIds)];
   const rows =
-    ids.length > 0 ? await executor.select().from(products).where(inArray(products.id, ids)) : [];
+    ids.length > 0
+      ? await executor.select().from(products).where(inArray(products.id, ids))
+      : [];
   if (rows.length !== ids.length) {
     throw new ORPCError("NOT_FOUND", {
       message: "Un des produits est introuvable",
@@ -76,29 +102,35 @@ const loadProducts = async (executor: Executor, productIds: readonly string[]) =
  */
 export const quoteSale = async (
   executor: Executor,
-  lines: readonly { productId: string; qty: number }[],
+  lines: readonly { productId: string; qty: number }[]
 ) => {
   const productIds = [...new Set(lines.map((line) => line.productId))];
   const lotsByProduct = new Map<string, FifoLot[]>(
     await Promise.all(
       productIds.map(
-        async (productId) => [productId, await listAvailableLots(executor, productId)] as const,
-      ),
-    ),
+        async (productId) =>
+          [productId, await listAvailableLots(executor, productId)] as const
+      )
+    )
   );
   return lines.map((line) => {
     const lots = lotsByProduct.get(line.productId) ?? [];
-    const availableQty = roundQty(lots.reduce((sum, lot) => sum + lot.qtyRemaining, 0));
+    const availableQty = roundQty(
+      lots.reduce((sum, lot) => sum + lot.qtyRemaining, 0)
+    );
     const plan = planFifo(lots, line.qty);
     const left = new Map(
-      plan.allocations.map((allocation) => [allocation.lotId, allocation.qtyLeft]),
+      plan.allocations.map((allocation) => [
+        allocation.lotId,
+        allocation.qtyLeft,
+      ])
     );
     lotsByProduct.set(
       line.productId,
       lots.map((lot) => ({
         ...lot,
         qtyRemaining: left.get(lot.id) ?? lot.qtyRemaining,
-      })),
+      }))
     );
     return {
       availableQty,
@@ -114,13 +146,19 @@ export const quoteSale = async (
  * Enregistre une vente : sortie de stock FIFO ligne par ligne (coût figé), puis encaissement
  * du total (comptant) ou de l'acompte (crédit). À appeler dans une transaction : tout ou rien.
  */
-export const createSale = async (executor: Executor, input: SaleInput, userId?: string | null) => {
+export const createSale = async (
+  executor: Executor,
+  input: SaleInput,
+  userId?: string | null
+) => {
   await getCustomerRow(executor, input.customerId);
   const productsById = await loadProducts(
     executor,
-    input.lines.map((line) => line.productId),
+    input.lines.map((line) => line.productId)
   );
-  const archived = [...productsById.values()].find((product) => product.archivedAt);
+  const archived = [...productsById.values()].find(
+    (product) => product.archivedAt
+  );
   if (archived) {
     throw new ORPCError("BAD_REQUEST", {
       message: `Le produit « ${archived.name} » est archivé`,
@@ -129,7 +167,7 @@ export const createSale = async (executor: Executor, input: SaleInput, userId?: 
 
   const totalFcfa = input.lines.reduce(
     (sum, line) => sum + lineAmountFcfa(line.qty, line.unitPriceFcfa),
-    0,
+    0
   );
   const paidFcfa = input.paymentType === "cash" ? totalFcfa : input.paidFcfa;
   if (paidFcfa > totalFcfa) {
@@ -142,7 +180,7 @@ export const createSale = async (executor: Executor, input: SaleInput, userId?: 
     executor,
     REFERENCE_PREFIX,
     input.saleDate,
-    REFERENCE_DIGITS,
+    REFERENCE_DIGITS
   );
   const [sale] = await executor
     .insert(sales)
@@ -185,7 +223,10 @@ export const createSale = async (executor: Executor, input: SaleInput, userId?: 
       throw error;
     }
     const costFcfa = Math.round(
-      allocations.reduce((sum, allocation) => sum + allocation.qty * allocation.unitCostFcfa, 0),
+      allocations.reduce(
+        (sum, allocation) => sum + allocation.qty * allocation.unitCostFcfa,
+        0
+      )
     );
     // oxlint-disable-next-line no-await-in-loop
     const [item] = await executor
@@ -199,7 +240,9 @@ export const createSale = async (executor: Executor, input: SaleInput, userId?: 
       })
       .returning();
     if (!item) {
-      throw new Error("L'insertion de la ligne de vente n'a renvoyé aucune ligne");
+      throw new Error(
+        "L'insertion de la ligne de vente n'a renvoyé aucune ligne"
+      );
     }
     // oxlint-disable-next-line no-await-in-loop
     await executor.insert(saleItemLots).values(
@@ -208,7 +251,7 @@ export const createSale = async (executor: Executor, input: SaleInput, userId?: 
         qty: allocation.qty,
         saleItemId: item.id,
         unitCostFcfa: allocation.unitCostFcfa,
-      })),
+      }))
     );
   }
 
@@ -225,7 +268,10 @@ export const createSale = async (executor: Executor, input: SaleInput, userId?: 
   return sale;
 };
 
-const userNames = async (executor: Executor, ids: readonly (string | null)[]) => {
+const userNames = async (
+  executor: Executor,
+  ids: readonly (string | null)[]
+) => {
   const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   if (unique.length === 0) {
     return new Map<string, string>();
@@ -239,34 +285,36 @@ const userNames = async (executor: Executor, ids: readonly (string | null)[]) =>
 
 export const getSale = async (executor: Executor, id: string) => {
   const sale = await getSaleRow(executor, id);
-  const [customer, items, discounts, salePayments, ledgers] = await Promise.all([
-    getCustomerRow(executor, sale.customerId),
-    executor
-      .select({
-        costFcfa: saleItems.costFcfa,
-        id: saleItems.id,
-        productId: saleItems.productId,
-        productName: products.name,
-        productUnit: products.unit,
-        qty: saleItems.qty,
-        unitPriceFcfa: saleItems.unitPriceFcfa,
-      })
-      .from(saleItems)
-      .innerJoin(products, eq(products.id, saleItems.productId))
-      .where(eq(saleItems.saleId, id))
-      .orderBy(asc(saleItems.id)),
-    executor
-      .select()
-      .from(saleDiscounts)
-      .where(eq(saleDiscounts.saleId, id))
-      .orderBy(asc(saleDiscounts.discountDate), asc(saleDiscounts.id)),
-    executor
-      .select()
-      .from(payments)
-      .where(eq(payments.saleId, id))
-      .orderBy(asc(payments.paymentDate), asc(payments.id)),
-    loadLedgers(executor, sale.customerId),
-  ]);
+  const [customer, items, discounts, salePayments, ledgers] = await Promise.all(
+    [
+      getCustomerRow(executor, sale.customerId),
+      executor
+        .select({
+          costFcfa: saleItems.costFcfa,
+          id: saleItems.id,
+          productId: saleItems.productId,
+          productName: products.name,
+          productUnit: products.unit,
+          qty: saleItems.qty,
+          unitPriceFcfa: saleItems.unitPriceFcfa,
+        })
+        .from(saleItems)
+        .innerJoin(products, eq(products.id, saleItems.productId))
+        .where(eq(saleItems.saleId, id))
+        .orderBy(asc(saleItems.id)),
+      executor
+        .select()
+        .from(saleDiscounts)
+        .where(eq(saleDiscounts.saleId, id))
+        .orderBy(asc(saleDiscounts.discountDate), asc(saleDiscounts.id)),
+      executor
+        .select()
+        .from(payments)
+        .where(eq(payments.saleId, id))
+        .orderBy(asc(payments.paymentDate), asc(payments.id)),
+      loadLedgers(executor, sale.customerId),
+    ]
+  );
 
   const lots =
     items.length > 0
@@ -283,8 +331,8 @@ export const getSale = async (executor: Executor, id: string) => {
           .where(
             inArray(
               saleItemLots.saleItemId,
-              items.map((item) => item.id),
-            ),
+              items.map((item) => item.id)
+            )
           )
           .orderBy(asc(saleItemLots.id))
       : [];
@@ -295,9 +343,13 @@ export const getSale = async (executor: Executor, id: string) => {
     ...discounts.map((discount) => discount.createdBy),
     ...salePayments.map((payment) => payment.createdBy),
   ]);
-  const nameOf = (userId: string | null) => (userId ? (names.get(userId) ?? null) : null);
+  const nameOf = (userId: string | null) =>
+    userId ? (names.get(userId) ?? null) : null;
 
-  const discountFcfa = discounts.reduce((sum, discount) => sum + discount.amountFcfa, 0);
+  const discountFcfa = discounts.reduce(
+    (sum, discount) => sum + discount.amountFcfa,
+    0
+  );
   const costFcfa = items.reduce((sum, item) => sum + item.costFcfa, 0);
   const netFcfa = sale.totalFcfa - discountFcfa;
   const settlement = ledgers.get(sale.customerId)?.sales.get(sale.id);
@@ -383,22 +435,30 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
         executor
           .select({ one: sql`1` })
           .from(saleItems)
-          .where(and(eq(saleItems.saleId, sales.id), eq(saleItems.productId, filters.productId))),
-      ),
+          .where(
+            and(
+              eq(saleItems.saleId, sales.id),
+              eq(saleItems.productId, filters.productId)
+            )
+          )
+      )
     );
   }
   if (filters.search) {
     conditions.push(
       or(
         containsInsensitive(sales.reference, filters.search),
-        containsInsensitive(customers.name, filters.search),
-      ) as SQL,
+        containsInsensitive(customers.name, filters.search)
+      ) as SQL
     );
   }
   const where = and(...conditions);
   const sortColumn = SALE_SORT_SQL[filters.sort?.id ?? "saleDate"];
   const descending = filters.sort ? filters.sort.desc : true;
-  const order = [descending ? desc(sortColumn) : asc(sortColumn), desc(sales.id)];
+  const order = [
+    descending ? desc(sortColumn) : asc(sortColumn),
+    desc(sales.id),
+  ];
 
   const rowQuery = () =>
     executor
@@ -425,7 +485,9 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
   const enrich = (row: SaleRowData) => {
     const active = row.status === "active";
     const netFcfa = row.totalFcfa - row.discountFcfa;
-    const settlement = active ? ledgers.get(row.customerId)?.sales.get(row.id) : undefined;
+    const settlement = active
+      ? ledgers.get(row.customerId)?.sales.get(row.id)
+      : undefined;
     return {
       ...row,
       dueFcfa: settlement?.dueFcfa ?? 0,
@@ -438,10 +500,20 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
     ledgers.get(customerId)?.sales.get(saleId)?.dueFcfa ?? 0;
 
   const onlyByCustomer =
-    !filters.from && !filters.to && !filters.productId && !filters.search && !filters.status;
+    !filters.from &&
+    !filters.to &&
+    !filters.productId &&
+    !filters.search &&
+    !filters.status;
   let page: ReturnType<typeof enrich>[];
   let total: number;
-  const totals = { costFcfa: 0, count: 0, dueFcfa: 0, marginFcfa: 0, netFcfa: 0 };
+  const totals = {
+    costFcfa: 0,
+    count: 0,
+    dueFcfa: 0,
+    marginFcfa: 0,
+    netFcfa: 0,
+  };
 
   if (filters.paymentState) {
     // Le reste dû vient des comptes : toute la sélection est chargée puis filtrée.
@@ -450,7 +522,7 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
       .filter((sale) =>
         filters.paymentState === "due"
           ? sale.dueFcfa > 0
-          : sale.status === "active" && sale.dueFcfa === 0,
+          : sale.status === "active" && sale.dueFcfa === 0
       );
     for (const sale of filtered) {
       if (sale.status === "active") {
@@ -480,13 +552,17 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
           .innerJoin(customers, eq(customers.id, sales.customerId))
           .where(and(where, eq(sales.status, "active"))),
         executor
-          .select({ value: sql<number>`coalesce(sum(${saleDiscounts.amountFcfa}), 0)` })
+          .select({
+            value: sql<number>`coalesce(sum(${saleDiscounts.amountFcfa}), 0)`,
+          })
           .from(saleDiscounts)
           .innerJoin(sales, eq(sales.id, saleDiscounts.saleId))
           .innerJoin(customers, eq(customers.id, sales.customerId))
           .where(and(where, eq(sales.status, "active"))),
         executor
-          .select({ value: sql<number>`coalesce(sum(${saleItems.costFcfa}), 0)` })
+          .select({
+            value: sql<number>`coalesce(sum(${saleItems.costFcfa}), 0)`,
+          })
           .from(saleItems)
           .innerJoin(sales, eq(sales.id, saleItems.saleId))
           .innerJoin(customers, eq(customers.id, sales.customerId))
@@ -514,8 +590,14 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
     totals.costFcfa = aggregate?.costFcfa ?? 0;
     totals.marginFcfa = totals.netFcfa - totals.costFcfa;
     totals.dueFcfa = activeIds
-      ? activeIds.reduce((sum, sale) => sum + dueOf(sale.customerId, sale.id), 0)
-      : [...ledgers.values()].reduce((sum, ledger) => sum + ledger.totalDueFcfa, 0);
+      ? activeIds.reduce(
+          (sum, sale) => sum + dueOf(sale.customerId, sale.id),
+          0
+        )
+      : [...ledgers.values()].reduce(
+          (sum, ledger) => sum + ledger.totalDueFcfa,
+          0
+        );
   }
   totals.count = total;
 
@@ -533,8 +615,8 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
           .where(
             inArray(
               saleItems.saleId,
-              page.map((sale) => sale.id),
-            ),
+              page.map((sale) => sale.id)
+            )
           )
           .orderBy(asc(saleItems.id))
       : [];
@@ -551,7 +633,10 @@ export const listSales = async (executor: Executor, filters: SaleFilters) => {
 };
 
 /** Ce qui a été vendu, produit par produit (ventes validées, montants avant remises). */
-export const productSalesSummary = async (executor: Executor, filters: ProductSalesFilters) => {
+export const productSalesSummary = async (
+  executor: Executor,
+  filters: ProductSalesFilters
+) => {
   const conditions = [eq(sales.status, "active"), ...saleConditions(filters)];
   const rows = await executor
     .select({
@@ -569,7 +654,9 @@ export const productSalesSummary = async (executor: Executor, filters: ProductSa
     .innerJoin(products, eq(products.id, saleItems.productId))
     .where(and(...conditions))
     .groupBy(products.id)
-    .orderBy(desc(sql`sum(round(${saleItems.qty} * ${saleItems.unitPriceFcfa}))`));
+    .orderBy(
+      desc(sql`sum(round(${saleItems.qty} * ${saleItems.unitPriceFcfa}))`)
+    );
 
   return rows.map((row) => ({
     ...row,
@@ -587,11 +674,14 @@ export const productSalesSummary = async (executor: Executor, filters: ProductSa
 export const cancelSale = async (
   executor: Executor,
   params: { id: string; reason: string },
-  userId?: string | null,
+  userId?: string | null
 ) => {
   const sale = await getSaleRow(executor, params.id);
   assertSaleActive(sale);
-  const items = await executor.select().from(saleItems).where(eq(saleItems.saleId, sale.id));
+  const items = await executor
+    .select()
+    .from(saleItems)
+    .where(eq(saleItems.saleId, sale.id));
   const lots =
     items.length > 0
       ? await executor
@@ -600,8 +690,8 @@ export const cancelSale = async (
           .where(
             inArray(
               saleItemLots.saleItemId,
-              items.map((item) => item.id),
-            ),
+              items.map((item) => item.id)
+            )
           )
       : [];
   const lotsByItem = Map.groupBy(lots, (lot) => lot.saleItemId);
@@ -641,7 +731,10 @@ export const cancelSale = async (
 
   invalidateLedgers();
   return {
-    cancelledPaymentsFcfa: cancelledPayments.reduce((sum, payment) => sum + payment.amountFcfa, 0),
+    cancelledPaymentsFcfa: cancelledPayments.reduce(
+      (sum, payment) => sum + payment.amountFcfa,
+      0
+    ),
     id: sale.id,
   };
 };
@@ -650,7 +743,7 @@ export const cancelSale = async (
 export const addSaleDiscount = async (
   executor: Executor,
   input: SaleDiscountInput,
-  userId?: string | null,
+  userId?: string | null
 ) => {
   const sale = await getSaleRow(executor, input.saleId);
   assertSaleActive(sale);
@@ -676,7 +769,7 @@ export const addSaleDiscount = async (
 export const createPayment = async (
   executor: Executor,
   input: PaymentInput,
-  userId?: string | null,
+  userId?: string | null
 ) => {
   await getCustomerRow(executor, input.customerId);
   if (input.saleId) {
@@ -699,8 +792,14 @@ export const createPayment = async (
   return payment;
 };
 
-export const cancelPayment = async (executor: Executor, params: { id: string; reason: string }) => {
-  const [payment] = await executor.select().from(payments).where(eq(payments.id, params.id));
+export const cancelPayment = async (
+  executor: Executor,
+  params: { id: string; reason: string }
+) => {
+  const [payment] = await executor
+    .select()
+    .from(payments)
+    .where(eq(payments.id, params.id));
   if (!payment) {
     throw new ORPCError("NOT_FOUND", { message: "Paiement introuvable" });
   }
@@ -719,24 +818,286 @@ export const cancelPayment = async (executor: Executor, params: { id: string; re
 };
 
 export const listPayments = async (executor: Executor, customerId: string) => {
-  const rows = await executor
-    .select({ payment: payments, saleReference: sales.reference })
-    .from(payments)
-    .leftJoin(sales, eq(sales.id, payments.saleId))
-    .where(eq(payments.customerId, customerId))
-    .orderBy(desc(payments.paymentDate), desc(payments.id));
+  const [rows, saleRows] = await Promise.all([
+    executor
+      .select({ payment: payments, saleReference: sales.reference })
+      .from(payments)
+      .leftJoin(sales, eq(sales.id, payments.saleId))
+      .where(eq(payments.customerId, customerId))
+      .orderBy(desc(payments.paymentDate), desc(payments.id)),
+    // Ventes du client, nettes de remises : elles disent ce que chaque paiement a réglé.
+    executor
+      .select({
+        date: sales.saleDate,
+        id: sales.id,
+        netFcfa: sql<number>`${sales.totalFcfa} - ${saleDiscountSql}`,
+        reference: sales.reference,
+      })
+      .from(sales)
+      .where(and(eq(sales.customerId, customerId), eq(sales.status, "active")))
+      .orderBy(asc(sales.saleDate), asc(sales.id)),
+  ]);
   const names = await userNames(
     executor,
-    rows.map(({ payment }) => payment.createdBy),
+    rows.map(({ payment }) => payment.createdBy)
   );
+  const references = new Map(saleRows.map((sale) => [sale.id, sale.reference]));
+
+  // Le calcul d'affectation veut les paiements dans l'ordre chronologique, l'affichage l'inverse.
+  const chronological = rows
+    .filter(({ payment }) => !payment.cancelledAt)
+    .toSorted(
+      (a, b) =>
+        a.payment.paymentDate.getTime() - b.payment.paymentDate.getTime() ||
+        a.payment.id.localeCompare(b.payment.id)
+    );
+  const coverage = allocatePaymentCoverage(
+    saleRows,
+    chronological.map(({ payment }) => ({
+      amountFcfa: payment.amountFcfa,
+      id: payment.id,
+      saleId: payment.saleId,
+    }))
+  );
+
   return rows.map(({ payment, saleReference }) => ({
     ...payment,
-    createdByName: payment.createdBy ? (names.get(payment.createdBy) ?? null) : null,
+    /** Ventes que ce paiement règle, dans l'ordre où elles ont été soldées. */
+    coveredSales: (coverage.get(payment.id) ?? []).map((part) => ({
+      amountFcfa: part.amountFcfa,
+      reference: references.get(part.saleId) ?? null,
+      saleId: part.saleId,
+    })),
+    createdByName: payment.createdBy
+      ? (names.get(payment.createdBy) ?? null)
+      : null,
     saleReference,
   }));
 };
 
-const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+const MS_PER_DAY = 86_400_000;
+
+/** Jour local au format AAAA-MM-JJ (le même que celui des activités). */
+const paymentDayKey = (date: Date): string => {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+};
+
+/** Paiement tel qu'affiché dans le relevé : de quoi l'annuler et le retrouver. */
+export interface LedgerPayment {
+  id: string;
+  amountFcfa: number;
+  method: string;
+  notes: string | null;
+  cancelledAt: Date | null;
+  createdByName: string | null;
+  saleReference: string | null;
+}
+
+/** Un jour du relevé : ce qui a été encaissé, et les ventes que cela a soldées. */
+export interface LedgerDay {
+  date: string;
+  paidFcfa: number;
+  cancelledFcfa: number;
+  methods: string[];
+  sales: { saleId: string; reference: string | null; amountFcfa: number }[];
+  payments: LedgerPayment[];
+}
+
+const emptyLedgerDay = (date: string): LedgerDay => ({
+  cancelledFcfa: 0,
+  date,
+  methods: [],
+  paidFcfa: 0,
+  payments: [],
+  sales: [],
+});
+
+/** Range un paiement dans son jour, avec les ventes qu'il règle. */
+const addPaymentToDay = (
+  day: LedgerDay,
+  payment: LedgerPayment,
+  covered: readonly PaymentCoverage[],
+  references: Map<string, string>
+): void => {
+  day.payments.push(payment);
+  if (payment.cancelledAt) {
+    day.cancelledFcfa += payment.amountFcfa;
+    return;
+  }
+  day.paidFcfa += payment.amountFcfa;
+  if (!day.methods.includes(payment.method)) {
+    day.methods.push(payment.method);
+  }
+  for (const part of covered) {
+    const existing = day.sales.find((sale) => sale.saleId === part.saleId);
+    if (existing) {
+      existing.amountFcfa += part.amountFcfa;
+    } else {
+      day.sales.push({
+        amountFcfa: part.amountFcfa,
+        reference: references.get(part.saleId) ?? null,
+        saleId: part.saleId,
+      });
+    }
+  }
+};
+
+/** Série continue du calendrier : un point par jour, jours sans paiement compris. */
+const buildPaymentHeatmap = (
+  days: readonly LedgerDay[],
+  now: Date,
+  months: number
+): { date: string; value: number; count: number }[] => {
+  const paid = new Map<string, { value: number; count: number }>();
+  for (const day of days) {
+    if (day.paidFcfa > 0) {
+      paid.set(day.date, {
+        count: day.payments.filter((payment) => !payment.cancelledAt).length,
+        value: day.paidFcfa,
+      });
+    }
+  }
+  const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const length = Math.round((today.getTime() - start.getTime()) / MS_PER_DAY) + 1;
+  return Array.from({ length }, (_, index) => {
+    const date = paymentDayKey(new Date(start.getTime() + index * MS_PER_DAY));
+    const entry = paid.get(date);
+    return { count: entry?.count ?? 0, date, value: entry?.value ?? 0 };
+  });
+};
+
+export interface PaymentLedgerParams {
+  customerId: string;
+  /** Profondeur de l'historique, en mois (le calendrier en couvre 12). */
+  months?: number;
+}
+
+/**
+ * Relevé des paiements d'un client, agrégé **par jour** côté serveur : montant encaissé, moyens,
+ * et ventes que chaque paiement a réglées. Un client de passage peut avoir des milliers de
+ * paiements : la fenêtre évite de tout renvoyer au navigateur.
+ */
+export const paymentsLedger = async (
+  executor: Executor,
+  params: PaymentLedgerParams
+) => {
+  const months = params.months ?? 12;
+  const now = new Date();
+  const windowStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+
+  const [detailed, allocationRows, saleRows] = await Promise.all([
+    executor
+      .select({ payment: payments, saleReference: sales.reference })
+      .from(payments)
+      .leftJoin(sales, eq(sales.id, payments.saleId))
+      .where(
+        and(
+          eq(payments.customerId, params.customerId),
+          gte(payments.paymentDate, windowStart)
+        )
+      )
+      .orderBy(asc(payments.paymentDate), asc(payments.id)),
+    // Tout l'historique sert à savoir ce que chaque paiement a réglé, même avant la fenêtre.
+    executor
+      .select({
+        amountFcfa: payments.amountFcfa,
+        id: payments.id,
+        paymentDate: payments.paymentDate,
+        saleId: payments.saleId,
+      })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.customerId, params.customerId),
+          isNull(payments.cancelledAt)
+        )
+      )
+      .orderBy(asc(payments.paymentDate), asc(payments.id)),
+    executor
+      .select({
+        date: sales.saleDate,
+        id: sales.id,
+        netFcfa: sql<number>`${sales.totalFcfa} - ${saleDiscountSql}`,
+        reference: sales.reference,
+      })
+      .from(sales)
+      .where(
+        and(eq(sales.customerId, params.customerId), eq(sales.status, "active"))
+      )
+      .orderBy(asc(sales.saleDate), asc(sales.id)),
+  ]);
+
+  const names = await userNames(
+    executor,
+    detailed.map(({ payment }) => payment.createdBy)
+  );
+  const references = new Map(saleRows.map((sale) => [sale.id, sale.reference]));
+  const coverage = allocatePaymentCoverage(saleRows, allocationRows);
+
+  const days = new Map<string, LedgerDay>();
+  for (const { payment, saleReference } of detailed) {
+    const date = paymentDayKey(payment.paymentDate);
+    const day = days.get(date) ?? emptyLedgerDay(date);
+    addPaymentToDay(
+      day,
+      {
+        amountFcfa: payment.amountFcfa,
+        cancelledAt: payment.cancelledAt,
+        createdByName: payment.createdBy
+          ? (names.get(payment.createdBy) ?? null)
+          : null,
+        id: payment.id,
+        method: payment.method,
+        notes: payment.notes,
+        saleReference,
+      },
+      coverage.get(payment.id) ?? [],
+      references
+    );
+    days.set(date, day);
+  }
+
+  const allDays = [...days.values()].toSorted((a, b) =>
+    b.date.localeCompare(a.date)
+  );
+  const todayKey = paymentDayKey(now);
+  const monthPrefix = todayKey.slice(0, 7);
+  const lastPayment = allocationRows.at(-1);
+
+  return {
+    days: allDays,
+    heatmap: buildPaymentHeatmap(allDays, now, months),
+    summary: {
+      lastPaymentDate: lastPayment?.paymentDate ?? null,
+      lastPaymentFcfa: lastPayment?.amountFcfa ?? null,
+      monthFcfa: allDays
+        .filter((day) => day.date.startsWith(monthPrefix))
+        .reduce((total, day) => total + day.paidFcfa, 0),
+      todayCount:
+        days
+          .get(todayKey)
+          ?.payments.filter((payment) => !payment.cancelledAt).length ?? 0,
+      todayFcfa: days.get(todayKey)?.paidFcfa ?? 0,
+    },
+    totals: {
+      cancelledFcfa: allDays.reduce((total, day) => total + day.cancelledFcfa, 0),
+      count: allDays.reduce(
+        (total, day) =>
+          total +
+          day.payments.filter((payment) => !payment.cancelledAt).length,
+        0
+      ),
+      days: allDays.filter((day) => day.paidFcfa > 0).length,
+      paidFcfa: allDays.reduce((total, day) => total + day.paidFcfa, 0),
+    },
+  };
+};
+
+const startOfDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 /** Chiffres du tableau de bord : CA (net de remises) du jour, de la semaine, du mois, et créances. */
 export const salesSummary = async (executor: Executor, now = new Date()) => {
@@ -789,7 +1150,9 @@ export const salesSummary = async (executor: Executor, now = new Date()) => {
     }
     receivablesFcfa += ledger.totalDueFcfa;
     debtorCount += 1;
-    const days = ledger.oldestUnpaidDate ? daysBetween(ledger.oldestUnpaidDate, now) : 0;
+    const days = ledger.oldestUnpaidDate
+      ? daysBetween(ledger.oldestUnpaidDate, now)
+      : 0;
     if (days >= thresholds.receivableCriticalDays) {
       criticalDebtorCount += 1;
     }
@@ -832,8 +1195,15 @@ export interface ActivityFilters {
  * Ventes actives depuis `since` : la vente entière (remises déduites), ou seulement les lignes
  * d'un produit (avant remises, comme le résumé par produit).
  */
-const activityRows = async (executor: Executor, since: Date, filters: ActivityFilters) => {
-  const conditions: SQL[] = [eq(sales.status, "active"), gte(sales.saleDate, since)];
+const activityRows = async (
+  executor: Executor,
+  since: Date,
+  filters: ActivityFilters
+) => {
+  const conditions: SQL[] = [
+    eq(sales.status, "active"),
+    gte(sales.saleDate, since),
+  ];
   if (filters.customerId) {
     conditions.push(eq(sales.customerId, filters.customerId));
   }
@@ -882,7 +1252,7 @@ export const salesActivity = async (
   executor: Executor,
   days: number,
   filters: ActivityFilters = {},
-  now = new Date(),
+  now = new Date()
 ) => {
   const today = startOfDay(now);
   const since = new Date(today);
@@ -890,13 +1260,25 @@ export const salesActivity = async (
 
   const series = new Map<
     string,
-    { date: string; marginFcfa: number; qty: number; revenueFcfa: number; saleCount: number }
+    {
+      date: string;
+      marginFcfa: number;
+      qty: number;
+      revenueFcfa: number;
+      saleCount: number;
+    }
   >();
   for (let offset = 0; offset < days; offset += 1) {
     const day = new Date(since);
     day.setDate(since.getDate() + offset);
     const date = dayKey(day);
-    series.set(date, { date, marginFcfa: 0, qty: 0, revenueFcfa: 0, saleCount: 0 });
+    series.set(date, {
+      date,
+      marginFcfa: 0,
+      qty: 0,
+      revenueFcfa: 0,
+      saleCount: 0,
+    });
   }
 
   for (const row of await activityRows(executor, since, filters)) {
@@ -928,7 +1310,11 @@ export const salesByHour = async (executor: Executor, now = new Date()) => {
   const todayHours = Array.from({ length: HOURS_PER_DAY }, () => 0);
   const yesterdayHours = Array.from({ length: HOURS_PER_DAY }, () => 0);
   let todayCount = 0;
-  for (const row of await activeSalesSince(executor, yesterday, sales.saleDate)) {
+  for (const row of await activeSalesSince(
+    executor,
+    yesterday,
+    sales.saleDate
+  )) {
     // Une vente datée d'un jour à venir n'est ni d'aujourd'hui, ni d'hier.
     if (row.saleDate >= tomorrow) {
       continue;
@@ -942,7 +1328,12 @@ export const salesByHour = async (executor: Executor, now = new Date()) => {
       yesterdayHours[hour] = (yesterdayHours[hour] ?? 0) + netFcfa;
     }
   }
-  return { currentHour: now.getHours(), today: todayHours, todayCount, yesterday: yesterdayHours };
+  return {
+    currentHour: now.getHours(),
+    today: todayHours,
+    todayCount,
+    yesterday: yesterdayHours,
+  };
 };
 
 const DAYS_PER_WEEK = 7;
@@ -958,7 +1349,7 @@ export const salesTrends = async (
   executor: Executor,
   by: TrendGrouping,
   weeks: number,
-  now = new Date(),
+  now = new Date()
 ) => {
   const today = startOfDay(now);
   const since = new Date(today);
@@ -1003,10 +1394,18 @@ export const salesTrends = async (
 
   const series = new Map<
     string,
-    { current: number[]; currentQty: number; id: string; previous: number[]; previousQty: number }
+    {
+      current: number[];
+      currentQty: number;
+      id: string;
+      previous: number[];
+      previousQty: number;
+    }
   >();
   for (const row of rows) {
-    const daysAgo = Math.round((today.getTime() - startOfDay(row.saleDate).getTime()) / 86_400_000);
+    const daysAgo = Math.round(
+      (today.getTime() - startOfDay(row.saleDate).getTime()) / 86_400_000
+    );
     const weekAgo = Math.floor(daysAgo / DAYS_PER_WEEK);
     if (weekAgo < 0 || weekAgo >= 2 * weeks) {
       continue;

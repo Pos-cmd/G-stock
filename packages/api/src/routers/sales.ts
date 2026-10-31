@@ -5,6 +5,7 @@ import { byIdSchema, idSchema } from "../schemas/common";
 import {
   paymentCancelSchema,
   paymentInputSchema,
+  paymentLedgerSchema,
   productSalesSummarySchema,
   saleCancelSchema,
   saleDiscountSchema,
@@ -22,6 +23,7 @@ import {
   getSale,
   listPayments,
   listSales,
+  paymentsLedger,
   productSalesSummary,
   quoteSale,
   salesActivity,
@@ -103,6 +105,10 @@ export const paymentsRouter = {
   create: protectedProcedure
     .input(paymentInputSchema)
     .handler(({ context, input }) => createPayment(context.db, input, context.session.user.id)),
+
+  ledger: protectedProcedure
+    .input(paymentLedgerSchema)
+    .handler(({ context, input }) => paymentsLedger(context.db, input)),
 
   list: protectedProcedure
     .input(z.object({ customerId: idSchema }))

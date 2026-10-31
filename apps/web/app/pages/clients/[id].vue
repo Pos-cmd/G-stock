@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { formatDate, formatFcfa } from "@G-stock/core/format";
-import { PAYMENT_METHOD_LABELS } from "@G-stock/core/labels";
 import type { TabsItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 
 import SalesInsights from "~/components/charts/SalesInsights.vue";
 import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
 import KpiCard from "~/components/common/KpiCard.vue";
-import ReasonDialog from "~/components/common/ReasonDialog.vue";
 import CustomerFormModal from "~/components/customers/CustomerFormModal.vue";
+import CustomerPayments from "~/components/customers/CustomerPayments.vue";
 import ReceivableBadge from "~/components/customers/ReceivableBadge.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import PaymentModal from "~/components/sales/PaymentModal.vue";
@@ -30,13 +29,6 @@ const customer = useQuery(
   computed(() => $orpc.customers.get.queryOptions({ input: { id: customerId.value } })),
 );
 const data = computed(() => customer.data.value);
-const paymentList = useQuery(
-  computed(() =>
-    $orpc.payments.list.queryOptions({
-      input: { customerId: customerId.value },
-    }),
-  ),
-);
 
 useHead({ title: () => data.value?.name ?? "Client" });
 
@@ -68,15 +60,6 @@ const tabs: TabsItem[] = [
 const formOpen = ref(false);
 const paymentOpen = ref(false);
 const deleteOpen = ref(false);
-const cancelledPaymentId = ref<string | null>(null);
-const cancelPaymentOpen = computed({
-  get: () => cancelledPaymentId.value !== null,
-  set: (isOpen: boolean) => {
-    if (!isOpen) {
-      cancelledPaymentId.value = null;
-    }
-  },
-});
 
 const removeMutation = useMutation($orpc.customers.remove.mutationOptions());
 const confirmDelete = async () => {
@@ -91,23 +74,6 @@ const confirmDelete = async () => {
   }
 };
 
-const cancelPaymentMutation = useMutation($orpc.payments.cancel.mutationOptions());
-const confirmCancelPayment = async (reason: string) => {
-  if (cancelledPaymentId.value === null) {
-    return;
-  }
-  try {
-    await cancelPaymentMutation.mutateAsync({
-      id: cancelledPaymentId.value,
-      reason,
-    });
-    await invalidateSales();
-    cancelledPaymentId.value = null;
-    notify.success("Paiement annulé");
-  } catch (error) {
-    notify.error("Annulation impossible", error);
-  }
-};
 </script>
 
 <template>
@@ -250,58 +216,11 @@ const confirmCancelPayment = async (reason: string) => {
 
         <template #payments>
           <div class="pt-2">
-            <p
-              v-if="(paymentList.data.value ?? []).length === 0"
-              class="text-muted py-6 text-center text-sm"
-            >
-              Aucun paiement enregistré.
-            </p>
-            <ul v-else class="divide-default border-default divide-y rounded-lg border text-sm">
-              <li
-                v-for="payment in paymentList.data.value"
-                :key="payment.id"
-                class="flex items-center justify-between gap-4 px-4 py-3"
-              >
-                <div class="min-w-0">
-                  <p :class="payment.cancelledAt ? 'text-dimmed line-through' : 'text-highlighted'">
-                    {{ formatDate(payment.paymentDate) }} ·
-                    {{ PAYMENT_METHOD_LABELS[payment.method] }}
-                    <NuxtLink
-                      v-if="payment.saleReference && payment.saleId"
-                      :to="`/ventes/${payment.saleId}`"
-                      class="text-primary font-mono text-xs"
-                    >
-                      {{ payment.saleReference }}
-                    </NuxtLink>
-                  </p>
-                  <p class="text-dimmed text-xs">
-                    <template v-if="payment.cancelledAt"
-                      >Annulé : {{ payment.cancelReason }}</template
-                    >
-                    <template v-else>
-                      {{ [payment.notes, payment.createdByName].filter(Boolean).join(" · ") }}
-                    </template>
-                  </p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span
-                    class="font-medium whitespace-nowrap tabular-nums"
-                    :class="payment.cancelledAt ? 'text-dimmed line-through' : 'text-success'"
-                  >
-                    {{ formatFcfa(payment.amountFcfa) }}
-                  </span>
-                  <UButton
-                    v-if="!payment.cancelledAt"
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    :icon="icons.undo"
-                    :aria-label="`Annuler le paiement du ${formatDate(payment.paymentDate)}`"
-                    @click="cancelledPaymentId = payment.id"
-                  />
-                </div>
-              </li>
-            </ul>
+            <CustomerPayments
+              v-if="data"
+              :customer-id="customerId"
+              :due-fcfa="data.dueFcfa"
+            />
           </div>
         </template>
       </UTabs>
@@ -319,13 +238,5 @@ const confirmCancelPayment = async (reason: string) => {
         @confirm="confirmDelete"
       />
     </template>
-    <ReasonDialog
-      v-model:open="cancelPaymentOpen"
-      title="Annuler ce paiement ?"
-      description="Il ne comptera plus dans le solde du client, mais restera visible, barré, avec son motif."
-      confirm-label="Annuler le paiement"
-      :loading="cancelPaymentMutation.isPending.value"
-      @confirm="confirmCancelPayment"
-    />
   </PagePanel>
 </template>

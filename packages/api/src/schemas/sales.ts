@@ -83,6 +83,13 @@ export const paymentInputSchema = z.object({
 });
 export type PaymentInput = z.output<typeof paymentInputSchema>;
 
+/** Relevé des paiements : fenêtre en mois, 12 par défaut (le calendrier en couvre 12). */
+export const paymentLedgerSchema = z.object({
+  customerId: idSchema,
+  months: z.number().int().min(1).max(24).default(12),
+});
+export type PaymentLedgerInput = z.output<typeof paymentLedgerSchema>;
+
 export const paymentCancelSchema = z.object({
   id: idSchema,
   reason: reasonSchema,

@@ -15,7 +15,9 @@ import {
   createPayment,
   createSale,
   getSale,
+  listPayments,
   listSales,
+  paymentsLedger,
   productSalesSummary,
   quoteSale,
   salesActivity,
@@ -307,6 +309,84 @@ describe("paiements", () => {
     await cancelPayment(db, { id: payment.id, reason: "Doublon" });
     const afterCancel = await getCustomer(db, awa.id);
     expect(afterCancel.dueFcfa).toBe(5000);
+  });
+
+  it("dit quelles ventes chaque paiement a reglees", async () => {
+    const { awa, bazin } = await setup();
+    const first = await sell({
+      customerId: awa.id,
+      lines: [{ productId: bazin.id, qty: 2, unitPriceFcfa: 1000 }],
+      paymentType: "credit",
+      saleDate: FEB_1,
+    });
+    const second = await sell({
+      customerId: awa.id,
+      lines: [{ productId: bazin.id, qty: 3, unitPriceFcfa: 1000 }],
+      paymentType: "credit",
+    });
+    await createPayment(db, {
+      amountFcfa: 2500,
+      customerId: awa.id,
+      method: "mobile_money",
+      notes: null,
+      paymentDate: MARCH_10,
+      saleId: null,
+    });
+
+    const rows = await listPayments(db, awa.id);
+    expect(rows).toHaveLength(1);
+    // 2 000 soldent la vente de fevrier, 500 entament celle de mars.
+    expect(rows[0]?.coveredSales).toEqual([
+      { amountFcfa: 2000, reference: first.reference, saleId: first.id },
+      { amountFcfa: 500, reference: second.reference, saleId: second.id },
+    ]);
+  });
+
+  it("regroupe les paiements par jour avec les ventes soldees", async () => {
+    const { awa, bazin } = await setup();
+    const first = await sell({
+      customerId: awa.id,
+      lines: [{ productId: bazin.id, qty: 2, unitPriceFcfa: 1000 }],
+      paymentType: "credit",
+      saleDate: FEB_1,
+    });
+    await createPayment(db, {
+      amountFcfa: 1500,
+      customerId: awa.id,
+      method: "cash",
+      notes: null,
+      paymentDate: MARCH_10,
+      saleId: null,
+    });
+    await createPayment(db, {
+      amountFcfa: 500,
+      customerId: awa.id,
+      method: "mobile_money",
+      notes: "Wave",
+      paymentDate: MARCH_10,
+      saleId: null,
+    });
+
+    const ledger = await paymentsLedger(db, {
+      customerId: awa.id,
+      months: 12,
+    });
+    expect(ledger.days).toHaveLength(1);
+    const [day] = ledger.days;
+    // Un seul jour, deux paiements, un seul lien vers la vente soldee.
+    expect(day?.date).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
+    expect(day?.paidFcfa).toBe(2000);
+    expect(day?.payments.map((payment) => payment.method).toSorted()).toEqual([
+      "cash",
+      "mobile_money",
+    ]);
+    expect(day?.sales).toEqual([
+      { amountFcfa: 2000, reference: first.reference, saleId: first.id },
+    ]);
+    expect(ledger.totals).toMatchObject({ count: 2, paidFcfa: 2000 });
+    // Le calendrier part du debut du mois il y a 12 mois et va jusqu'a aujourd'hui.
+    expect(ledger.heatmap.at(-1)?.value).toBe(0);
+    expect(ledger.heatmap.length).toBeGreaterThan(300);
   });
 
   it("refuse un paiement sur la vente d'un autre client", async () => {
