@@ -11,6 +11,7 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseOrderForm from "~/components/purchases/PurchaseOrderForm.vue";
 import PurchaseOrderView from "~/components/purchases/PurchaseOrderView.vue";
 import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue";
+import ReceptionDateModal from "~/components/purchases/ReceptionDateModal.vue";
 import SupplierPaymentsCard from "~/components/purchases/SupplierPaymentsCard.vue";
 
 const icons = useIcons();
@@ -27,7 +28,9 @@ const notify = useNotify();
 const invalidatePurchases = useInvalidatePurchases();
 
 const order = useQuery(
-  computed(() => $orpc.purchases.get.queryOptions({ input: { id: orderId.value } })),
+  computed(() =>
+    $orpc.purchases.get.queryOptions({ input: { id: orderId.value } })
+  )
 );
 const data = computed(() => order.data.value);
 
@@ -39,6 +42,7 @@ const form = useTemplateRef<InstanceType<typeof PurchaseOrderForm>>("form");
 const dirty = ref(false);
 const cancelOpen = ref(false);
 const deleteOpen = ref(false);
+const receptionDateOpen = ref(false);
 
 const statusItems = EDITABLE_PURCHASE_STATUSES.map((value) => ({
   label: PURCHASE_ORDER_STATUS_LABELS[value],
@@ -49,8 +53,12 @@ const statusMutation = useMutation($orpc.purchases.setStatus.mutationOptions());
 const cancelMutation = useMutation($orpc.purchases.cancel.mutationOptions());
 const removeMutation = useMutation($orpc.purchases.remove.mutationOptions());
 
-const isEditableStatus = (status: PurchaseOrderStatus): status is EditableStatus =>
-  (EDITABLE_PURCHASE_STATUSES as readonly PurchaseOrderStatus[]).includes(status);
+const isEditableStatus = (
+  status: PurchaseOrderStatus
+): status is EditableStatus =>
+  (EDITABLE_PURCHASE_STATUSES as readonly PurchaseOrderStatus[]).includes(
+    status
+  );
 
 const changeStatus = async (status: EditableStatus) => {
   try {
@@ -88,10 +96,25 @@ const confirmDelete = async () => {
 // Une saisie de réception a déjà été enregistrée (frais réels, conteneur…).
 const receptionStarted = computed(() => {
   const order = data.value;
-  return Boolean(order && (order.fees.length > 0 || order.containerNumber || order.arrivedAt));
+  return Boolean(
+    order && (order.fees.length > 0 || order.containerNumber || order.arrivedAt)
+  );
 });
 
 const moreActions = computed<DropdownMenuItem[][]>(() => [
+  ...(data.value?.status === "received"
+    ? [
+        [
+          {
+            icon: icons.calendar,
+            label: "Corriger la date d'entrée en stock",
+            onSelect: () => {
+              receptionDateOpen.value = true;
+            },
+          },
+        ],
+      ]
+    : []),
   [
     {
       icon: icons.cancel,
@@ -167,7 +190,9 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
       <template v-else-if="data">
         <UFieldGroup>
           <USelect
-            :model-value="isEditableStatus(data.status) ? data.status : undefined"
+            :model-value="
+              isEditableStatus(data.status) ? data.status : undefined
+            "
             :items="statusItems"
             :loading="statusMutation.isPending.value"
             aria-label="Statut de la commande"
@@ -274,6 +299,15 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
       confirm-label="Supprimer"
       :loading="removeMutation.isPending.value"
       @confirm="confirmDelete"
+    />
+    <ReceptionDateModal
+      v-if="data"
+      v-model:open="receptionDateOpen"
+      :order="{
+        id: data.id,
+        receivedAt: data.receivedAt,
+        reference: data.reference,
+      }"
     />
   </PagePanel>
 </template>

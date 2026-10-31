@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { uuidv7 } from "@G-stock/core/ids";
 import { purchaseReceptionSchema } from "@G-stock/api/schemas/purchases";
 import type { AllocationMethod, FeeCurrency } from "@G-stock/core/enums";
 import { formatFcfa, formatQty } from "@G-stock/core/format";
+import { uuidv7 } from "@G-stock/core/ids";
 import {
   ALLOCATION_METHOD_LABELS,
   FEE_CURRENCY_LABELS,
   SUGGESTED_FEE_LABELS,
 } from "@G-stock/core/labels";
-import { computeLandedCostsFromFees, feeToFcfa, totalGoodsAmount } from "@G-stock/core/purchasing";
+import {
+  computeLandedCostsFromFees,
+  feeToFcfa,
+  totalGoodsAmount,
+} from "@G-stock/core/purchasing";
 import { paidGoodsFcfa } from "@G-stock/core/supplier-payments";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
 
-import DateField from "~/components/common/DateField.vue";
 import ConfirmDialog from "~/components/common/ConfirmDialog.vue";
+import DateField from "~/components/common/DateField.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseCostSummary from "~/components/purchases/PurchaseCostSummary.vue";
 import type { PurchaseOrderDetail } from "~/types/api";
@@ -31,7 +35,9 @@ const invalidateStock = useInvalidateStock();
 const invalidatePurchases = useInvalidatePurchases();
 
 const order = useQuery(
-  computed(() => $orpc.purchases.get.queryOptions({ input: { id: orderId.value } })),
+  computed(() =>
+    $orpc.purchases.get.queryOptions({ input: { id: orderId.value } })
+  )
 );
 const data = computed(() => order.data.value);
 
@@ -39,10 +45,12 @@ useHead({
   title: () => (data.value ? `Réception ${data.value.reference}` : "Réception"),
 });
 
-const formSchema = purchaseReceptionSchema.omit({ arrivedAt: true, id: true }).extend({
-  arrivedAt: z.union([z.literal(""), z.iso.date("Date invalide")]),
-  receivedAt: z.iso.date("Indiquez la date d'entrée en stock"),
-});
+const formSchema = purchaseReceptionSchema
+  .omit({ arrivedAt: true, id: true })
+  .extend({
+    arrivedAt: z.union([z.literal(""), z.iso.date("Date invalide")]),
+    receivedAt: z.iso.date("Indiquez la date d'entrée en stock"),
+  });
 type FormOutput = z.output<typeof formSchema>;
 
 interface FeeLine {
@@ -64,10 +72,14 @@ interface ReceptionState {
 }
 
 const feeLine = (
-  fee: Partial<Omit<FeeLine, "key">> & { allocationMethod: AllocationMethod },
-): FeeLine => {
-  return { amount: 0, currency: "fcfa", key: uuidv7(), label: "", ...fee };
-};
+  fee: Partial<Omit<FeeLine, "key">> & { allocationMethod: AllocationMethod }
+): FeeLine => ({
+  amount: 0,
+  currency: "fcfa",
+  key: uuidv7(),
+  label: "",
+  ...fee,
+});
 
 /** Première saisie : l'estimation de la commande, plus une ligne Douane à compléter. */
 const defaultFees = (source: PurchaseOrderDetail): FeeLine[] => {
@@ -104,8 +116,17 @@ const defaultFees = (source: PurchaseOrderDetail): FeeLine[] => {
   ];
 };
 
+/** Aujourd'hui, ou le jour de la commande quand elle est plus ancienne. */
+const defaultReceptionDate = (orderDate: Date | string): string => {
+  const today = toDateInputValue();
+  const orderDay = toDateInputValue(new Date(orderDate));
+  return orderDay < today ? orderDay : today;
+};
+
 const stateFrom = (source: PurchaseOrderDetail): ReceptionState => ({
-  arrivedAt: source.arrivedAt ? toDateInputValue(new Date(source.arrivedAt)) : "",
+  arrivedAt: source.arrivedAt
+    ? toDateInputValue(new Date(source.arrivedAt))
+    : "",
   billOfLading: source.billOfLading ?? "",
   containerNumber: source.containerNumber ?? "",
   fees:
@@ -116,7 +137,7 @@ const stateFrom = (source: PurchaseOrderDetail): ReceptionState => ({
             amount: fee.amount,
             currency: fee.currency,
             label: fee.label,
-          }),
+          })
         )
       : defaultFees(source),
   forwarder: source.forwarder ?? "",
@@ -124,7 +145,9 @@ const stateFrom = (source: PurchaseOrderDetail): ReceptionState => ({
     id: item.id,
     qtyReceived: item.qtyReceived ?? item.qty,
   })),
-  receivedAt: toDateInputValue(),
+  // Une commande antidatée est reçue le jour de sa commande, pas aujourd'hui : proposer cette
+  // date évite d'enregistrer l'entrée en stock au jour de la saisie.
+  receivedAt: defaultReceptionDate(source.orderDate),
 });
 
 const state = reactive<ReceptionState>({
@@ -144,24 +167,54 @@ watch(
   (source) => {
     if (source && !initialized.value) {
       Object.assign(state, stateFrom(source));
+      receivedAtTouched.value = false;
       initialized.value = true;
     }
   },
-  { immediate: true },
+  { immediate: true }
+);
+
+/** Entrée en stock antérieure à la commande : inhabituel, on le signale sans bloquer. */
+const receptionBeforeOrder = computed(() => {
+  const orderDay = data.value
+    ? toDateInputValue(new Date(data.value.orderDate))
+    : null;
+  return Boolean(orderDay && state.receivedAt && state.receivedAt < orderDay);
+});
+
+/**
+ * Tant que la date d'entrée en stock n'a pas été saisie à la main, elle suit l'arrivée au port :
+ * la marchandise entre en stock le jour où elle arrive, pas le jour de la saisie.
+ */
+const receivedAtTouched = ref(false);
+watch(
+  () => state.arrivedAt,
+  (arrivedAt) => {
+    const today = toDateInputValue();
+    if (!receivedAtTouched.value && arrivedAt && arrivedAt <= today) {
+      state.receivedAt = arrivedAt;
+    }
+  }
 );
 
 // Listes de choix
-const currencyItems = Object.entries(FEE_CURRENCY_LABELS).map(([value, label]) => ({
-  label,
-  value,
-}));
-const allocationItems = Object.entries(ALLOCATION_METHOD_LABELS).map(([value, label]) => ({
-  label,
-  value,
-}));
+const currencyItems = Object.entries(FEE_CURRENCY_LABELS).map(
+  ([value, label]) => ({
+    label,
+    value,
+  })
+);
+const allocationItems = Object.entries(ALLOCATION_METHOD_LABELS).map(
+  ([value, label]) => ({
+    label,
+    value,
+  })
+);
 const feeLabelItems: string[] = [...SUGGESTED_FEE_LABELS];
 const missingSuggestions = computed(() =>
-  SUGGESTED_FEE_LABELS.filter((label) => !state.fees.some((fee) => fee.label === label)),
+  SUGGESTED_FEE_LABELS.filter(
+    (label) => !state.fees.some((fee) => fee.label === label)
+  )
 );
 
 const addFee = (label = "") => {
@@ -169,7 +222,7 @@ const addFee = (label = "") => {
     feeLine({
       allocationMethod: data.value?.allocationMethod ?? "equal",
       label,
-    }),
+    })
   );
 };
 const removeFee = (key: string) => {
@@ -182,10 +235,10 @@ const rates = computed(() => ({
   rmbPerUsd: data.value?.rmbPerUsd ?? 1,
 }));
 const feeAmountsFcfa = computed(() =>
-  state.fees.map((fee) => feeToFcfa(fee.amount || 0, fee.currency, rates.value)),
+  state.fees.map((fee) => feeToFcfa(fee.amount || 0, fee.currency, rates.value))
 );
 const activePayments = computed(() =>
-  (data.value?.payments ?? []).filter((payment) => !payment.cancelledAt),
+  (data.value?.payments ?? []).filter((payment) => !payment.cancelledAt)
 );
 const costs = computed(() => {
   const items = (data.value?.items ?? []).map((item, index) => ({
@@ -214,14 +267,14 @@ const feeLines = computed(() =>
     state.fees.map((fee, index) => ({
       ...fee,
       amountFcfa: feeAmountsFcfa.value[index] ?? 0,
-    })),
-  ),
+    }))
+  )
 );
 
 const missingWeight = computed(
   () =>
     state.fees.some((fee) => fee.allocationMethod === "weight") &&
-    (data.value?.items ?? []).some((item) => !item.weightTons),
+    (data.value?.items ?? []).some((item) => !item.weightTons)
 );
 
 const receivedLines = computed(() =>
@@ -229,10 +282,13 @@ const receivedLines = computed(() =>
     const qtyReceived = state.items[index]?.qtyReceived ?? 0;
     const unitCostFcfa = costs.value.lines[index]?.unitCostFcfa ?? 0;
     return qtyReceived > 0 ? [{ item, qtyReceived, unitCostFcfa }] : [];
-  }),
+  })
 );
 const stockValueFcfa = computed(() =>
-  receivedLines.value.reduce((sum, line) => sum + line.qtyReceived * line.unitCostFcfa, 0),
+  receivedLines.value.reduce(
+    (sum, line) => sum + line.qtyReceived * line.unitCostFcfa,
+    0
+  )
 );
 
 // Enregistrement et validation
@@ -240,7 +296,9 @@ const intent = ref<"save" | "receive">("save");
 const confirmOpen = ref(false);
 const pendingReceivedAt = ref<Date | null>(null);
 
-const saveMutation = useMutation($orpc.purchases.saveReception.mutationOptions());
+const saveMutation = useMutation(
+  $orpc.purchases.saveReception.mutationOptions()
+);
 const receiveMutation = useMutation($orpc.purchases.receive.mutationOptions());
 
 const receptionInput = (formData: FormOutput) => {
@@ -264,7 +322,10 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
   try {
     await saveMutation.mutateAsync(input);
     await invalidatePurchases();
-    notify.success("Réception enregistrée", "Le stock n'a pas encore été mis à jour.");
+    notify.success(
+      "Réception enregistrée",
+      "Le stock n'a pas encore été mis à jour."
+    );
   } catch (error) {
     notify.error("Enregistrement impossible", error);
   }
@@ -283,7 +344,7 @@ const confirmReceive = async () => {
     confirmOpen.value = false;
     notify.success(
       "Marchandise réceptionnée",
-      `${result.lotCount} lot${result.lotCount > 1 ? "s" : ""} ajouté${result.lotCount > 1 ? "s" : ""} au stock`,
+      `${result.lotCount} lot${result.lotCount > 1 ? "s" : ""} ajouté${result.lotCount > 1 ? "s" : ""} au stock`
     );
     await navigateTo(`/achats/${orderId.value}`);
   } catch (error) {
@@ -293,7 +354,7 @@ const confirmReceive = async () => {
 
 const confirmDescription = computed(
   () =>
-    `${receivedLines.value.length} lot${receivedLines.value.length > 1 ? "s" : ""} pour une valeur de ${formatFcfa(stockValueFcfa.value)}. La commande sera ensuite verrouillée ; les écarts se corrigeront par un ajustement de lot.`,
+    `${receivedLines.value.length} lot${receivedLines.value.length > 1 ? "s" : ""} pour une valeur de ${formatFcfa(stockValueFcfa.value)}. La commande sera ensuite verrouillée ; les écarts se corrigeront par un ajustement de lot.`
 );
 </script>
 
@@ -302,7 +363,9 @@ const confirmDescription = computed(
     id="purchase-reception"
     title="Réception"
     :description="
-      data ? `${data.reference} · ${data.supplier?.name ?? 'Sans fournisseur'}` : undefined
+      data
+        ? `${data.reference} · ${data.supplier?.name ?? 'Sans fournisseur'}`
+        : undefined
     "
     :icon="icons.reception"
     :parents="[
@@ -347,7 +410,11 @@ const confirmDescription = computed(
       color="neutral"
       variant="subtle"
       :icon="icons.locked"
-      :title="data.status === 'received' ? 'Commande déjà réceptionnée' : 'Commande annulée'"
+      :title="
+        data.status === 'received'
+          ? 'Commande déjà réceptionnée'
+          : 'Commande annulée'
+      "
       description="Cette commande ne peut plus être réceptionnée."
       :actions="[{ label: 'Voir la commande', to: `/achats/${orderId}` }]"
     />
@@ -366,14 +433,31 @@ const confirmDescription = computed(
             <UFormField label="Arrivée au port" name="arrivedAt">
               <DateField v-model="state.arrivedAt" class="w-full" />
             </UFormField>
-            <UFormField label="Entrée en stock" name="receivedAt" required>
-              <DateField v-model="state.receivedAt" class="w-full" />
+            <UFormField
+              label="Entrée en stock"
+              name="receivedAt"
+              required
+              help="C'est cette date que verront les lots et les mouvements de stock. Elle suit l'arrivée au port tant que vous ne la corrigez pas."
+            >
+              <DateField
+                v-model="state.receivedAt"
+                class="w-full"
+                @update:model-value="receivedAtTouched = true"
+              />
             </UFormField>
             <UFormField label="N° conteneur" name="containerNumber">
-              <UInput v-model="state.containerNumber" placeholder="MSCU1234567" class="w-full" />
+              <UInput
+                v-model="state.containerNumber"
+                placeholder="MSCU1234567"
+                class="w-full"
+              />
             </UFormField>
             <UFormField label="N° BL" name="billOfLading">
-              <UInput v-model="state.billOfLading" placeholder="Connaissement" class="w-full" />
+              <UInput
+                v-model="state.billOfLading"
+                placeholder="Connaissement"
+                class="w-full"
+              />
             </UFormField>
             <UFormField label="Transitaire" name="forwarder">
               <UInput
@@ -383,6 +467,15 @@ const confirmDescription = computed(
               />
             </UFormField>
           </div>
+          <UAlert
+            v-if="receptionBeforeOrder"
+            class="mt-4"
+            color="warning"
+            variant="subtle"
+            :icon="icons.pending"
+            title="Entrée en stock avant la commande"
+            description="Les mouvements de stock et les lots porteront cette date. Vérifiez que ce n'est pas le jour de la saisie."
+          />
         </UPageCard>
 
         <PurchaseCostSummary
@@ -404,8 +497,9 @@ const confirmDescription = computed(
         }"
       >
         <template #description>
-          Ils remplacent l'estimation de la commande. Un frais payé en USD ou en RMB est converti
-          aux taux de la commande ({{ data.rmbPerUsd }} RMB = 1 $ = {{ data.fcfaPerUsd }} FCFA).
+          Ils remplacent l'estimation de la commande. Un frais payé en USD ou en
+          RMB est converti aux taux de la commande ({{ data.rmbPerUsd }} RMB = 1
+          $ = {{ data.fcfaPerUsd }} FCFA).
         </template>
 
         <UAlert
@@ -432,7 +526,11 @@ const confirmDescription = computed(
                 </tr>
               </thead>
               <tbody class="divide-default divide-y">
-                <tr v-for="(fee, index) in state.fees" :key="fee.key" class="align-top">
+                <tr
+                  v-for="(fee, index) in state.fees"
+                  :key="fee.key"
+                  class="align-top"
+                >
                   <td class="px-3 py-2">
                     <UFormField :name="`fees.${index}.label`">
                       <UInputMenu
@@ -472,7 +570,9 @@ const confirmDescription = computed(
                       class="w-full"
                     />
                   </td>
-                  <td class="px-3 py-3 text-right font-medium whitespace-nowrap tabular-nums">
+                  <td
+                    class="px-3 py-3 text-right font-medium whitespace-nowrap tabular-nums"
+                  >
                     {{ formatFcfa(feeAmountsFcfa[index] ?? 0) }}
                   </td>
                   <td class="px-1 py-2">
@@ -487,7 +587,8 @@ const confirmDescription = computed(
                 </tr>
                 <tr v-if="state.fees.length === 0">
                   <td colspan="6" class="text-muted px-3 py-6 text-center">
-                    Aucun frais : le prix de revient sera le seul prix de la marchandise.
+                    Aucun frais : le prix de revient sera le seul prix de la
+                    marchandise.
                   </td>
                 </tr>
               </tbody>
@@ -496,7 +597,12 @@ const confirmDescription = computed(
         </UFormField>
 
         <div class="flex flex-wrap items-center gap-2">
-          <UButton variant="soft" :icon="icons.plus" label="Ajouter un frais" @click="addFee()" />
+          <UButton
+            variant="soft"
+            :icon="icons.plus"
+            label="Ajouter un frais"
+            @click="addFee()"
+          />
           <UButton
             v-for="label in missingSuggestions"
             :key="label"
@@ -516,8 +622,8 @@ const confirmDescription = computed(
         :ui="{ container: 'lg:grid-cols-[minmax(0,1fr)]', wrapper: 'min-w-0' }"
       >
         <template #description>
-          En cas de manquant ou de casse, le coût de la ligne est réparti sur la quantité reçue. Une
-          ligne à 0 ne crée pas de lot.
+          En cas de manquant ou de casse, le coût de la ligne est réparti sur la
+          quantité reçue. Une ligne à 0 ne crée pas de lot.
         </template>
 
         <div class="border-default overflow-x-auto rounded-lg border">
@@ -531,11 +637,17 @@ const confirmDescription = computed(
                 <th class="w-36 px-3 py-2 font-medium">Reçu</th>
                 <th class="px-3 py-2 text-right font-medium">Part des frais</th>
                 <th class="px-3 py-2 text-right font-medium">Coût unitaire</th>
-                <th class="px-3 py-2 text-right font-medium">Valeur en stock</th>
+                <th class="px-3 py-2 text-right font-medium">
+                  Valeur en stock
+                </th>
               </tr>
             </thead>
             <tbody class="divide-default divide-y">
-              <tr v-for="(item, index) in data.items" :key="item.id" class="align-top">
+              <tr
+                v-for="(item, index) in data.items"
+                :key="item.id"
+                class="align-top"
+              >
                 <td class="text-highlighted px-3 py-3 font-medium">
                   {{ item.productName }}
                 </td>
@@ -546,7 +658,10 @@ const confirmDescription = computed(
                   </p>
                 </td>
                 <td class="px-3 py-2">
-                  <UFormField v-if="state.items[index]" :name="`items.${index}.qtyReceived`">
+                  <UFormField
+                    v-if="state.items[index]"
+                    :name="`items.${index}.qtyReceived`"
+                  >
                     <UInputNumber
                       v-model="state.items[index].qtyReceived"
                       :min="0"
@@ -555,7 +670,10 @@ const confirmDescription = computed(
                     />
                   </UFormField>
                   <p
-                    v-if="state.items[index] && state.items[index].qtyReceived !== item.qty"
+                    v-if="
+                      state.items[index] &&
+                      state.items[index].qtyReceived !== item.qty
+                    "
                     class="text-warning mt-1 text-xs tabular-nums"
                   >
                     écart
@@ -569,13 +687,15 @@ const confirmDescription = computed(
                   <span class="text-highlighted font-semibold">
                     {{ formatFcfa(costs.lines[index]?.unitCostFcfa ?? 0) }}
                   </span>
-                  <p class="text-dimmed text-xs">estimé {{ formatFcfa(item.unitCostFcfa) }}</p>
+                  <p class="text-dimmed text-xs">
+                    estimé {{ formatFcfa(item.unitCostFcfa) }}
+                  </p>
                 </td>
                 <td class="px-3 py-3 text-right font-medium tabular-nums">
                   {{
                     formatFcfa(
                       (state.items[index]?.qtyReceived ?? 0) *
-                        (costs.lines[index]?.unitCostFcfa ?? 0),
+                        (costs.lines[index]?.unitCostFcfa ?? 0)
                     )
                   }}
                 </td>

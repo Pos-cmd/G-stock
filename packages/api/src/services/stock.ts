@@ -417,6 +417,23 @@ const resolveParties = async (
   return parties;
 };
 
+/**
+ * Stock du produit juste après un mouvement : somme de tous ses mouvements jusqu'à celui-ci.
+ * Calculé sur tout l'historique du produit, donc juste même quand la page est filtrée par date.
+ * À quantité et identifiant égaux (deux mouvements le même jour), l'identifiant départage.
+ */
+const stockAfterSql = sql<number>`coalesce((
+  select sum(m2.qty) from ${stockMovements} as m2
+  where m2.product_id = ${stockMovements.productId}
+    and (
+      m2.occurred_at < ${stockMovements.occurredAt}
+      or (
+        m2.occurred_at = ${stockMovements.occurredAt}
+        and m2.id <= ${stockMovements.id}
+      )
+    )
+), 0)`;
+
 export const listMovements = async (
   executor: Executor,
   filters: MovementFilters
@@ -476,6 +493,7 @@ export const listMovements = async (
         reason: stockMovements.reason,
         referenceId: stockMovements.referenceId,
         referenceType: stockMovements.referenceType,
+        stockAfter: stockAfterSql,
         type: stockMovements.type,
         unitCostFcfa: stockMovements.unitCostFcfa,
       })

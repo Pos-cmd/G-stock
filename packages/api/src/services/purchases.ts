@@ -6,7 +6,10 @@ import {
   totalGoodsAmount,
 } from "@G-stock/core/purchasing";
 import type { LandedCostItem } from "@G-stock/core/purchasing";
-import { paidGoodsFcfa, summarizeSupplierPayments } from "@G-stock/core/supplier-payments";
+import {
+  paidGoodsFcfa,
+  summarizeSupplierPayments,
+} from "@G-stock/core/supplier-payments";
 import type { Executor } from "@G-stock/db";
 import { products, suppliers } from "@G-stock/db/schema/catalog";
 import {
@@ -15,7 +18,7 @@ import {
   purchaseOrders,
   supplierPayments,
 } from "@G-stock/db/schema/purchasing";
-import { stockLots } from "@G-stock/db/schema/stock";
+import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
@@ -37,8 +40,8 @@ type SupplierPaymentRow = typeof supplierPayments.$inferSelect;
 
 const REFERENCE_PREFIX = "CF";
 const REFERENCE_DIGITS = 4;
-const LOCKED_STATUSES: readonly PurchaseOrderStatus[] = ["received", "cancelled"];
-const REMOVABLE_STATUSES: readonly PurchaseOrderStatus[] = ["draft", "cancelled"];
+const LOCKED_STATUSES = new Set<PurchaseOrderStatus>(["received", "cancelled"]);
+const REMOVABLE_STATUSES = new Set<PurchaseOrderStatus>(["draft", "cancelled"]);
 
 const ratesOf = (order: PurchaseOrderRow) => ({
   fcfaPerUsd: order.fcfaPerUsd,
@@ -53,7 +56,7 @@ const activePayments = (payments: readonly SupplierPaymentRow[]) =>
 const goodsFcfaOf = (
   order: PurchaseOrderRow,
   items: readonly LandedCostItem[],
-  payments: readonly SupplierPaymentRow[],
+  payments: readonly SupplierPaymentRow[]
 ) =>
   paidGoodsFcfa({
     currency: order.currency,
@@ -66,7 +69,7 @@ const goodsFcfaOf = (
 const estimatedCostsOf = (
   order: PurchaseOrderRow,
   items: readonly PurchaseItemRow[],
-  payments: readonly SupplierPaymentRow[],
+  payments: readonly SupplierPaymentRow[]
 ) =>
   computeLandedCosts({
     ...order,
@@ -83,7 +86,7 @@ const actualCostsOf = (
   order: PurchaseOrderRow,
   items: readonly PurchaseItemRow[],
   fees: readonly PurchaseFeeRow[],
-  payments: readonly SupplierPaymentRow[],
+  payments: readonly SupplierPaymentRow[]
 ) =>
   computeLandedCostsFromFees({
     currency: order.currency,
@@ -101,7 +104,7 @@ const displayedCostsOf = (
   order: PurchaseOrderRow,
   items: readonly PurchaseItemRow[],
   fees: readonly PurchaseFeeRow[],
-  payments: readonly SupplierPaymentRow[],
+  payments: readonly SupplierPaymentRow[]
 ) =>
   order.status === "received"
     ? actualCostsOf(order, items, fees, payments)
@@ -115,7 +118,7 @@ const paymentSituationOf = (
   order: PurchaseOrderRow,
   items: readonly PurchaseItemRow[],
   payments: readonly SupplierPaymentRow[],
-  receivedGoodsFcfa: number,
+  receivedGoodsFcfa: number
 ) => {
   const active = activePayments(payments);
   const { lines: _lines, ...summary } = summarizeSupplierPayments({
@@ -124,10 +127,13 @@ const paymentSituationOf = (
     payments: active,
     rates: ratesOf(order),
   });
-  const hasExchangeDifference = order.status === "received" && active.length > 0;
+  const hasExchangeDifference =
+    order.status === "received" && active.length > 0;
   return {
     ...summary,
-    exchangeDifferenceFcfa: hasExchangeDifference ? summary.goodsFcfa - receivedGoodsFcfa : null,
+    exchangeDifferenceFcfa: hasExchangeDifference
+      ? summary.goodsFcfa - receivedGoodsFcfa
+      : null,
     paymentCount: active.length,
   };
 };
@@ -155,8 +161,14 @@ const listOrderFees = (executor: Executor, orderId: string) =>
     .where(eq(purchaseOrderFees.orderId, orderId))
     .orderBy(asc(purchaseOrderFees.id));
 
-const getOrderRow = async (executor: Executor, id: string): Promise<PurchaseOrderRow> => {
-  const [order] = await executor.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
+const getOrderRow = async (
+  executor: Executor,
+  id: string
+): Promise<PurchaseOrderRow> => {
+  const [order] = await executor
+    .select()
+    .from(purchaseOrders)
+    .where(eq(purchaseOrders.id, id));
   if (!order) {
     throw new ORPCError("NOT_FOUND", { message: "Commande introuvable" });
   }
@@ -166,22 +178,34 @@ const getOrderRow = async (executor: Executor, id: string): Promise<PurchaseOrde
 const assertEditable = (order: PurchaseOrderRow): void => {
   if (order.status === "received") {
     throw new ORPCError("BAD_REQUEST", {
-      message: "Cette commande a déjà été réceptionnée : elle ne peut plus être modifiée",
+      message:
+        "Cette commande a déjà été réceptionnée : elle ne peut plus être modifiée",
     });
   }
   if (order.status === "cancelled") {
-    throw new ORPCError("BAD_REQUEST", { message: "Cette commande est annulée" });
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Cette commande est annulée",
+    });
   }
 };
 
-const assertProductsActive = async (executor: Executor, productIds: readonly string[]) => {
+const assertProductsActive = async (
+  executor: Executor,
+  productIds: readonly string[]
+) => {
   const ids = [...new Set(productIds)];
   const rows = await executor
-    .select({ archivedAt: products.archivedAt, id: products.id, name: products.name })
+    .select({
+      archivedAt: products.archivedAt,
+      id: products.id,
+      name: products.name,
+    })
     .from(products)
     .where(inArray(products.id, ids));
   if (rows.length !== ids.length) {
-    throw new ORPCError("NOT_FOUND", { message: "Un des produits est introuvable" });
+    throw new ORPCError("NOT_FOUND", {
+      message: "Un des produits est introuvable",
+    });
   }
   const archived = rows.find((row) => row.archivedAt);
   if (archived) {
@@ -210,7 +234,7 @@ const insertItems = async (
   executor: Executor,
   orderId: string,
   input: PurchaseOrderInput,
-  payments: readonly SupplierPaymentRow[] = [],
+  payments: readonly SupplierPaymentRow[] = []
 ) => {
   const rates = { fcfaPerUsd: input.fcfaPerUsd, rmbPerUsd: input.rmbPerUsd };
   const { lines } = computeLandedCosts({
@@ -234,21 +258,24 @@ const insertItems = async (
       unitCostFcfa: lines[index]?.unitCostFcfa ?? 0,
       unitPrice: item.unitPrice,
       weightTons: item.weightTons ?? null,
-    })),
+    }))
   );
 };
 
 /** À appeler dans une transaction. */
-export const createPurchaseOrder = async (executor: Executor, input: PurchaseOrderInput) => {
+export const createPurchaseOrder = async (
+  executor: Executor,
+  input: PurchaseOrderInput
+) => {
   await assertProductsActive(
     executor,
-    input.items.map((item) => item.productId),
+    input.items.map((item) => item.productId)
   );
   const reference = await nextReference(
     executor,
     REFERENCE_PREFIX,
     input.orderDate,
-    REFERENCE_DIGITS,
+    REFERENCE_DIGITS
   );
   const [order] = await executor
     .insert(purchaseOrders)
@@ -265,13 +292,13 @@ export const createPurchaseOrder = async (executor: Executor, input: PurchaseOrd
 export const updatePurchaseOrder = async (
   executor: Executor,
   id: string,
-  input: PurchaseOrderInput,
+  input: PurchaseOrderInput
 ) => {
   const current = await getOrderRow(executor, id);
   assertEditable(current);
   await assertProductsActive(
     executor,
-    input.items.map((item) => item.productId),
+    input.items.map((item) => item.productId)
   );
   const payments = await listOrderPayments(executor, [id]);
   // Le taux de chaque versement est exprimé dans la devise de la commande.
@@ -286,7 +313,9 @@ export const updatePurchaseOrder = async (
     .set(orderValues(input))
     .where(eq(purchaseOrders.id, id))
     .returning();
-  await executor.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, id));
+  await executor
+    .delete(purchaseOrderItems)
+    .where(eq(purchaseOrderItems.orderId, id));
   await insertItems(executor, id, input, payments);
   return order;
 };
@@ -294,7 +323,7 @@ export const updatePurchaseOrder = async (
 export const setPurchaseStatus = async (
   executor: Executor,
   id: string,
-  status: Exclude<PurchaseOrderStatus, "received">,
+  status: Exclude<PurchaseOrderStatus, "received">
 ) => {
   assertEditable(await getOrderRow(executor, id));
   const [order] = await executor
@@ -307,9 +336,10 @@ export const setPurchaseStatus = async (
 
 export const removePurchaseOrder = async (executor: Executor, id: string) => {
   const order = await getOrderRow(executor, id);
-  if (!REMOVABLE_STATUSES.includes(order.status)) {
+  if (!REMOVABLE_STATUSES.has(order.status)) {
     throw new ORPCError("BAD_REQUEST", {
-      message: "Seules les commandes en brouillon ou annulées peuvent être supprimées",
+      message:
+        "Seules les commandes en brouillon ou annulées peuvent être supprimées",
     });
   }
   const payments = await listOrderPayments(executor, [id]);
@@ -328,7 +358,10 @@ export const removePurchaseOrder = async (executor: Executor, id: string) => {
  * stock : on peut noter la douane dès qu'elle est payée et valider la réception plus tard.
  * À appeler dans une transaction.
  */
-export const saveReception = async (executor: Executor, input: PurchaseReceptionInput) => {
+export const saveReception = async (
+  executor: Executor,
+  input: PurchaseReceptionInput
+) => {
   const order = await getOrderRow(executor, input.id);
   assertEditable(order);
   const items = await listOrderItems(executor, order.id);
@@ -336,13 +369,17 @@ export const saveReception = async (executor: Executor, input: PurchaseReception
   const itemIds = new Set(items.map((item) => item.id));
   const inputIds = new Set(input.items.map((item) => item.id));
   const sameLines =
-    itemIds.size === inputIds.size && [...inputIds].every((itemId) => itemIds.has(itemId));
+    itemIds.size === inputIds.size &&
+    [...inputIds].every((itemId) => itemIds.has(itemId));
   if (!sameLines) {
     throw new ORPCError("CONFLICT", {
-      message: "Les lignes de la commande ont changé : rechargez la page de réception",
+      message:
+        "Les lignes de la commande ont changé : rechargez la page de réception",
     });
   }
-  const usesWeight = input.fees.some((fee) => fee.allocationMethod === "weight");
+  const usesWeight = input.fees.some(
+    (fee) => fee.allocationMethod === "weight"
+  );
   if (usesWeight && items.some((item) => !item.weightTons)) {
     throw new ORPCError("BAD_REQUEST", {
       message:
@@ -360,14 +397,16 @@ export const saveReception = async (executor: Executor, input: PurchaseReception
     })
     .where(eq(purchaseOrders.id, order.id));
 
-  await executor.delete(purchaseOrderFees).where(eq(purchaseOrderFees.orderId, order.id));
+  await executor
+    .delete(purchaseOrderFees)
+    .where(eq(purchaseOrderFees.orderId, order.id));
   if (input.fees.length > 0) {
     await executor.insert(purchaseOrderFees).values(
       input.fees.map((fee) => ({
         ...fee,
         amountFcfa: feeToFcfa(fee.amount, fee.currency, ratesOf(order)),
         orderId: order.id,
-      })),
+      }))
     );
   }
 
@@ -376,8 +415,8 @@ export const saveReception = async (executor: Executor, input: PurchaseReception
       executor
         .update(purchaseOrderItems)
         .set({ qtyReceived: item.qtyReceived })
-        .where(eq(purchaseOrderItems.id, item.id)),
-    ),
+        .where(eq(purchaseOrderItems.id, item.id))
+    )
   );
 
   return { id: order.id };
@@ -392,7 +431,10 @@ export interface ReceivePurchaseParams extends PurchaseReceiveInput {
  * ligne et crée un lot par ligne reçue. La commande passe à « reçue ».
  * À appeler dans une transaction : tout ou rien.
  */
-export const receivePurchaseOrder = async (executor: Executor, params: ReceivePurchaseParams) => {
+export const receivePurchaseOrder = async (
+  executor: Executor,
+  params: ReceivePurchaseParams
+) => {
   await saveReception(executor, params);
   const order = await getOrderRow(executor, params.id);
   const [items, fees, payments] = await Promise.all([
@@ -405,7 +447,9 @@ export const receivePurchaseOrder = async (executor: Executor, params: ReceivePu
 
   const received = items.flatMap((item, index) => {
     const line = costs.lines[index];
-    return line && item.qtyReceived && item.qtyReceived > 0 ? [{ item, line }] : [];
+    return line && item.qtyReceived && item.qtyReceived > 0
+      ? [{ item, line }]
+      : [];
   });
   if (received.length === 0) {
     throw new ORPCError("BAD_REQUEST", {
@@ -421,8 +465,8 @@ export const receivePurchaseOrder = async (executor: Executor, params: ReceivePu
           transportShareFcfa: costs.lines[index]?.transportShareFcfa ?? 0,
           unitCostFcfa: costs.lines[index]?.unitCostFcfa ?? 0,
         })
-        .where(eq(purchaseOrderItems.id, item.id)),
-    ),
+        .where(eq(purchaseOrderItems.id, item.id))
+    )
   );
 
   const lots = [];
@@ -457,10 +501,65 @@ export const receivePurchaseOrder = async (executor: Executor, params: ReceivePu
   return { id: order.id, lotCount: lots.length, reference: order.reference };
 };
 
+/**
+ * Corrige la date d'entrée en stock d'une commande déjà reçue : la commande, ses lots et ses
+ * mouvements prennent la même date. Les quantités et les coûts ne bougent pas ; seule la date
+ * change, donc les lots peuvent changer d'ordre FIFO pour les ventes suivantes.
+ */
+export const updateReceptionDate = async (
+  executor: Executor,
+  params: { id: string; receivedAt: Date }
+) => {
+  const order = await getOrderRow(executor, params.id);
+  if (order.status !== "received") {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Seule une commande déjà reçue a une date d'entrée en stock",
+    });
+  }
+  const items = await executor
+    .select({ id: purchaseOrderItems.id })
+    .from(purchaseOrderItems)
+    .where(eq(purchaseOrderItems.orderId, order.id));
+  const itemIds = items.map((item) => item.id);
+
+  const lots =
+    itemIds.length > 0
+      ? await executor
+          .update(stockLots)
+          .set({ receivedAt: params.receivedAt })
+          .where(inArray(stockLots.orderItemId, itemIds))
+          .returning({ id: stockLots.id })
+      : [];
+  const movements = await executor
+    .update(stockMovements)
+    .set({ occurredAt: params.receivedAt })
+    .where(
+      and(
+        eq(stockMovements.referenceType, "purchase_order"),
+        eq(stockMovements.referenceId, order.id),
+        eq(stockMovements.type, "in")
+      )
+    )
+    .returning({ id: stockMovements.id });
+  await executor
+    .update(purchaseOrders)
+    .set({ receivedAt: params.receivedAt })
+    .where(eq(purchaseOrders.id, order.id));
+
+  return {
+    lotCount: lots.length,
+    movementCount: movements.length,
+    receivedAt: params.receivedAt,
+  };
+};
+
 const containsInsensitive = (column: AnyColumn, needle: string): SQL =>
   sql`instr(lower(coalesce(${column}, '')), lower(${needle})) > 0`;
 
-export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOrderFilters) => {
+export const listPurchaseOrders = async (
+  executor: Executor,
+  filters: PurchaseOrderFilters
+) => {
   const conditions: SQL[] = [];
   if (filters.status) {
     conditions.push(eq(purchaseOrders.status, filters.status));
@@ -473,8 +572,8 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
       or(
         containsInsensitive(purchaseOrders.reference, filters.search),
         containsInsensitive(suppliers.name, filters.search),
-        containsInsensitive(purchaseOrders.notes, filters.search),
-      ) as SQL,
+        containsInsensitive(purchaseOrders.notes, filters.search)
+      ) as SQL
     );
   }
 
@@ -494,8 +593,8 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
     .where(
       inArray(
         purchaseOrderItems.orderId,
-        orders.map(({ order }) => order.id),
-      ),
+        orders.map(({ order }) => order.id)
+      )
     )
     .orderBy(asc(purchaseOrderItems.id));
   const fees = await executor
@@ -504,12 +603,12 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
     .where(
       inArray(
         purchaseOrderFees.orderId,
-        orders.map(({ order }) => order.id),
-      ),
+        orders.map(({ order }) => order.id)
+      )
     );
   const payments = await listOrderPayments(
     executor,
-    orders.map(({ order }) => order.id),
+    orders.map(({ order }) => order.id)
   );
   const itemsByOrder = Map.groupBy(items, (item) => item.orderId);
   const feesByOrder = Map.groupBy(fees, (fee) => fee.orderId);
@@ -522,11 +621,20 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
       order,
       orderItems,
       feesByOrder.get(order.id) ?? [],
-      orderPayments,
+      orderPayments
     );
-    const payment = paymentSituationOf(order, orderItems, orderPayments, costs.goodsFcfa);
+    const payment = paymentSituationOf(
+      order,
+      orderItems,
+      orderPayments,
+      costs.goodsFcfa
+    );
     return {
       ...order,
+      feesFcfa: costs.feesFcfa,
+      goodsAmount: costs.goodsAmount,
+      goodsFcfa: costs.goodsFcfa,
+      itemCount: orderItems.length,
       payment: {
         isPaid: payment.isPaid,
         paidFcfa: payment.paidFcfa,
@@ -534,10 +642,6 @@ export const listPurchaseOrders = async (executor: Executor, filters: PurchaseOr
         remainingAmount: payment.remainingAmount,
         remainingFcfa: payment.remainingFcfa,
       },
-      feesFcfa: costs.feesFcfa,
-      goodsAmount: costs.goodsAmount,
-      goodsFcfa: costs.goodsFcfa,
-      itemCount: orderItems.length,
       supplierName,
       totalFcfa: costs.totalFcfa,
       totalWeightTons: costs.totalWeightTons,
@@ -604,7 +708,7 @@ export const getPurchaseOrder = async (executor: Executor, id: string) => {
       totalFcfa: estimate.totalFcfa,
     },
     fees,
-    isLocked: LOCKED_STATUSES.includes(row.order.status),
+    isLocked: LOCKED_STATUSES.has(row.order.status),
     items,
     payment: paymentSituationOf(row.order, itemRows, payments, costs.goodsFcfa),
     /** Versements, annulés compris (barrés à l'écran), le plus ancien d'abord. */
@@ -617,15 +721,21 @@ export const getPurchaseOrder = async (executor: Executor, id: string) => {
 export const createSupplierPayment = async (
   executor: Executor,
   input: SupplierPaymentInput,
-  userId?: string | null,
+  userId?: string | null
 ) => {
   const order = await getOrderRow(executor, input.orderId);
   if (order.status === "cancelled") {
-    throw new ORPCError("BAD_REQUEST", { message: "Cette commande est annulée" });
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Cette commande est annulée",
+    });
   }
   const [payment] = await executor
     .insert(supplierPayments)
-    .values({ ...input, createdBy: userId ?? null, fcfaRate: input.fcfaRate ?? null })
+    .values({
+      ...input,
+      createdBy: userId ?? null,
+      fcfaRate: input.fcfaRate ?? null,
+    })
     .returning();
   return payment;
 };
@@ -633,7 +743,7 @@ export const createSupplierPayment = async (
 /** Un versement erroné est annulé avec un motif : il reste visible mais ne compte plus. */
 export const cancelSupplierPayment = async (
   executor: Executor,
-  params: { id: string; reason: string },
+  params: { id: string; reason: string }
 ) => {
   const [payment] = await executor
     .select()
@@ -643,12 +753,19 @@ export const cancelSupplierPayment = async (
     throw new ORPCError("NOT_FOUND", { message: "Versement introuvable" });
   }
   if (payment.cancelledAt) {
-    throw new ORPCError("BAD_REQUEST", { message: "Ce versement est déjà annulé" });
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Ce versement est déjà annulé",
+    });
   }
   const [updated] = await executor
     .update(supplierPayments)
     .set({ cancelReason: params.reason, cancelledAt: new Date() })
-    .where(and(eq(supplierPayments.id, payment.id), isNull(supplierPayments.cancelledAt)))
+    .where(
+      and(
+        eq(supplierPayments.id, payment.id),
+        isNull(supplierPayments.cancelledAt)
+      )
+    )
     .returning();
   return updated;
 };

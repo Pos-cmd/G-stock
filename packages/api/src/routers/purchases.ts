@@ -5,6 +5,7 @@ import {
   purchaseOrderListSchema,
   purchaseOrderUpdateSchema,
   purchaseReceiveSchema,
+  purchaseReceptionDateSchema,
   purchaseReceptionSchema,
   purchaseStatusSchema,
   supplierPaymentCancelSchema,
@@ -21,18 +22,21 @@ import {
   saveReception,
   setPurchaseStatus,
   updatePurchaseOrder,
+  updateReceptionDate,
 } from "../services/purchases";
 
 export const purchasesRouter = {
   addPayment: protectedProcedure
     .input(supplierPaymentInputSchema)
     .handler(({ context, input }) =>
-      createSupplierPayment(context.db, input, context.session.user.id),
+      createSupplierPayment(context.db, input, context.session.user.id)
     ),
 
   cancel: protectedProcedure
     .input(byIdSchema)
-    .handler(({ context, input }) => setPurchaseStatus(context.db, input.id, "cancelled")),
+    .handler(({ context, input }) =>
+      setPurchaseStatus(context.db, input.id, "cancelled")
+    ),
 
   cancelPayment: protectedProcedure
     .input(supplierPaymentCancelSchema)
@@ -41,7 +45,7 @@ export const purchasesRouter = {
   create: protectedProcedure
     .input(purchaseOrderInputSchema)
     .handler(({ context, input }) =>
-      context.db.transaction((tx) => createPurchaseOrder(tx, input)),
+      context.db.transaction((tx) => createPurchaseOrder(tx, input))
     ),
 
   get: protectedProcedure
@@ -56,8 +60,8 @@ export const purchasesRouter = {
     .input(purchaseReceiveSchema)
     .handler(({ context, input }) =>
       context.db.transaction((tx) =>
-        receivePurchaseOrder(tx, { ...input, userId: context.session.user.id }),
-      ),
+        receivePurchaseOrder(tx, { ...input, userId: context.session.user.id })
+      )
     ),
 
   remove: protectedProcedure
@@ -66,15 +70,26 @@ export const purchasesRouter = {
 
   saveReception: protectedProcedure
     .input(purchaseReceptionSchema)
-    .handler(({ context, input }) => context.db.transaction((tx) => saveReception(tx, input))),
+    .handler(({ context, input }) =>
+      context.db.transaction((tx) => saveReception(tx, input))
+    ),
 
   setStatus: protectedProcedure
     .input(purchaseStatusSchema)
-    .handler(({ context, input }) => setPurchaseStatus(context.db, input.id, input.status)),
+    .handler(({ context, input }) =>
+      setPurchaseStatus(context.db, input.id, input.status)
+    ),
 
   update: protectedProcedure
     .input(purchaseOrderUpdateSchema)
     .handler(({ context, input: { id, ...data } }) =>
-      context.db.transaction((tx) => updatePurchaseOrder(tx, id, data)),
+      context.db.transaction((tx) => updatePurchaseOrder(tx, id, data))
+    ),
+
+  /** Corrige la date d'entrée en stock : commande, lots et mouvements ensemble. */
+  updateReceptionDate: protectedProcedure
+    .input(purchaseReceptionDateSchema)
+    .handler(({ context, input }) =>
+      context.db.transaction((tx) => updateReceptionDate(tx, input))
     ),
 };

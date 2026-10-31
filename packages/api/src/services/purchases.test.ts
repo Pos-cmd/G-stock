@@ -1,12 +1,14 @@
+import { computeLandedCostsFromFees } from "@G-stock/core/purchasing";
 import type { Database } from "@G-stock/db";
 import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { computeLandedCostsFromFees } from "@G-stock/core/purchasing";
-
 import { purchaseOrderInputSchema } from "../schemas/purchases";
-import type { PurchaseFeeInput, PurchaseOrderInput } from "../schemas/purchases";
+import type {
+  PurchaseFeeInput,
+  PurchaseOrderInput,
+} from "../schemas/purchases";
 import { useTestDatabase } from "../testing/database";
 import { createProduct, getProduct, setProductArchived } from "./products";
 import {
@@ -20,9 +22,15 @@ import {
   saveReception,
   setPurchaseStatus,
   updatePurchaseOrder,
+  updateReceptionDate,
 } from "./purchases";
-import { listLots, listMovements } from "./stock";
-import { createSupplier, getSupplier, listSuppliers, removeSupplier } from "./suppliers";
+import { listLots, listMovements, consumeFifo, createLot } from "./stock";
+import {
+  createSupplier,
+  getSupplier,
+  listSuppliers,
+  removeSupplier,
+} from "./suppliers";
 
 let db: Database;
 const getDb = useTestDatabase();
@@ -105,7 +113,9 @@ const receptionInput = async (id: number, options: ReceptionOptions = {}) => {
 
 const receive = async (id: number, options?: ReceptionOptions) => {
   const input = await receptionInput(id, options);
-  return db.transaction((tx) => receivePurchaseOrder(tx, { ...input, receivedAt: APRIL_15 }));
+  return db.transaction((tx) =>
+    receivePurchaseOrder(tx, { ...input, receivedAt: APRIL_15 })
+  );
 };
 
 describe("createPurchaseOrder", () => {
@@ -119,7 +129,9 @@ describe("createPurchaseOrder", () => {
 
     const detail = await getPurchaseOrder(db, first.id);
     expect(detail.items.map((item) => item.unitCostFcfa)).toEqual([8980, 4990]);
-    expect(detail.items.map((item) => item.transportShareFcfa)).toEqual([300_000, 100_000]);
+    expect(detail.items.map((item) => item.transportShareFcfa)).toEqual([
+      300_000, 100_000,
+    ]);
     expect(detail.costs.totalFcfa).toBe(1_147_500);
     expect(detail.isLocked).toBe(false);
   });
@@ -136,7 +148,7 @@ describe("updatePurchaseOrder", () => {
     const { input } = await orderInput();
     const order = await create(input);
     await db.transaction((tx) =>
-      updatePurchaseOrder(tx, order.id, { ...input, allocationMethod: "equal" }),
+      updatePurchaseOrder(tx, order.id, { ...input, allocationMethod: "equal" })
     );
 
     const detail = await getPurchaseOrder(db, order.id);
@@ -153,11 +165,15 @@ describe("receivePurchaseOrder", () => {
     expect(result.lotCount).toBe(2);
 
     const lots = await db.select().from(stockLots).orderBy(asc(stockLots.id));
-    expect(lots.map((lot) => [lot.productId, lot.qtyInitial, lot.unitCostFcfa])).toEqual([
+    expect(
+      lots.map((lot) => [lot.productId, lot.qtyInitial, lot.unitCostFcfa])
+    ).toEqual([
       [wax.id, 100, 8980],
       [bazin.id, 50, 4990],
     ]);
-    expect(lots.every((lot) => lot.source === "purchase" && lot.orderItemId !== null)).toBe(true);
+    expect(
+      lots.every((lot) => lot.source === "purchase" && lot.orderItemId !== null)
+    ).toBe(true);
     expect(lots[0]?.receivedAt).toEqual(APRIL_15);
 
     const movements = await db
@@ -165,13 +181,17 @@ describe("receivePurchaseOrder", () => {
       .from(stockMovements)
       .where(eq(stockMovements.referenceType, "purchase_order"));
     expect(movements).toHaveLength(2);
-    expect(movements.every((movement) => movement.referenceId === order.id)).toBe(true);
+    expect(
+      movements.every((movement) => movement.referenceId === order.id)
+    ).toBe(true);
 
     const detail = await getPurchaseOrder(db, order.id);
     expect(detail.status).toBe("received");
     expect(detail.receivedAt).toEqual(APRIL_15);
     expect(detail.isLocked).toBe(true);
-    expect(detail.items.every((item) => item.lotCode?.startsWith("LOT-20260415-"))).toBe(true);
+    expect(
+      detail.items.every((item) => item.lotCode?.startsWith("LOT-20260415-"))
+    ).toBe(true);
 
     const product = await getProduct(db, wax.id);
     expect(product.stockValueFcfa).toBe(898_000);
@@ -185,11 +205,15 @@ describe("receivePurchaseOrder", () => {
     await receive(order.id);
 
     await expect(receive(order.id)).rejects.toThrow("déjà été réceptionnée");
-    await expect(db.transaction((tx) => updatePurchaseOrder(tx, order.id, input))).rejects.toThrow(
-      "déjà été réceptionnée",
+    await expect(
+      db.transaction((tx) => updatePurchaseOrder(tx, order.id, input))
+    ).rejects.toThrow("déjà été réceptionnée");
+    await expect(
+      setPurchaseStatus(db, order.id, "cancelled")
+    ).rejects.toThrow();
+    await expect(removePurchaseOrder(db, order.id)).rejects.toThrow(
+      "brouillon ou annulées"
     );
-    await expect(setPurchaseStatus(db, order.id, "cancelled")).rejects.toThrow();
-    await expect(removePurchaseOrder(db, order.id)).rejects.toThrow("brouillon ou annulées");
     expect(await db.select().from(stockLots)).toHaveLength(2);
   });
 
@@ -220,7 +244,9 @@ describe("mouvements de réception", () => {
       type: "in",
     });
     expect(items).toHaveLength(2);
-    expect(items.every((item) => item.occurredAt.getTime() === APRIL_15.getTime())).toBe(true);
+    expect(
+      items.every((item) => item.occurredAt.getTime() === APRIL_15.getTime())
+    ).toBe(true);
     expect(items[0]?.party).toEqual({
       id: order.id,
       kind: "supplier",
@@ -233,6 +259,98 @@ describe("mouvements de réception", () => {
       search: "dalian",
     });
     expect(found.total).toBe(2);
+  });
+
+  it("corrige la date d'entrée en stock d'une commande déjà reçue", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    await receive(order.id);
+    const JULY_5 = new Date(2026, 6, 5);
+
+    const result = await db.transaction((tx) =>
+      updateReceptionDate(tx, { id: order.id, receivedAt: JULY_5 })
+    );
+    expect(result).toMatchObject({ lotCount: 2, movementCount: 2 });
+
+    const detail = await getPurchaseOrder(db, order.id);
+    expect(detail.receivedAt).toEqual(JULY_5);
+    const lots = await db.select().from(stockLots);
+    expect(
+      lots.every((lot) => lot.receivedAt.getTime() === JULY_5.getTime())
+    ).toBe(true);
+
+    const { items } = await listMovements(db, {
+      page: 1,
+      pageSize: 25,
+      type: "in",
+    });
+    expect(
+      items.every((item) => item.occurredAt.getTime() === JULY_5.getTime())
+    ).toBe(true);
+  });
+
+  it("refuse de dater une commande qui n'est pas encore reçue", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    await expect(
+      db.transaction((tx) =>
+        updateReceptionDate(tx, { id: order.id, receivedAt: APRIL_15 })
+      )
+    ).rejects.toThrow("déjà reçue");
+  });
+});
+
+describe("stock après mouvement", () => {
+  it("décompte le stock du produit au fil des mouvements", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    await receive(order.id);
+    const product = await createProduct(db, {
+      alertThreshold: 0,
+      category: null,
+      name: "Grillage galva",
+      notes: null,
+      reference: null,
+      referencePriceRmb: null,
+      suggestedSalePriceFcfa: 5000,
+      unit: "rouleau",
+    });
+    const lot = await db.transaction((tx) =>
+      createLot(tx, {
+        productId: product.id,
+        qty: 10,
+        receivedAt: MARCH_1,
+        source: "initial",
+        unitCostFcfa: 1000,
+      })
+    );
+
+    const { items } = await listMovements(db, {
+      page: 1,
+      pageSize: 25,
+      productId: product.id,
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0]?.stockAfter).toBe(10);
+
+    // Une sortie plus tardive : le stock de chaque ligne reste relatif à l'historique complet.
+    await db.transaction((tx) =>
+      consumeFifo(tx, {
+        occurredAt: APRIL_15,
+        productId: product.id,
+        qty: 4,
+        reason: "Test",
+        referenceType: "manual",
+      })
+    );
+    const after = await listMovements(db, {
+      page: 1,
+      pageSize: 25,
+      productId: product.id,
+    });
+    // Le plus récent d'abord : sortie (6 restants), puis entrée (10).
+    expect(after.items.map((item) => item.stockAfter)).toEqual([6, 10]);
+    expect(lot.id).toBeDefined();
   });
 });
 
@@ -272,7 +390,9 @@ describe("suppliers", () => {
     });
     const { input } = await orderInput({ supplierId: supplier.id });
     const order = await create(input);
-    await expect(removeSupplier(db, supplier.id)).rejects.toThrow("a des commandes");
+    await expect(removeSupplier(db, supplier.id)).rejects.toThrow(
+      "a des commandes"
+    );
 
     await removePurchaseOrder(db, order.id);
     await expect(removeSupplier(db, supplier.id)).resolves.toEqual({
@@ -343,9 +463,13 @@ describe("commande à la tonne", () => {
       ...input,
       items: [{ ...first, weightTons: null }, second],
     });
-    expect(missingWeight.error?.issues[0]?.path).toEqual(["items", 0, "weightTons"]);
+    expect(missingWeight.error?.issues[0]?.path).toEqual([
+      "items",
+      0,
+      "weightTons",
+    ]);
     expect(missingWeight.error?.issues[0]?.message).toBe(
-      "Indiquez le poids pour un prix à la tonne",
+      "Indiquez le poids pour un prix à la tonne"
     );
 
     const unitLineWithoutWeight = purchaseOrderInputSchema.safeParse({
@@ -353,7 +477,7 @@ describe("commande à la tonne", () => {
       items: [first, { ...second, pricingBasis: "unit", weightTons: null }],
     });
     expect(unitLineWithoutWeight.error?.issues[0]?.message).toBe(
-      "Poids requis pour répartir les frais au poids",
+      "Poids requis pour répartir les frais au poids"
     );
 
     const unitOrder = purchaseOrderInputSchema.safeParse({
@@ -383,8 +507,18 @@ describe("réception avec frais réels", () => {
   };
 
   const actualFees: PurchaseFeeInput[] = [
-    { allocationMethod: "weight", amount: 1000, currency: "usd", label: "Fret maritime" },
-    { allocationMethod: "value", amount: 200_000, currency: "fcfa", label: "Douane" },
+    {
+      allocationMethod: "weight",
+      amount: 1000,
+      currency: "usd",
+      label: "Fret maritime",
+    },
+    {
+      allocationMethod: "value",
+      amount: 200_000,
+      currency: "fcfa",
+      label: "Douane",
+    },
   ];
 
   it("enregistre la saisie sans toucher au stock", async () => {
@@ -397,7 +531,7 @@ describe("réception avec frais réels", () => {
         billOfLading: "MEDU1234567",
         containerNumber: "MSCU7654321",
         forwarder: "Bolloré Transit",
-      }),
+      })
     );
 
     const detail = await getPurchaseOrder(db, order.id);
@@ -445,7 +579,7 @@ describe("réception avec frais réels", () => {
     expect(detail.costs.totalFcfa).toBe(747_500 + 798_000);
     expect(detail.estimate.totalFcfa).toBe(1_147_500);
     expect(detail.items.map((item) => item.unitCostFcfa)).toEqual(
-      expected.lines.map((line) => line.unitCostFcfa),
+      expected.lines.map((line) => line.unitCostFcfa)
     );
     const [listed] = await listPurchaseOrders(db, {});
     expect(listed?.totalFcfa).toBe(747_500 + 798_000);
@@ -454,7 +588,7 @@ describe("réception avec frais réels", () => {
   it("refuse une réception sans aucune quantité reçue", async () => {
     const order = await weightedOrder();
     await expect(receive(order.id, { qtyReceived: () => 0 })).rejects.toThrow(
-      "Aucune quantité reçue",
+      "Aucune quantité reçue"
     );
     const detail = await getPurchaseOrder(db, order.id);
     expect(detail.status).toBe("draft");
@@ -463,14 +597,18 @@ describe("réception avec frais réels", () => {
   it("exige le poids de chaque ligne pour un frais réparti au poids", async () => {
     const { input } = await orderInput();
     const order = await create(input);
-    await expect(receive(order.id, { fees: actualFees })).rejects.toThrow("Répartition au poids");
+    await expect(receive(order.id, { fees: actualFees })).rejects.toThrow(
+      "Répartition au poids"
+    );
   });
 
   it("refuse une saisie dont les lignes ne correspondent plus à la commande", async () => {
     const order = await weightedOrder();
     const input = await receptionInput(order.id);
     await expect(
-      db.transaction((tx) => saveReception(tx, { ...input, items: input.items.slice(0, 1) })),
+      db.transaction((tx) =>
+        saveReception(tx, { ...input, items: input.items.slice(0, 1) })
+      )
     ).rejects.toThrow("rechargez la page");
   });
 });
@@ -488,7 +626,11 @@ describe("numérotation", () => {
 
 describe("paiements fournisseur en plusieurs tranches", () => {
   // Marchandise : 7 200 + 1 800 = 9 000 RMB (747 500 FCFA aux taux de la commande).
-  const pay = (orderId: string, amountFcfa: number, fcfaRate: number | null = null) =>
+  const pay = (
+    orderId: string,
+    amountFcfa: number,
+    fcfaRate: number | null = null
+  ) =>
     createSupplierPayment(db, {
       amountFcfa,
       fcfaRate,
@@ -528,7 +670,9 @@ describe("paiements fournisseur en plusieurs tranches", () => {
 
     // 732 986 FCFA de marchandise répartis 4:1, plus 300 000 / 100 000 de frais.
     const lotCosts = async () =>
-      (await db.select().from(stockLots).orderBy(asc(stockLots.id))).map((lot) => lot.unitCostFcfa);
+      (await db.select().from(stockLots).orderBy(asc(stockLots.id))).map(
+        (lot) => lot.unitCostFcfa
+      );
     expect(await lotCosts()).toEqual([8864, 4932]);
 
     // Le solde (4 250 RMB) part plus tard à 90 FCFA/RMB : 382 500 FCFA au lieu de 352 986.
@@ -546,7 +690,10 @@ describe("paiements fournisseur en plusieurs tranches", () => {
     const { input } = await orderInput();
     const order = await create(input);
     const payment = await pay(order.id, 100_000);
-    await cancelSupplierPayment(db, { id: payment?.id ?? "", reason: "Doublon" });
+    await cancelSupplierPayment(db, {
+      id: payment?.id ?? "",
+      reason: "Doublon",
+    });
 
     const detail = await getPurchaseOrder(db, order.id);
     expect(detail.payments).toHaveLength(1);
@@ -555,7 +702,7 @@ describe("paiements fournisseur en plusieurs tranches", () => {
     expect(detail.payment.paymentCount).toBe(0);
     expect(detail.costs.goodsFcfa).toBe(747_500);
     await expect(
-      cancelSupplierPayment(db, { id: payment?.id ?? "", reason: "Encore" }),
+      cancelSupplierPayment(db, { id: payment?.id ?? "", reason: "Encore" })
     ).rejects.toThrow("déjà annulé");
   });
 
@@ -596,7 +743,11 @@ describe("paiements fournisseur en plusieurs tranches", () => {
 
     const detail = await getPurchaseOrder(db, order.id);
     expect(detail.currency).toBe("usd");
-    expect(detail.costs).toMatchObject({ currency: "usd", goodsAmount: 1250, goodsUsd: 1250 });
+    expect(detail.costs).toMatchObject({
+      currency: "usd",
+      goodsAmount: 1250,
+      goodsUsd: 1250,
+    });
     expect(detail.estimate.totalFcfa).toBe(1_147_500);
     expect(detail.payment.orderFcfaRate).toBe(598);
     expect(detail.payment.paidAmount).toBe(500);
@@ -610,7 +761,9 @@ describe("paiements fournisseur en plusieurs tranches", () => {
     const order = await create(input);
     await pay(order.id, 100_000);
     await expect(
-      db.transaction((tx) => updatePurchaseOrder(tx, order.id, { ...input, currency: "usd" })),
+      db.transaction((tx) =>
+        updatePurchaseOrder(tx, order.id, { ...input, currency: "usd" })
+      )
     ).rejects.toThrow("devise");
   });
 
@@ -618,7 +771,9 @@ describe("paiements fournisseur en plusieurs tranches", () => {
     const { input } = await orderInput();
     const order = await create(input);
     await pay(order.id, 100_000);
-    await expect(removePurchaseOrder(db, order.id)).rejects.toThrow("versements");
+    await expect(removePurchaseOrder(db, order.id)).rejects.toThrow(
+      "versements"
+    );
 
     await setPurchaseStatus(db, order.id, "cancelled");
     await expect(pay(order.id, 100_000)).rejects.toThrow("annulée");
@@ -647,14 +802,16 @@ describe("getSupplier", () => {
         product.productName,
         product.qty,
         product.lastUnitCostFcfa,
-      ]),
+      ])
     ).toEqual([
       ["Wax", 100, 8980],
       ["Bazin", 50, 4990],
     ]);
     expect(detail.products[0]?.totalCostFcfa).toBe(898_000);
     expect(detail.monthly).toHaveLength(12);
-    expect(detail.monthly.find((month) => month.month === "2026-03")?.orderCount).toBe(1);
+    expect(
+      detail.monthly.find((month) => month.month === "2026-03")?.orderCount
+    ).toBe(1);
     expect(detail.orders.map((row) => row.id)).toEqual([order.id]);
   });
 });

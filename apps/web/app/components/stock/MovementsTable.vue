@@ -97,6 +97,7 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
     : { accessorKey: "lotCode", header: "Lot" },
   { accessorKey: "type", header: "Type" },
   { accessorKey: "qty", header: "Quantité", meta: rightAligned },
+  { accessorKey: "stockAfter", header: "Stock après", meta: rightAligned },
   { accessorKey: "unitCostFcfa", header: "Valeur", meta: rightAligned },
   { accessorKey: "reason", header: "Motif" },
   { accessorKey: "createdAt", header: "Enregistré le" },
@@ -166,6 +167,15 @@ const columns = computed<TableColumn<StockMovementRow>[]>(() => [
       >
         {{ row.original.qty > 0 ? "+" : ""
         }}{{ formatQty(row.original.qty, row.original.productUnit) }}
+      </span>
+    </template>
+
+    <template #stockAfter-cell="{ row }">
+      <span
+        class="font-medium tabular-nums"
+        :class="row.original.stockAfter < 0 ? 'text-error' : ''"
+      >
+        {{ formatQty(row.original.stockAfter, row.original.productUnit) }}
       </span>
     </template>
 
