@@ -1,4 +1,5 @@
 import type { PurchaseOrderStatus } from "@G-stock/core/enums";
+import { formatDate, formatFcfa, formatQty } from "@G-stock/core/format";
 import {
   computeLandedCosts,
   computeLandedCostsFromFees,
@@ -6,16 +7,19 @@ import {
   totalGoodsAmount,
 } from "@G-stock/core/purchasing";
 import type { LandedCostItem } from "@G-stock/core/purchasing";
+import { QTY_EPSILON, roundQty } from "@G-stock/core/stock";
 import {
   paidGoodsFcfa,
   summarizeSupplierPayments,
 } from "@G-stock/core/supplier-payments";
 import type { Executor } from "@G-stock/db";
+import { user } from "@G-stock/db/schema/auth";
 import { products, suppliers } from "@G-stock/db/schema/catalog";
 import {
   purchaseOrderFees,
   purchaseOrderItems,
   purchaseOrders,
+  purchaseRevisions,
   supplierPayments,
 } from "@G-stock/db/schema/purchasing";
 import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
@@ -426,6 +430,12 @@ export interface ReceivePurchaseParams extends PurchaseReceiveInput {
   userId?: string | null;
 }
 
+export interface CorrectPurchaseParams extends PurchaseReceiveInput {
+  /** Motif obligatoire : il part dans le journal des corrections. */
+  reason: string;
+  userId?: string | null;
+}
+
 /**
  * Réceptionne la marchandise : enregistre la saisie, fige le coût de revient réel de chaque
  * ligne et crée un lot par ligne reçue. La commande passe à « reçue ».
@@ -501,55 +511,251 @@ export const receivePurchaseOrder = async (
   return { id: order.id, lotCount: lots.length, reference: order.reference };
 };
 
-/**
- * Corrige la date d'entrée en stock d'une commande déjà reçue : la commande, ses lots et ses
- * mouvements prennent la même date. Les quantités et les coûts ne bougent pas ; seule la date
- * change, donc les lots peuvent changer d'ordre FIFO pour les ventes suivantes.
- */
-export const updateReceptionDate = async (
+type OrderItemRow = Awaited<ReturnType<typeof listOrderItems>>[number];
+
+const assertCorrectableOrder = async (
   executor: Executor,
-  params: { id: string; receivedAt: Date }
+  params: CorrectPurchaseParams
 ) => {
   const order = await getOrderRow(executor, params.id);
   if (order.status !== "received") {
     throw new ORPCError("BAD_REQUEST", {
-      message: "Seule une commande déjà reçue a une date d'entrée en stock",
+      message:
+        "Seule une commande déjà réceptionnée se corrige ici : une commande en cours se modifie normalement",
     });
   }
-  const items = await executor
-    .select({ id: purchaseOrderItems.id })
-    .from(purchaseOrderItems)
-    .where(eq(purchaseOrderItems.orderId, order.id));
-  const itemIds = items.map((item) => item.id);
+  const items = await listOrderItems(executor, order.id);
+  const itemIds = new Set(items.map((item) => item.id));
+  const inputIds = new Set(params.items.map((item) => item.id));
+  const sameLines =
+    itemIds.size === inputIds.size &&
+    [...inputIds].every((itemId) => itemIds.has(itemId));
+  if (!sameLines) {
+    throw new ORPCError("CONFLICT", {
+      message:
+        "Les lignes de la commande ont changé : rechargez la page de correction",
+    });
+  }
+  const usesWeight = params.fees.some(
+    (fee) => fee.allocationMethod === "weight"
+  );
+  if (usesWeight && items.some((item) => !item.weightTons)) {
+    throw new ORPCError("BAD_REQUEST", {
+      message:
+        "Répartition au poids : indiquez le poids de chaque ligne sur la commande, ou choisissez une autre méthode",
+    });
+  }
+  return { items, order };
+};
 
-  const lots =
-    itemIds.length > 0
-      ? await executor
-          .update(stockLots)
-          .set({ receivedAt: params.receivedAt })
-          .where(inArray(stockLots.orderItemId, itemIds))
-          .returning({ id: stockLots.id })
-      : [];
-  const movements = await executor
+interface SyncLineContext {
+  changes: string[];
+  item: OrderItemRow;
+  order: { id: string; reference: string };
+  params: CorrectPurchaseParams;
+  receivedQty: number;
+  unitCostFcfa: number;
+}
+
+/**
+ * Aligne le lot et le mouvement d'entrée d'une ligne sur les quantités, la date et le coût
+ * corrigés. Refuse de descendre sous la quantité déjà sortie du lot.
+ */
+const syncOrderLineLots = async (
+  executor: Executor,
+  context: SyncLineContext
+): Promise<{ lots: number; movements: number }> => {
+  const { changes, item, order, params, receivedQty, unitCostFcfa } = context;
+  const lots = await executor
+    .select()
+    .from(stockLots)
+    .where(eq(stockLots.orderItemId, item.id));
+  const [lot] = lots;
+  if (!lot) {
+    if (receivedQty <= QTY_EPSILON) {
+      return { lots: 0, movements: 0 };
+    }
+    // Ligne reçue à zéro : la correction peut lui donner sa marchandise.
+    await createLot(executor, {
+      notes: `Commande ${order.reference}`,
+      occurredAt: params.receivedAt,
+      orderItemId: item.id,
+      productId: item.productId,
+      qty: receivedQty,
+      receivedAt: params.receivedAt,
+      referenceId: order.id,
+      referenceType: "purchase_order",
+      source: "purchase",
+      unitCostFcfa,
+      userId: params.userId,
+    });
+    changes.push(`+ ${formatQty(receivedQty)} reçus sur une ligne vide`);
+    return { lots: 1, movements: 0 };
+  }
+
+  const consumedQty = roundQty(lot.qtyInitial - lot.qtyRemaining);
+  if (receivedQty <= QTY_EPSILON) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `Quantité reçue à zéro sur « ${item.productId} » : passez par un ajustement de lot pour retirer la marchandise du stock`,
+    });
+  }
+  if (receivedQty < consumedQty) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `${formatQty(consumedQty)} déjà vendus sur ce lot : la quantité reçue ne peut pas descendre en dessous`,
+    });
+  }
+  if (roundQty(receivedQty - lot.qtyInitial) !== 0) {
+    changes.push(
+      `reçu ${formatQty(lot.qtyInitial)} → ${formatQty(receivedQty)}`
+    );
+  }
+  if (unitCostFcfa !== lot.unitCostFcfa) {
+    changes.push(
+      `coût ${formatFcfa(lot.unitCostFcfa)} → ${formatFcfa(unitCostFcfa)}`
+    );
+  }
+  await executor
+    .update(stockLots)
+    .set({
+      qtyInitial: receivedQty,
+      qtyRemaining: roundQty(receivedQty - consumedQty),
+      receivedAt: params.receivedAt,
+      unitCostFcfa,
+    })
+    .where(eq(stockLots.id, lot.id));
+  const updated = await executor
     .update(stockMovements)
-    .set({ occurredAt: params.receivedAt })
-    .where(
-      and(
-        eq(stockMovements.referenceType, "purchase_order"),
-        eq(stockMovements.referenceId, order.id),
-        eq(stockMovements.type, "in")
-      )
-    )
+    .set({
+      occurredAt: params.receivedAt,
+      qty: receivedQty,
+      unitCostFcfa,
+    })
+    .where(and(eq(stockMovements.lotId, lot.id), eq(stockMovements.type, "in")))
     .returning({ id: stockMovements.id });
+  return { lots: 1, movements: updated.length };
+};
+
+/**
+ * Corrige une commande déjà réceptionnée : date d'entrée en stock, arrivée, frais réels et
+ * quantités reçues. Les lots prennent le nouveau coût de revient, les mouvements d'entrée suivent,
+ * et la correction laisse une ligne dans le journal. Les ventes déjà passées gardent le coût
+ * qu'elles ont enregistré : corriger une commande ne réécrit pas la marge passée.
+ */
+export const correctPurchaseOrder = async (
+  executor: Executor,
+  params: CorrectPurchaseParams
+) => {
+  const { items, order } = await assertCorrectableOrder(executor, params);
+
+  const receivedByItem = new Map(
+    params.items.map((item) => [item.id, item.qtyReceived])
+  );
+  const correctedItems = items.map((item) => ({
+    ...item,
+    qtyReceived: receivedByItem.get(item.id) ?? item.qtyReceived ?? item.qty,
+  }));
+  const payments = await listOrderPayments(executor, [order.id]);
+
+  // Frais réels corrigés : ils remplacent la saisie de la réception.
+  const feeRows = params.fees.map((fee) => ({
+    ...fee,
+    amountFcfa: feeToFcfa(fee.amount, fee.currency, ratesOf(order)),
+    orderId: order.id,
+  }));
+  const costs = computeLandedCostsFromFees({
+    currency: order.currency,
+    fees: feeRows.map((fee) => ({
+      allocationMethod: fee.allocationMethod,
+      amountFcfa: fee.amountFcfa,
+    })),
+    // Coût de la marchandise figé à la réception : seuls les frais et les quantités changent.
+    goodsFcfa: order.receivedGoodsFcfa ?? goodsFcfaOf(order, items, payments),
+    items: correctedItems.map((item) => ({
+      ...item,
+      receivedQty: item.qtyReceived,
+    })),
+    rates: ratesOf(order),
+  });
+
+  const changes: string[] = [];
+  const previousFees = await listOrderFees(executor, order.id);
+  const previousFeesFcfa = previousFees.reduce(
+    (sum, fee) => sum + fee.amountFcfa,
+    0
+  );
+  const previousReceivedAt = order.receivedAt;
+  if (previousReceivedAt?.getTime() !== params.receivedAt.getTime()) {
+    changes.push(
+      `entrée en stock ${previousReceivedAt ? formatDate(previousReceivedAt) : "—"} → ${formatDate(params.receivedAt)}`
+    );
+  }
+  if (previousFeesFcfa !== costs.feesFcfa) {
+    changes.push(
+      `frais ${formatFcfa(previousFeesFcfa)} → ${formatFcfa(costs.feesFcfa)}`
+    );
+  }
+
   await executor
     .update(purchaseOrders)
-    .set({ receivedAt: params.receivedAt })
+    .set({
+      arrivedAt: params.arrivedAt ?? null,
+      billOfLading: params.billOfLading,
+      containerNumber: params.containerNumber,
+      forwarder: params.forwarder,
+      receivedAt: params.receivedAt,
+    })
     .where(eq(purchaseOrders.id, order.id));
+  await executor
+    .delete(purchaseOrderFees)
+    .where(eq(purchaseOrderFees.orderId, order.id));
+  if (feeRows.length > 0) {
+    await executor.insert(purchaseOrderFees).values(feeRows);
+  }
+
+  let lotCount = 0;
+  let movementCount = 0;
+  for (const [index, item] of items.entries()) {
+    const line = costs.lines[index];
+    const receivedQty = correctedItems[index]?.qtyReceived ?? 0;
+    const unitCostFcfa = line?.unitCostFcfa ?? 0;
+    // oxlint-disable-next-line no-await-in-loop
+    await executor
+      .update(purchaseOrderItems)
+      .set({
+        qtyReceived: receivedQty,
+        transportShareFcfa: line?.transportShareFcfa ?? 0,
+        unitCostFcfa,
+      })
+      .where(eq(purchaseOrderItems.id, item.id));
+
+    // oxlint-disable-next-line no-await-in-loop
+    const sync = await syncOrderLineLots(executor, {
+      changes,
+      item,
+      order,
+      params,
+      receivedQty,
+      unitCostFcfa,
+    });
+    lotCount += sync.lots;
+    movementCount += sync.movements;
+  }
+
+  const summary =
+    changes.length > 0 ? changes.join(" · ") : "aucune valeur modifiée";
+  await executor.insert(purchaseRevisions).values({
+    createdBy: params.userId ?? null,
+    orderId: order.id,
+    reason: params.reason,
+    revisionDate: new Date(),
+    summary,
+  });
 
   return {
-    lotCount: lots.length,
-    movementCount: movements.length,
-    receivedAt: params.receivedAt,
+    id: order.id,
+    lotCount,
+    movementCount,
+    totalFcfa: costs.totalFcfa,
   };
 };
 
@@ -676,6 +882,12 @@ export const getPurchaseOrder = async (executor: Executor, id: string) => {
 
   const fees = await listOrderFees(executor, id);
   const payments = await listOrderPayments(executor, [id]);
+  const revisions = await executor
+    .select({ authorName: user.name, revision: purchaseRevisions })
+    .from(purchaseRevisions)
+    .leftJoin(user, eq(user.id, purchaseRevisions.createdBy))
+    .where(eq(purchaseRevisions.orderId, id))
+    .orderBy(desc(purchaseRevisions.revisionDate), desc(purchaseRevisions.id));
   const itemRows = rows.map(({ item }) => item);
   // L'estimation reste celle de la commande (taux de la commande, sans versements) : elle sert de
   // référence pour mesurer l'écart avec les frais réels et les taux obtenus.
@@ -713,6 +925,11 @@ export const getPurchaseOrder = async (executor: Executor, id: string) => {
     payment: paymentSituationOf(row.order, itemRows, payments, costs.goodsFcfa),
     /** Versements, annulés compris (barrés à l'écran), le plus ancien d'abord. */
     payments,
+    /** Journal des corrections, la plus récente d'abord. */
+    revisions: revisions.map(({ revision, authorName }) => ({
+      ...revision,
+      authorName,
+    })),
     supplier: row.supplier,
   };
 };

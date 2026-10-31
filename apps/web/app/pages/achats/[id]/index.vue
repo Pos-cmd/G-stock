@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { EDITABLE_PURCHASE_STATUSES } from "@G-stock/api/schemas/purchases";
 import type { PurchaseOrderStatus } from "@G-stock/core/enums";
-import { formatDate, formatFcfa } from "@G-stock/core/format";
+import { formatDate, formatDateTime, formatFcfa } from "@G-stock/core/format";
 import { PURCHASE_ORDER_STATUS_LABELS } from "@G-stock/core/labels";
 import type { DropdownMenuItem } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
@@ -11,7 +11,6 @@ import PagePanel from "~/components/layout/PagePanel.vue";
 import PurchaseOrderForm from "~/components/purchases/PurchaseOrderForm.vue";
 import PurchaseOrderView from "~/components/purchases/PurchaseOrderView.vue";
 import PurchaseStatusBadge from "~/components/purchases/PurchaseStatusBadge.vue";
-import ReceptionDateModal from "~/components/purchases/ReceptionDateModal.vue";
 import SupplierPaymentsCard from "~/components/purchases/SupplierPaymentsCard.vue";
 
 const icons = useIcons();
@@ -42,7 +41,6 @@ const form = useTemplateRef<InstanceType<typeof PurchaseOrderForm>>("form");
 const dirty = ref(false);
 const cancelOpen = ref(false);
 const deleteOpen = ref(false);
-const receptionDateOpen = ref(false);
 
 const statusItems = EDITABLE_PURCHASE_STATUSES.map((value) => ({
   label: PURCHASE_ORDER_STATUS_LABELS[value],
@@ -106,10 +104,10 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
     ? [
         [
           {
-            icon: icons.calendar,
-            label: "Corriger la date d'entrée en stock",
+            icon: icons.edit,
+            label: "Corriger la réception",
             onSelect: () => {
-              receptionDateOpen.value = true;
+              void navigateTo(`/achats/${orderId.value}/reception`);
             },
           },
         ],
@@ -246,7 +244,14 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           variant="subtle"
           :icon="icons.reception"
           :title="`Réceptionnée le ${formatDate(data.receivedAt)}`"
-          description="Les lots ont été ajoutés au stock au coût de revient ci-dessous. La commande n'est plus modifiable."
+          description="Les lots ont été ajoutés au stock au coût de revient ci-dessous."
+          :actions="[
+            {
+              label: 'Corriger la réception',
+              to: `/achats/${orderId}/reception`,
+              variant: 'outline',
+            },
+          ]"
         />
         <UAlert
           v-else
@@ -257,6 +262,27 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
           description="Elle n'a eu aucun effet sur le stock."
         />
         <PurchaseOrderView :order="data" />
+        <UPageCard
+          v-if="data.revisions.length > 0"
+          variant="subtle"
+          title="Journal des corrections"
+          :icon="icons.edit"
+        >
+          <ul class="divide-default divide-y text-sm">
+            <li
+              v-for="revision of data.revisions"
+              :key="revision.id"
+              class="py-2"
+            >
+              <p class="text-highlighted">
+                {{ formatDateTime(revision.revisionDate) }} ·
+                {{ revision.authorName ?? "—" }}
+              </p>
+              <p class="text-muted text-xs">{{ revision.reason }}</p>
+              <p class="text-dimmed text-xs">{{ revision.summary }}</p>
+            </li>
+          </ul>
+        </UPageCard>
       </template>
 
       <template v-else>
@@ -299,15 +325,6 @@ const moreActions = computed<DropdownMenuItem[][]>(() => [
       confirm-label="Supprimer"
       :loading="removeMutation.isPending.value"
       @confirm="confirmDelete"
-    />
-    <ReceptionDateModal
-      v-if="data"
-      v-model:open="receptionDateOpen"
-      :order="{
-        id: data.id,
-        receivedAt: data.receivedAt,
-        reference: data.reference,
-      }"
     />
   </PagePanel>
 </template>

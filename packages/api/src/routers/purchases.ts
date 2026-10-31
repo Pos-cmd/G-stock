@@ -1,11 +1,11 @@
 import { protectedProcedure } from "../index";
 import { byIdSchema } from "../schemas/common";
 import {
+  purchaseCorrectionSchema,
   purchaseOrderInputSchema,
   purchaseOrderListSchema,
   purchaseOrderUpdateSchema,
   purchaseReceiveSchema,
-  purchaseReceptionDateSchema,
   purchaseReceptionSchema,
   purchaseStatusSchema,
   supplierPaymentCancelSchema,
@@ -13,6 +13,7 @@ import {
 } from "../schemas/purchases";
 import {
   cancelSupplierPayment,
+  correctPurchaseOrder,
   createSupplierPayment,
   createPurchaseOrder,
   getPurchaseOrder,
@@ -22,7 +23,6 @@ import {
   saveReception,
   setPurchaseStatus,
   updatePurchaseOrder,
-  updateReceptionDate,
 } from "../services/purchases";
 
 export const purchasesRouter = {
@@ -41,6 +41,18 @@ export const purchasesRouter = {
   cancelPayment: protectedProcedure
     .input(supplierPaymentCancelSchema)
     .handler(({ context, input }) => cancelSupplierPayment(context.db, input)),
+
+  /** Corrige une commande réceptionnée : frais, quantités, date, avec motif et journal. */
+  correct: protectedProcedure
+    .input(purchaseCorrectionSchema)
+    .handler(({ context, input }) =>
+      context.db.transaction((tx) =>
+        correctPurchaseOrder(tx, {
+          ...input,
+          userId: context.session.user.id,
+        })
+      )
+    ),
 
   create: protectedProcedure
     .input(purchaseOrderInputSchema)
@@ -84,12 +96,5 @@ export const purchasesRouter = {
     .input(purchaseOrderUpdateSchema)
     .handler(({ context, input: { id, ...data } }) =>
       context.db.transaction((tx) => updatePurchaseOrder(tx, id, data))
-    ),
-
-  /** Corrige la date d'entrée en stock : commande, lots et mouvements ensemble. */
-  updateReceptionDate: protectedProcedure
-    .input(purchaseReceptionDateSchema)
-    .handler(({ context, input }) =>
-      context.db.transaction((tx) => updateReceptionDate(tx, input))
     ),
 };

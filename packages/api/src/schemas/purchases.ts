@@ -148,14 +148,11 @@ export const purchaseReceiveSchema = purchaseReceptionSchema.extend({
 });
 export type PurchaseReceiveInput = z.output<typeof purchaseReceiveSchema>;
 
-/** Correction de la date d'entrée en stock d'une commande déjà reçue. */
-export const purchaseReceptionDateSchema = z.object({
-  id: idSchema,
-  receivedAt: z.date(),
+/** Correction d'une commande déjà réceptionnée : la saisie de réception, plus son motif. */
+export const purchaseCorrectionSchema = purchaseReceiveSchema.extend({
+  reason: reasonSchema,
 });
-export type PurchaseReceptionDateInput = z.output<
-  typeof purchaseReceptionDateSchema
->;
+export type PurchaseCorrectionInput = z.output<typeof purchaseCorrectionSchema>;
 
 export const supplierPaymentInputSchema = z.object({
   amountFcfa: fcfaAmount.positive("Le montant doit être supérieur à zéro"),

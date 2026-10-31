@@ -6,7 +6,14 @@ import {
   PURCHASE_ORDER_STATUSES,
 } from "@G-stock/core/enums";
 import { sql } from "drizzle-orm";
-import { check, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 import { createdAt, id, ref, timestamp, updatedAt } from "../columns";
 import { user } from "./auth";
@@ -17,16 +24,24 @@ export const purchaseOrders = sqliteTable(
   {
     id: id(),
     reference: text("reference").notNull().unique(),
-    supplierId: ref("supplier_id").references(() => suppliers.id, { onDelete: "restrict" }),
+    supplierId: ref("supplier_id").references(() => suppliers.id, {
+      onDelete: "restrict",
+    }),
     orderDate: timestamp("order_date").notNull(),
-    status: text("status", { enum: PURCHASE_ORDER_STATUSES }).notNull().default("draft"),
+    status: text("status", { enum: PURCHASE_ORDER_STATUSES })
+      .notNull()
+      .default("draft"),
     // Devise des prix fournisseur : RMB (converti via l'USD) ou USD (converti directement).
-    currency: text("currency", { enum: PURCHASE_CURRENCIES }).notNull().default("rmb"),
+    currency: text("currency", { enum: PURCHASE_CURRENCIES })
+      .notNull()
+      .default("rmb"),
     // Taux figés à la commande : les modifier dans les réglages ne réécrit pas l'historique.
     rmbPerUsd: real("rmb_per_usd").notNull(),
     fcfaPerUsd: real("fcfa_per_usd").notNull(),
     freightCbm: real("freight_cbm").notNull().default(0),
-    freightRatePerCbmFcfa: integer("freight_rate_per_cbm_fcfa").notNull().default(0),
+    freightRatePerCbmFcfa: integer("freight_rate_per_cbm_fcfa")
+      .notNull()
+      .default(0),
     localTransportFcfa: integer("local_transport_fcfa").notNull().default(0),
     otherFeesFcfa: integer("other_fees_fcfa").notNull().default(0),
     allocationMethod: text("allocation_method", { enum: ALLOCATION_METHODS })
@@ -50,7 +65,7 @@ export const purchaseOrders = sqliteTable(
     index("purchase_orders_supplier_idx").on(table.supplierId),
     index("purchase_orders_date_idx").on(table.orderDate),
     index("purchase_orders_status_idx").on(table.status),
-  ],
+  ]
 );
 
 export const purchaseOrderItems = sqliteTable(
@@ -67,7 +82,9 @@ export const purchaseOrderItems = sqliteTable(
     qty: real("qty").notNull(),
     // Dans la devise de la commande, par unité de stock, ou par tonne si pricing_basis = 'weight'.
     unitPrice: real("unit_price").notNull(),
-    pricingBasis: text("pricing_basis", { enum: PRICING_BASES }).notNull().default("unit"),
+    pricingBasis: text("pricing_basis", { enum: PRICING_BASES })
+      .notNull()
+      .default("unit"),
     // Base du prix à la tonne et de la répartition des frais au poids.
     weightTons: real("weight_tons"),
     // Quantité réellement reçue (manquants, casse) ; null tant que la réception n'est pas saisie.
@@ -81,7 +98,7 @@ export const purchaseOrderItems = sqliteTable(
     index("purchase_order_items_order_idx").on(table.orderId),
     index("purchase_order_items_product_idx").on(table.productId),
     check("purchase_order_items_qty_positive", sql`${table.qty} > 0`),
-  ],
+  ]
 );
 
 /** Frais réels saisis à la réception (fret, douane, transit…) ; ils remplacent l'estimation. */
@@ -95,15 +112,41 @@ export const purchaseOrderFees = sqliteTable(
     label: text("label").notNull(),
     // Montant dans la devise de paiement, et sa conversion en FCFA aux taux de la commande.
     amount: real("amount").notNull(),
-    currency: text("currency", { enum: FEE_CURRENCIES }).notNull().default("fcfa"),
+    currency: text("currency", { enum: FEE_CURRENCIES })
+      .notNull()
+      .default("fcfa"),
     amountFcfa: integer("amount_fcfa").notNull(),
-    allocationMethod: text("allocation_method", { enum: ALLOCATION_METHODS }).notNull(),
+    allocationMethod: text("allocation_method", {
+      enum: ALLOCATION_METHODS,
+    }).notNull(),
     createdAt: createdAt(),
   },
   (table) => [
     index("purchase_order_fees_order_idx").on(table.orderId),
     check("purchase_order_fees_amount_non_negative", sql`${table.amount} >= 0`),
-  ],
+  ]
+);
+
+/**
+ * Journal des corrections d'une commande réceptionnée : date, auteur, motif et récapitulatif de ce
+ * qui a changé. Une correction ne s'efface jamais, elle laisse sa trace ici.
+ */
+export const purchaseRevisions = sqliteTable(
+  "purchase_revisions",
+  {
+    id: id(),
+    orderId: ref("order_id")
+      .notNull()
+      .references(() => purchaseOrders.id, { onDelete: "cascade" }),
+    revisionDate: timestamp("revision_date").notNull(),
+    reason: text("reason").notNull(),
+    summary: text("summary").notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("purchase_revisions_order_idx").on(table.orderId)]
 );
 
 /**
@@ -125,7 +168,9 @@ export const supplierPayments = sqliteTable(
     notes: text("notes"),
     cancelledAt: timestamp("cancelled_at"),
     cancelReason: text("cancel_reason"),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: createdAt(),
   },
   (table) => [
@@ -134,7 +179,7 @@ export const supplierPayments = sqliteTable(
     check("supplier_payments_amount_positive", sql`${table.amountFcfa} > 0`),
     check(
       "supplier_payments_rate_positive",
-      sql`${table.fcfaRate} is null or ${table.fcfaRate} > 0`,
+      sql`${table.fcfaRate} is null or ${table.fcfaRate} > 0`
     ),
-  ],
+  ]
 );

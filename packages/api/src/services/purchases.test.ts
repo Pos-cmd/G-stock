@@ -10,9 +10,11 @@ import type {
   PurchaseOrderInput,
 } from "../schemas/purchases";
 import { useTestDatabase } from "../testing/database";
+import { createCustomer } from "./customers";
 import { createProduct, getProduct, setProductArchived } from "./products";
 import {
   cancelSupplierPayment,
+  correctPurchaseOrder,
   createPurchaseOrder,
   createSupplierPayment,
   getPurchaseOrder,
@@ -22,8 +24,8 @@ import {
   saveReception,
   setPurchaseStatus,
   updatePurchaseOrder,
-  updateReceptionDate,
 } from "./purchases";
+import { createSale, getSale } from "./sales";
 import { listLots, listMovements, consumeFifo, createLot } from "./stock";
 import {
   createSupplier,
@@ -266,9 +268,14 @@ describe("mouvements de réception", () => {
     const order = await create(input);
     await receive(order.id);
     const JULY_5 = new Date(2026, 6, 5);
+    const reception = await receptionInput(order.id);
 
     const result = await db.transaction((tx) =>
-      updateReceptionDate(tx, { id: order.id, receivedAt: JULY_5 })
+      correctPurchaseOrder(tx, {
+        ...reception,
+        reason: "date de reception erronee",
+        receivedAt: JULY_5,
+      })
     );
     expect(result).toMatchObject({ lotCount: 2, movementCount: 2 });
 
@@ -287,16 +294,154 @@ describe("mouvements de réception", () => {
     expect(
       items.every((item) => item.occurredAt.getTime() === JULY_5.getTime())
     ).toBe(true);
+    expect(detail.revisions).toHaveLength(1);
+    expect(detail.revisions[0]?.reason).toBe("date de reception erronee");
+    expect(detail.revisions[0]?.summary).toContain("entrée en stock");
   });
 
-  it("refuse de dater une commande qui n'est pas encore reçue", async () => {
+  it("corrige les frais réels et reporte le coût dans les lots", async () => {
     const { input } = await orderInput();
     const order = await create(input);
+    await receive(order.id);
+    const before = await getPurchaseOrder(db, order.id);
+    const lotRows = await db
+      .select()
+      .from(stockLots)
+      .orderBy(asc(stockLots.id));
+    const lotId = lotRows[0]?.id;
+    const lotCostOf = async (id: string) => {
+      const rows = await db
+        .select()
+        .from(stockLots)
+        .where(eq(stockLots.id, id));
+      return rows[0]?.unitCostFcfa;
+    };
+    const lotCostBefore = await lotCostOf(lotId ?? "");
+    const reception = await receptionInput(order.id, {
+      fees: [
+        {
+          allocationMethod: "proportional",
+          amount: 200_000,
+          currency: "fcfa",
+          label: "Douane",
+        },
+      ],
+    });
+
+    await db.transaction((tx) =>
+      correctPurchaseOrder(tx, {
+        ...reception,
+        reason: "douane sous-estimee",
+        receivedAt: APRIL_15,
+      })
+    );
+
+    const after = await getPurchaseOrder(db, order.id);
+    expect(after.fees).toHaveLength(1);
+    expect(after.fees[0]?.amountFcfa).toBe(200_000);
+    expect(after.costs.totalFcfa).toBeLessThan(before.costs.totalFcfa);
+    const lotCostAfter = await lotCostOf(lotId ?? "");
+    expect(lotCostAfter).toBeLessThan(lotCostBefore ?? 0);
+    // Le mouvement d'entrée de ce lot suit le nouveau coût.
+    const { items } = await listMovements(db, {
+      page: 1,
+      pageSize: 25,
+      type: "in",
+    });
+    const movement = items.find((item) => item.lotId === lotId);
+    expect(movement?.unitCostFcfa).toBe(lotCostAfter);
+    expect(after.revisions[0]?.summary).toContain("frais");
+  });
+
+  it("refuse une quantité reçue inférieure à ce qui est déjà vendu", async () => {
+    const { input, wax } = await orderInput();
+    const order = await create(input);
+    await receive(order.id);
+    await db.transaction((tx) =>
+      consumeFifo(tx, {
+        occurredAt: APRIL_15,
+        productId: wax.id,
+        qty: 60,
+        reason: "Test",
+        referenceType: "manual",
+      })
+    );
+
+    const reception = await receptionInput(order.id, {
+      qtyReceived: (qty, index) => (index === 0 ? 30 : qty),
+    });
+
     await expect(
       db.transaction((tx) =>
-        updateReceptionDate(tx, { id: order.id, receivedAt: APRIL_15 })
+        correctPurchaseOrder(tx, {
+          ...reception,
+          reason: "erreur de quantite",
+          receivedAt: APRIL_15,
+        })
       )
-    ).rejects.toThrow("déjà reçue");
+    ).rejects.toThrow("déjà vendus");
+  });
+
+  it("ne change pas la marge d'une vente déjà enregistrée", async () => {
+    const { input, wax } = await orderInput();
+    const order = await create(input);
+    await receive(order.id);
+    const customer = await createCustomer(db, {
+      address: null,
+      name: "Client",
+      notes: null,
+      phone: null,
+    });
+    const sale = await db.transaction((tx) =>
+      createSale(tx, {
+        customerId: customer.id,
+        lines: [{ productId: wax.id, qty: 5, unitPriceFcfa: 20_000 }],
+        notes: null,
+        paidFcfa: 0,
+        paymentMethod: "cash",
+        paymentType: "cash",
+        saleDate: APRIL_15,
+      })
+    );
+    const saleBefore = await getSale(db, sale.id);
+    const costBefore = saleBefore.items[0]?.costFcfa;
+
+    const reception = await receptionInput(order.id, {
+      fees: [
+        {
+          allocationMethod: "proportional",
+          amount: 900_000,
+          currency: "fcfa",
+          label: "Douane",
+        },
+      ],
+    });
+    await db.transaction((tx) =>
+      correctPurchaseOrder(tx, {
+        ...reception,
+        reason: "frais reels",
+        receivedAt: APRIL_15,
+      })
+    );
+
+    const saleAfter = await getSale(db, sale.id);
+    const costAfter = saleAfter.items[0]?.costFcfa;
+    expect(costAfter).toBe(costBefore);
+  });
+
+  it("refuse de corriger une commande qui n'est pas encore reçue", async () => {
+    const { input } = await orderInput();
+    const order = await create(input);
+    const reception = await receptionInput(order.id);
+    await expect(
+      db.transaction((tx) =>
+        correctPurchaseOrder(tx, {
+          ...reception,
+          reason: "trop tot",
+          receivedAt: APRIL_15,
+        })
+      )
+    ).rejects.toThrow("déjà réceptionnée");
   });
 });
 

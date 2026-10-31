@@ -255,6 +255,46 @@ _Liste des features et améliorations à implémenter - Mise à jour: 2026-10-30
 
 ---
 
+## 🛠️ Achats : corriger une commande déjà réceptionnée
+
+### Constat
+
+- [ ] Après « Mettre en stock », la commande est figée : une date d'entrée en stock erronée, un frais oublié ou une quantité mal saisie ne se corrigeaient qu'à la main en base
+- [ ] Le seul contournement était l'ajustement de lot, qui corrige la quantité mais **pas** la date d'entrée en stock, **pas** les frais, donc pas le coût de revient déjà réparti sur les lots
+- [ ] La commande affichait donc une date d'entrée en stock qui contredisait les mouvements de stock du produit — un même fait raconté deux fois, différemment
+- **Priorité**: Haute — une erreur de saisie à la réception contamine le coût de revient, le FIFO et tous les écrans de stock
+
+### À faire
+
+- [ ] Écran de correction accessible depuis la commande réceptionnée, reprenant la réception (date, quantités reçues, frais, répartition) avec un **motif obligatoire**
+- [ ] Recalculer la répartition des frais et réécrire **lots et mouvements d'entrée** correspondants (quantité, date, coût unitaire), sans toucher au stock vendu
+- [ ] Journal des corrections sur la commande : date, auteur, motif, récapitulatif lisible
+
+### Contraintes techniques
+
+- [ ] La base de répartition reste `receivedGoodsFcfa` (marchandise figée à la réception) : on re-répartit les frais et les quantités **sur** cette valeur, sans réinventer le coût d'achat
+- [ ] Une quantité corrigée ne peut pas passer **sous** ce qui est déjà sorti des lots (refus explicite, avec le restant consommé)
+- [ ] Le coût d'une vente déjà enregistrée reste gelé (`sale_item_lots.unit_cost_fcfa`) : corriger une commande ne réécrit pas la marge passée
+- [ ] Une correction de date **réordonne** les lots pour les prochaines sorties FIFO : c'est voulu, mais l'interface doit le dire
+
+### Critères d'acceptation
+
+- [ ] Je corrige la date d'entrée en stock du 31 oct au 5 juil : les mouvements de stock de la commande portent la bonne date
+- [ ] J'ajoute un frais oublié de 1 000 000 FCFA : les coûts unitaires des lots suivent, les mouvements aussi
+- [ ] La correction est refusée en dessous de la quantité déjà vendue, avec un message clair
+- [ ] La marge d'une vente antérieure ne bouge pas d'un franc
+- [ ] Je relis le motif et le récapitulatif dans le journal de la commande
+
+### État livré (v1)
+
+- [x] `purchases.correct` : frais, quantités reçues, date d'entrée en stock, motif — les lots et les mouvements d'entrée sont réécrits, le stock vendu n'est pas touché
+- [x] Journal `purchase_revisions` (date, auteur, motif, récapitulatif « 5 lots · 5 mouvements mis à jour · 1 350 000 FCFA ») sur la fiche commande
+- [x] La page de réception fait aussi écran de correction quand la commande est déjà réceptionnée : bandeau d'avertissement, motif obligatoire, date pré-remplie avec la date enregistrée
+- [x] Garde-fous : quantité refusée sous le déjà-vendu, commande annulée refusée, commande non réceptionnée refusée
+- [ ] Reste à faire : corriger une ligne oubliée sur une réception multi-produits sans repasser par tout le formulaire (ajout rapide depuis la commande), et joindre une pièce justificative à la correction
+
+---
+
 ## ✏️ Ventes : modifier après enregistrement
 
 ### Constat

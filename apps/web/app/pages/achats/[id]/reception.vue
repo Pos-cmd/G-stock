@@ -41,15 +41,33 @@ const order = useQuery(
 );
 const data = computed(() => order.data.value);
 
+/** Commande déjà réceptionnée : la page sert à corriger, avec un motif et une trace. */
+const isCorrection = computed(() => data.value?.status === "received");
+const isCancelled = computed(() => data.value?.status === "cancelled");
+
 useHead({
-  title: () => (data.value ? `Réception ${data.value.reference}` : "Réception"),
+  title: () =>
+    data.value
+      ? `${isCorrection.value ? "Correction" : "Réception"} ${data.value.reference}`
+      : "Réception",
 });
 
 const formSchema = purchaseReceptionSchema
   .omit({ arrivedAt: true, id: true })
   .extend({
     arrivedAt: z.union([z.literal(""), z.iso.date("Date invalide")]),
+    /* Motif de la correction : obligatoire seulement quand la commande est déjà reçue. */
+    reason: z.string().trim().max(500, "500 caractères maximum"),
     receivedAt: z.iso.date("Indiquez la date d'entrée en stock"),
+  })
+  .superRefine((value, ctx) => {
+    if (isCorrection.value && value.reason.length < 3) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Indiquez le motif de la correction (3 caractères minimum)",
+        path: ["reason"],
+      });
+    }
   });
 type FormOutput = z.output<typeof formSchema>;
 
@@ -69,6 +87,7 @@ interface ReceptionState {
   forwarder: string;
   fees: FeeLine[];
   items: { id: string; qtyReceived: number }[];
+  reason: string;
 }
 
 const feeLine = (
@@ -147,7 +166,11 @@ const stateFrom = (source: PurchaseOrderDetail): ReceptionState => ({
   })),
   // Une commande antidatée est reçue le jour de sa commande, pas aujourd'hui : proposer cette
   // date évite d'enregistrer l'entrée en stock au jour de la saisie.
-  receivedAt: defaultReceptionDate(source.orderDate),
+  reason: "",
+  receivedAt:
+    source.status === "received" && source.receivedAt
+      ? toDateInputValue(new Date(source.receivedAt))
+      : defaultReceptionDate(source.orderDate),
 });
 
 const state = reactive<ReceptionState>({
@@ -157,6 +180,7 @@ const state = reactive<ReceptionState>({
   fees: [],
   forwarder: "",
   items: [],
+  reason: "",
   receivedAt: toDateInputValue(),
 });
 
@@ -300,9 +324,15 @@ const saveMutation = useMutation(
   $orpc.purchases.saveReception.mutationOptions()
 );
 const receiveMutation = useMutation($orpc.purchases.receive.mutationOptions());
+const correctMutation = useMutation($orpc.purchases.correct.mutationOptions());
 
 const receptionInput = (formData: FormOutput) => {
-  const { arrivedAt, receivedAt: _receivedAt, ...rest } = formData;
+  const {
+    arrivedAt,
+    receivedAt: _receivedAt,
+    reason: _reason,
+    ...rest
+  } = formData;
   return {
     ...rest,
     arrivedAt: arrivedAt ? fromDateInputValue(arrivedAt) : null,
@@ -313,9 +343,28 @@ const lastInput = ref<ReturnType<typeof receptionInput> | null>(null);
 
 const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
   const input = receptionInput(event.data);
+  const receivedAt = fromDateInputValue(event.data.receivedAt);
+  if (isCorrection.value) {
+    try {
+      const result = await correctMutation.mutateAsync({
+        ...input,
+        reason: event.data.reason,
+        receivedAt,
+      });
+      await Promise.all([invalidateStock(), invalidatePurchases()]);
+      notify.success(
+        "Réception corrigée",
+        `${result.lotCount} lot${result.lotCount > 1 ? "s" : ""} mis à jour · revient à ${formatFcfa(result.totalFcfa)}`
+      );
+      await navigateTo(`/achats/${orderId.value}`);
+    } catch (error) {
+      notify.error("Correction impossible", error);
+    }
+    return;
+  }
   if (intent.value === "receive") {
     lastInput.value = input;
-    pendingReceivedAt.value = fromDateInputValue(event.data.receivedAt);
+    pendingReceivedAt.value = receivedAt;
     confirmOpen.value = true;
     return;
   }
@@ -361,7 +410,7 @@ const confirmDescription = computed(
 <template>
   <PagePanel
     id="purchase-reception"
-    title="Réception"
+    :title="isCorrection ? 'Corriger la réception' : 'Réception'"
     :description="
       data
         ? `${data.reference} · ${data.supplier?.name ?? 'Sans fournisseur'}`
@@ -374,25 +423,36 @@ const confirmDescription = computed(
     ]"
   >
     <template #actions>
-      <template v-if="data && !data.isLocked">
-        <UButton
-          type="submit"
-          form="reception-form"
-          color="neutral"
-          variant="outline"
-          :icon="icons.save"
-          label="Enregistrer"
-          :loading="saveMutation.isPending.value"
-          @click="intent = 'save'"
-        />
-        <UButton
-          type="submit"
-          form="reception-form"
-          color="success"
-          :icon="icons.reception"
-          label="Valider la réception"
-          @click="intent = 'receive'"
-        />
+      <template v-if="data && !isCancelled">
+        <template v-if="isCorrection">
+          <UButton
+            type="submit"
+            form="reception-form"
+            :icon="icons.save"
+            label="Enregistrer la correction"
+            :loading="correctMutation.isPending.value"
+          />
+        </template>
+        <template v-else>
+          <UButton
+            type="submit"
+            form="reception-form"
+            color="neutral"
+            variant="outline"
+            :icon="icons.save"
+            label="Enregistrer"
+            :loading="saveMutation.isPending.value"
+            @click="intent = 'save'"
+          />
+          <UButton
+            type="submit"
+            form="reception-form"
+            color="success"
+            :icon="icons.reception"
+            label="Valider la réception"
+            @click="intent = 'receive'"
+          />
+        </template>
       </template>
     </template>
 
@@ -406,16 +466,12 @@ const confirmDescription = computed(
     />
 
     <UAlert
-      v-else-if="data?.isLocked"
+      v-else-if="isCancelled"
       color="neutral"
       variant="subtle"
       :icon="icons.locked"
-      :title="
-        data.status === 'received'
-          ? 'Commande déjà réceptionnée'
-          : 'Commande annulée'
-      "
-      description="Cette commande ne peut plus être réceptionnée."
+      title="Commande annulée"
+      description="Cette commande ne peut plus être réceptionnée ni corrigée."
       :actions="[{ label: 'Voir la commande', to: `/achats/${orderId}` }]"
     />
 
@@ -427,9 +483,40 @@ const confirmDescription = computed(
       class="space-y-6"
       @submit="onSubmit"
     >
+      <UAlert
+        v-if="isCorrection"
+        color="warning"
+        variant="subtle"
+        :icon="icons.stockAdjust"
+        title="Correction d'une commande réceptionnée"
+        description="Les lots et les mouvements d'entrée prennent le nouveau coût de revient et la nouvelle date. Les ventes déjà enregistrées gardent le coût qu'elles ont figé : leur marge ne bouge pas."
+      >
+        <template #actions>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            :label="`Journal (${data.revisions.length})`"
+            :to="`/achats/${orderId}`"
+          />
+        </template>
+      </UAlert>
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <UPageCard variant="subtle" title="Arrivée" class="lg:self-start">
           <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <UFormField
+              v-if="isCorrection"
+              label="Motif de la correction"
+              name="reason"
+              required
+              class="sm:col-span-2 xl:col-span-3"
+            >
+              <UInput
+                v-model="state.reason"
+                placeholder="Frais de douane erronés, date de saisie au lieu de la date réelle…"
+                class="w-full"
+              />
+            </UFormField>
             <UFormField label="Arrivée au port" name="arrivedAt">
               <DateField v-model="state.arrivedAt" class="w-full" />
             </UFormField>
