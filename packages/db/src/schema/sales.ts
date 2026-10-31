@@ -1,6 +1,18 @@
-import { PAYMENT_METHODS, PAYMENT_TYPES, SALE_STATUSES } from "@G-stock/core/enums";
+import {
+  PAYMENT_METHODS,
+  PAYMENT_TYPES,
+  RETURN_REFUND_METHODS,
+  SALE_STATUSES,
+} from "@G-stock/core/enums";
 import { sql } from "drizzle-orm";
-import { check, index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 import { createdAt, id, ref, timestamp, updatedAt } from "../columns";
 import { user } from "./auth";
@@ -19,7 +31,7 @@ export const customers = sqliteTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index("customers_name_idx").on(table.name)],
+  (table) => [index("customers_name_idx").on(table.name)]
 );
 
 export const sales = sqliteTable(
@@ -39,8 +51,12 @@ export const sales = sqliteTable(
     // Annulation tracée : la vente reste dans l'historique, son stock revient dans ses lots.
     cancelledAt: timestamp("cancelled_at"),
     cancelReason: text("cancel_reason"),
-    cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    cancelledBy: text("cancelled_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: createdAt(),
   },
   (table) => [
@@ -48,7 +64,7 @@ export const sales = sqliteTable(
     index("sales_date_idx").on(table.saleDate),
     index("sales_status_idx").on(table.status),
     check("sales_total_non_negative", sql`${table.totalFcfa} >= 0`),
-  ],
+  ]
 );
 
 /** Une ligne par produit vendu ; son coût vient des lots prélevés (sale_item_lots). */
@@ -71,7 +87,7 @@ export const saleItems = sqliteTable(
     index("sale_items_sale_idx").on(table.saleId),
     index("sale_items_product_idx").on(table.productId),
     check("sale_items_qty_positive", sql`${table.qty} > 0`),
-  ],
+  ]
 );
 
 /** Lots prélevés (FIFO) pour une ligne de vente : sert à la marge et à l'annulation. */
@@ -92,7 +108,7 @@ export const saleItemLots = sqliteTable(
     index("sale_item_lots_item_idx").on(table.saleItemId),
     index("sale_item_lots_lot_idx").on(table.lotId),
     check("sale_item_lots_qty_positive", sql`${table.qty} > 0`),
-  ],
+  ]
 );
 
 /** Remise accordée après la vente, toujours accompagnée d'un motif. */
@@ -106,13 +122,15 @@ export const saleDiscounts = sqliteTable(
     discountDate: timestamp("discount_date").notNull(),
     amountFcfa: integer("amount_fcfa").notNull(),
     reason: text("reason").notNull(),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: createdAt(),
   },
   (table) => [
     index("sale_discounts_sale_idx").on(table.saleId),
     check("sale_discounts_amount_positive", sql`${table.amountFcfa} > 0`),
-  ],
+  ]
 );
 
 export const payments = sqliteTable(
@@ -130,7 +148,9 @@ export const payments = sqliteTable(
     // Paiement annulé (erreur de saisie, vente annulée) : il ne compte plus dans le solde.
     cancelledAt: timestamp("cancelled_at"),
     cancelReason: text("cancel_reason"),
-    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: createdAt(),
   },
   (table) => [
@@ -138,5 +158,82 @@ export const payments = sqliteTable(
     index("payments_sale_idx").on(table.saleId),
     index("payments_date_idx").on(table.paymentDate),
     check("payments_amount_positive", sql`${table.amountFcfa} > 0`),
-  ],
+  ]
+);
+
+/** Reprise d'articles sur une vente : la marchandise rendue et l'argent rendu. */
+export const saleReturns = sqliteTable(
+  "sale_returns",
+  {
+    id: id(),
+    saleId: ref("sale_id")
+      .notNull()
+      .references(() => sales.id, { onDelete: "cascade" }),
+    returnDate: timestamp("return_date").notNull(),
+    // Avoir gardé pour le client, ou argent effectivement rendu.
+    refundMethod: text("refund_method", {
+      enum: RETURN_REFUND_METHODS,
+    })
+      .notNull()
+      .default("credit"),
+    amountFcfa: integer("amount_fcfa").notNull(),
+    reason: text("reason").notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index("sale_returns_sale_idx").on(table.saleId),
+    index("sale_returns_date_idx").on(table.returnDate),
+    check("sale_returns_amount_positive", sql`${table.amountFcfa} > 0`),
+  ]
+);
+
+/** Détail d'une reprise : quel article, quelle quantité, remise en stock ou non. */
+export const saleReturnItems = sqliteTable(
+  "sale_return_items",
+  {
+    id: id(),
+    returnId: ref("return_id")
+      .notNull()
+      .references(() => saleReturns.id, { onDelete: "cascade" }),
+    // La ligne d'origine peut disparaître (quantité reprise en totalité) : la trace reste.
+    saleItemId: ref("sale_item_id").references(() => saleItems.id, {
+      onDelete: "set null",
+    }),
+    productId: ref("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    qty: real("qty").notNull(),
+    unitPriceFcfa: integer("unit_price_fcfa").notNull(),
+    amountFcfa: integer("amount_fcfa").notNull(),
+    restocked: integer("restocked", { mode: "boolean" })
+      .notNull()
+      .default(true),
+  },
+  (table) => [
+    index("sale_return_items_return_idx").on(table.returnId),
+    index("sale_return_items_item_idx").on(table.saleItemId),
+    check("sale_return_items_qty_positive", sql`${table.qty} > 0`),
+  ]
+);
+
+/** Journal des modifications d'une vente : date, motif et résumé du avant/après. */
+export const saleRevisions = sqliteTable(
+  "sale_revisions",
+  {
+    id: id(),
+    saleId: ref("sale_id")
+      .notNull()
+      .references(() => sales.id, { onDelete: "cascade" }),
+    revisionDate: timestamp("revision_date").notNull(),
+    reason: text("reason").notNull(),
+    summary: text("summary").notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [index("sale_revisions_sale_idx").on(table.saleId)]
 );

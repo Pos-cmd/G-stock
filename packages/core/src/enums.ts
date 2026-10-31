@@ -3,10 +3,20 @@
 export const MOVEMENT_TYPES = ["in", "out", "adjustment"] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 
-export const LOT_SOURCES = ["purchase", "initial", "adjustment", "unpack"] as const;
+export const LOT_SOURCES = [
+  "purchase",
+  "initial",
+  "adjustment",
+  "unpack",
+] as const;
 export type LotSource = (typeof LOT_SOURCES)[number];
 
-export const MOVEMENT_REFERENCE_TYPES = ["purchase_order", "sale", "manual", "unpack"] as const;
+export const MOVEMENT_REFERENCE_TYPES = [
+  "purchase_order",
+  "sale",
+  "manual",
+  "unpack",
+] as const;
 export type MovementReferenceType = (typeof MOVEMENT_REFERENCE_TYPES)[number];
 
 export const STOCK_STATUSES = ["ok", "low", "out"] as const;
@@ -21,7 +31,12 @@ export const PURCHASE_ORDER_STATUSES = [
 ] as const;
 export type PurchaseOrderStatus = (typeof PURCHASE_ORDER_STATUSES)[number];
 
-export const ALLOCATION_METHODS = ["proportional", "equal", "weight", "value"] as const;
+export const ALLOCATION_METHODS = [
+  "proportional",
+  "equal",
+  "weight",
+  "value",
+] as const;
 export type AllocationMethod = (typeof ALLOCATION_METHODS)[number];
 
 /** Base du prix d'achat d'une ligne : par unité de stock, ou à la tonne. */
@@ -45,8 +60,22 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export const SALE_STATUSES = ["active", "cancelled"] as const;
 export type SaleStatus = (typeof SALE_STATUSES)[number];
 
+/** Règlement d'une reprise : avoir gardé pour le client, ou argent rendu (espèces, mobile, banque). */
+export const RETURN_REFUND_METHODS = [
+  "credit",
+  "cash",
+  "mobile_money",
+  "bank",
+] as const;
+export type ReturnRefundMethod = (typeof RETURN_REFUND_METHODS)[number];
+
 /** Ancienneté d'une créance, selon les seuils des Paramètres (30 / 60 / 90 jours par défaut). */
-export const RECEIVABLE_LEVELS = ["current", "warning", "alert", "critical"] as const;
+export const RECEIVABLE_LEVELS = [
+  "current",
+  "warning",
+  "alert",
+  "critical",
+] as const;
 export type ReceivableLevel = (typeof RECEIVABLE_LEVELS)[number];
 
 /** Fixation du prix de vente dans le simulateur. */

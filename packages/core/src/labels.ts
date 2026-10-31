@@ -9,6 +9,7 @@ import type {
   PurchaseCurrency,
   PurchaseOrderStatus,
   ReceivableLevel,
+  ReturnRefundMethod,
   SalePricingMode,
   SaleStatus,
   StockStatus,
@@ -46,13 +47,14 @@ export const STOCK_STATUS_LABELS: Record<StockStatus, string> = {
   out: "Rupture",
 };
 
-export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> = {
-  cancelled: "Annulée",
-  draft: "Brouillon",
-  in_transit: "En transit",
-  ordered: "Commandée",
-  received: "Reçue",
-};
+export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> =
+  {
+    cancelled: "Annulée",
+    draft: "Brouillon",
+    in_transit: "En transit",
+    ordered: "Commandée",
+    received: "Reçue",
+  };
 
 export const ALLOCATION_METHOD_LABELS: Record<AllocationMethod, string> = {
   equal: "Parts égales",
@@ -101,6 +103,14 @@ export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
 export const SALE_STATUS_LABELS: Record<SaleStatus, string> = {
   active: "Validée",
   cancelled: "Annulée",
+};
+
+/** Règlement d'une reprise : avoir gardé pour le client, ou argent rendu. */
+export const RETURN_REFUND_METHOD_LABELS: Record<ReturnRefundMethod, string> = {
+  bank: "Remboursé par virement",
+  cash: "Remboursé en espèces",
+  credit: "Avoir gardé pour le client",
+  mobile_money: "Remboursé en mobile money",
 };
 
 export const RECEIVABLE_LEVEL_LABELS: Record<ReceivableLevel, string> = {

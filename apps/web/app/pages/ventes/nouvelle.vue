@@ -11,6 +11,24 @@ useHead({ title: "Nouvelle vente" });
 const route = useRoute();
 const customerId = isUuid(route.query.client) ? route.query.client : undefined;
 
+/** Articles repris à revendre tout de suite : `?reprise=<produit>:<quantité>,…`. */
+const initialLines = computed(() => {
+  const raw = route.query.reprise;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== "string" || value.length === 0) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((part) => part.split(":"))
+    .flatMap(([productId, qty]) => {
+      const parsedQty = Number(qty);
+      return isUuid(productId) && parsedQty > 0
+        ? [{ productId, qty: parsedQty }]
+        : [];
+    });
+});
+
 const form = useTemplateRef<InstanceType<typeof SaleForm>>("form");
 
 const onSaved = async (id: string) => {
@@ -22,7 +40,11 @@ const onSaved = async (id: string) => {
   <PagePanel
     id="sale-new"
     title="Nouvelle vente"
-    description="Le stock et la marge sont calculés sur les lots réels, au fil de la saisie."
+    :description="
+      initialLines.length > 0
+        ? 'Articles repris : choisissez le client qui les reprend, les lignes sont déjà remplies.'
+        : 'Le stock et la marge sont calculés sur les lots réels, au fil de la saisie.'
+    "
     :icon="icons.sale"
     :parents="[{ label: 'Ventes', to: '/ventes' }]"
   >
@@ -36,6 +58,11 @@ const onSaved = async (id: string) => {
       />
     </template>
 
-    <SaleForm ref="form" :customer-id="customerId" @saved="onSaved" />
+    <SaleForm
+      ref="form"
+      :customer-id="customerId"
+      :initial-lines="initialLines"
+      @saved="onSaved"
+    />
   </PagePanel>
 </template>

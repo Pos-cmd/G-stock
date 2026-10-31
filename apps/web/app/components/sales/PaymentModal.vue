@@ -6,17 +6,33 @@ import { PAYMENT_METHOD_LABELS } from "@G-stock/core/labels";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useMutation, useQuery } from "@tanstack/vue-query";
 import { z } from "zod";
+
 import DateField from "~/components/common/DateField.vue";
 import ResponsiveModal from "~/components/common/ResponsiveModal.vue";
 
 const icons = useIcons();
 
-/** Encaissement d'un client, rattaché ou non à une vente. */
-const { customer, saleId = null } = defineProps<{
+/** Encaissement d'un client, rattaché ou non à une vente. Avec `payment`, il corrige au lieu de créer. */
+const {
+  customer,
+  payment = null,
+  saleId = null,
+} = defineProps<{
   customer: { id: string; name: string; dueFcfa: number };
+  /** Paiement existant à corriger (erreur de frappe) : rien n'est annulé ni recréé. */
+  payment?: {
+    id: string;
+    amountFcfa: number;
+    method: PaymentMethod;
+    notes: string | null;
+    paymentDate: Date | string;
+    saleId: string | null;
+  } | null;
   saleId?: string | null;
 }>();
 const open = defineModel<boolean>("open", { required: true });
+
+const editing = computed(() => payment !== null);
 
 const { $orpc } = useNuxtApp();
 const notify = useNotify();
@@ -59,22 +75,34 @@ const unpaidSales = useQuery(
       },
     }),
     enabled: open.value,
-  })),
+  }))
 );
 const saleItems = computed(() =>
   (unpaidSales.data.value?.items ?? []).map((sale) => ({
     label: `${sale.reference} · ${formatDate(sale.saleDate)}`,
     suffix: `reste ${formatFcfa(sale.dueFcfa)}`,
     value: sale.id,
-  })),
+  }))
 );
 const selectedDue = computed(() => {
-  const sale = unpaidSales.data.value?.items.find((item) => item.id === state.saleId);
+  const sale = unpaidSales.data.value?.items.find(
+    (item) => item.id === state.saleId
+  );
   return sale?.dueFcfa ?? customer.dueFcfa;
 });
 
 watch(open, (isOpen) => {
   if (!isOpen) {
+    return;
+  }
+  if (payment) {
+    Object.assign(state, {
+      amountFcfa: payment.amountFcfa,
+      method: payment.method,
+      notes: payment.notes ?? "",
+      paymentDate: toDateInputValue(new Date(payment.paymentDate)),
+      saleId: payment.saleId ?? undefined,
+    });
     return;
   }
   Object.assign(state, {
@@ -90,37 +118,48 @@ watch(open, (isOpen) => {
 watch(
   [selectedDue, open],
   ([due, isOpen]) => {
-    if (isOpen && due > 0) {
+    if (isOpen && !payment && due > 0) {
       state.amountFcfa = due;
     }
   },
-  { flush: "post", immediate: true },
+  { flush: "post", immediate: true }
 );
 
-const methodItems = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
-  label,
-  value,
-}));
+const methodItems = Object.entries(PAYMENT_METHOD_LABELS).map(
+  ([value, label]) => ({
+    label,
+    value,
+  })
+);
 
-const mutation = useMutation($orpc.payments.create.mutationOptions());
+const createMutation = useMutation($orpc.payments.create.mutationOptions());
+const updateMutation = useMutation($orpc.payments.update.mutationOptions());
+const saving = computed(
+  () => createMutation.isPending.value || updateMutation.isPending.value
+);
 
 const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
   try {
-    await mutation.mutateAsync({
+    const payload = {
       ...event.data,
-      customerId: customer.id,
       notes: event.data.notes,
       paymentDate: fromDateInputValue(event.data.paymentDate),
       saleId: event.data.saleId ?? null,
-    });
+    };
+    await (payment
+      ? updateMutation.mutateAsync({ ...payload, id: payment.id })
+      : createMutation.mutateAsync({ ...payload, customerId: customer.id }));
     await invalidateSales();
     notify.success(
-      "Paiement enregistré",
-      `${formatFcfa(event.data.amountFcfa)} · ${customer.name}`,
+      payment ? "Paiement corrigé" : "Paiement enregistré",
+      `${formatFcfa(event.data.amountFcfa)} · ${customer.name}`
     );
     open.value = false;
   } catch (error) {
-    notify.error("Paiement impossible", error);
+    notify.error(
+      payment ? "Correction impossible" : "Paiement impossible",
+      error
+    );
   }
 };
 </script>
@@ -128,7 +167,7 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
 <template>
   <ResponsiveModal
     v-model:open="open"
-    title="Encaisser un paiement"
+    :title="editing ? 'Corriger ce paiement' : 'Encaisser un paiement'"
     :description="`${customer.name} · reste dû ${formatFcfa(customer.dueFcfa)}`"
   >
     <template #body>
@@ -167,8 +206,16 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
           <UFormField label="Date" name="paymentDate" required>
             <DateField v-model="state.paymentDate" class="w-full" />
           </UFormField>
-          <UFormField label="Moyen de paiement" name="method" class="sm:col-span-2">
-            <URadioGroup v-model="state.method" :items="methodItems" orientation="horizontal" />
+          <UFormField
+            label="Moyen de paiement"
+            name="method"
+            class="sm:col-span-2"
+          >
+            <URadioGroup
+              v-model="state.method"
+              :items="methodItems"
+              orientation="horizontal"
+            />
           </UFormField>
         </div>
         <UFormField label="Notes" name="notes">
@@ -179,19 +226,27 @@ const onSubmit = async (event: FormSubmitEvent<FormOutput>) => {
           />
         </UFormField>
         <p v-if="state.amountFcfa > customer.dueFcfa" class="text-info text-xs">
-          Le montant dépasse ce que doit le client : l'excédent sera gardé en avoir.
+          Le montant dépasse ce que doit le client : l'excédent sera gardé en
+          avoir.
         </p>
       </UForm>
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" label="Annuler" @click="open = false" />
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="Annuler"
+          @click="open = false"
+        />
         <UButton
           type="submit"
           form="payment-form"
           :icon="icons.payment"
-          label="Enregistrer le paiement"
-          :loading="mutation.isPending.value"
+          :label="
+            editing ? 'Enregistrer la correction' : 'Enregistrer le paiement'
+          "
+          :loading="saving"
         />
       </div>
     </template>

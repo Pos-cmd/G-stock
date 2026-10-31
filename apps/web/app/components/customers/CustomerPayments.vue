@@ -10,6 +10,7 @@ import ActivityHeatmap from "~/components/charts/ActivityHeatmap.vue";
 import DataTable from "~/components/common/DataTable.vue";
 import DateRangeField from "~/components/common/DateRangeField.vue";
 import ReasonDialog from "~/components/common/ReasonDialog.vue";
+import PaymentModal from "~/components/sales/PaymentModal.vue";
 import type { PaymentLedgerDay } from "~/types/api";
 
 /**
@@ -17,8 +18,14 @@ import type { PaymentLedgerDay } from "~/types/api";
  * ventes cela a soldées. L'agrégation est faite par le serveur (un client de passage peut avoir
  * des milliers de paiements) ; les filtres de période et de moyen agissent sur ce relevé.
  */
-const { customerId, dueFcfa = 0 } = defineProps<{
+const {
+  customerId,
+  customerName = "Client",
+  dueFcfa = 0,
+} = defineProps<{
   customerId: string;
+  /** Nom du client, rappelé dans les fenêtres de paiement. */
+  customerName?: string;
   /** Reste dû du client, rappelé parmi les chiffres. */
   dueFcfa?: number;
 }>();
@@ -144,6 +151,9 @@ const resetFilters = () => {
 
 // Annulation : le menu d'un jour liste ses paiements
 const cancelledPaymentId = ref<string | null>(null);
+/** Paiement en cours de correction : le modal d'encaissement s'ouvre pré-rempli. */
+const editedPayment = ref<PaymentLedgerDay["payments"][number] | null>(null);
+const paymentOpen = ref(false);
 const cancelOpen = computed({
   get: () => cancelledPaymentId.value !== null,
   set: (isOpen: boolean) => {
@@ -171,13 +181,28 @@ const dayActions = (day: PaymentLedgerDay): DropdownMenuItem[][] => [
   day.payments
     .filter((payment) => !payment.cancelledAt)
     .map((payment) => ({
-      icon: icons.undo,
+      children: [
+        {
+          icon: icons.edit,
+          label: "Corriger ce paiement",
+          onSelect: () => {
+            editedPayment.value = payment;
+            paymentOpen.value = true;
+          },
+        },
+        {
+          color: "error",
+          icon: icons.cancel,
+          label: "Annuler ce paiement",
+          onSelect: () => {
+            cancelledPaymentId.value = payment.id;
+          },
+        },
+      ],
+      icon: icons.payment,
       label: `${formatFcfa(payment.amountFcfa)} · ${methodLabel(payment.method)}${
         payment.notes ? ` (${payment.notes})` : ""
       }`,
-      onSelect: () => {
-        cancelledPaymentId.value = payment.id;
-      },
     })),
 ];
 
@@ -421,6 +446,12 @@ const searchText = (day: PaymentLedgerDay) =>
       confirm-label="Annuler le paiement"
       :loading="cancelMutation.isPending.value"
       @confirm="confirmCancel"
+    />
+
+    <PaymentModal
+      v-model:open="paymentOpen"
+      :customer="{ dueFcfa, id: customerId, name: customerName }"
+      :payment="editedPayment"
     />
   </div>
 </template>

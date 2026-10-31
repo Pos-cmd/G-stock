@@ -59,10 +59,10 @@ const navigationIcons = {
   dashboard: "i-tabler-layout-dashboard",
   documents: "i-tabler-file-text",
   logo: "i-tabler-packages",
-  notifications: "i-tabler-bell",
-  palette: "i-tabler-palette",
   lots: "i-tabler-stack-2",
   movements: "i-tabler-history",
+  notifications: "i-tabler-bell",
+  palette: "i-tabler-palette",
   product: "i-tabler-package",
   products: "i-tabler-packages",
   purchases: "i-tabler-ship",
@@ -77,10 +77,11 @@ const navigationIcons = {
 const actionIcons = {
   archive: "i-tabler-archive",
   calculate: "i-tabler-calculator",
-  columns: "i-tabler-columns-3",
   cancel: "i-tabler-ban",
+  columns: "i-tabler-columns-3",
   customerAdd: "i-tabler-user-plus",
   download: "i-tabler-download",
+  edit: "i-tabler-pencil",
   expand: "i-tabler-arrows-diagonal",
   filter: "i-tabler-filter",
   moreActions: "i-tabler-dots-vertical",
@@ -90,8 +91,8 @@ const actionIcons = {
   save: "i-tabler-device-floppy",
   send: "i-tabler-send",
   shuffle: "i-tabler-arrows-shuffle",
-  unarchive: "i-tabler-archive-off",
   tour: "i-tabler-route",
+  unarchive: "i-tabler-archive-off",
   undo: "i-tabler-arrow-back-up",
   whatsapp: "i-tabler-brand-whatsapp",
 };
@@ -176,16 +177,17 @@ const field = {
   // Focus : un trait gris foncé et un halo léger, plutôt que le noir plein de la couleur principale.
   compoundVariants: [
     {
-      color: "primary" as const,
-      variant: "outline" as const,
       class:
         "outline-inverted/10 focus-visible:outline-4 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500",
+      color: "primary" as const,
+      variant: "outline" as const,
     },
   ],
 };
 
 // Menus déroulants : même surface que les fenêtres, un cran plus arrondie que les champs.
-const floatingContent = "rounded-lg shadow-overlay dark:bg-elevated/95 dark:backdrop-blur-xl";
+const floatingContent =
+  "rounded-lg shadow-overlay dark:bg-elevated/95 dark:backdrop-blur-xl";
 
 // Voile derrière les fenêtres : on assombrit le fond sans le cacher.
 const overlay = "bg-sand-950/25 backdrop-blur-[2px] dark:bg-black/50";
@@ -234,32 +236,30 @@ export default defineAppConfig({
     },
     // Fil d'Ariane de la barre du haut : les pages parentes en gris, la page en cours en noir.
     breadcrumb: {
+      compoundVariants: [
+        {
+          active: false,
+          disabled: false,
+          to: true,
+          class: { link: "hover:text-highlighted" },
+        },
+        // La page en cours reste en gris foncé, quelle que soit la couleur du thème.
+        { active: true, color: "primary", class: { link: "text-highlighted" } },
+      ],
       slots: {
         link: "text-sm",
         separatorIcon: "size-4 text-dimmed",
       },
       variants: {
         active: {
-          true: { link: "font-medium text-highlighted" },
           false: { link: "font-normal text-muted" },
+          true: { link: "font-medium text-highlighted" },
         },
       },
-      compoundVariants: [
-        { active: false, disabled: false, to: true, class: { link: "hover:text-highlighted" } },
-        // La page en cours reste en gris foncé, quelle que soit la couleur du thème.
-        { active: true, color: "primary", class: { link: "text-highlighted" } },
-      ],
     },
     dashboardSearchButton: { slots: { base: "text-muted" } },
     dashboardToolbar: { slots: { root: "min-h-12" } },
     navigationMenu: {
-      slots: {
-        link: "text-default",
-        linkLeadingIcon: "size-[18px] text-muted",
-        // Petit carré arrondi, chiffres alignés (comme une pastille de compteur).
-        linkTrailingBadge:
-          "min-w-5 shrink-0 justify-center rounded-md px-1.5 font-semibold tabular-nums",
-      },
       compoundVariants: [
         // Barre réduite : l'icône est centrée dans son cadre (sinon calée à gauche) et le
         // compteur devient une pastille dans son coin.
@@ -269,7 +269,8 @@ export default defineAppConfig({
           class: {
             link: "justify-center px-0",
             linkTrailing: "pointer-events-none absolute end-1.5 top-1 flex",
-            linkTrailingBadge: "size-2 min-w-0 rounded-full p-0 text-[0px] ring-2 ring-(--ui-bg)",
+            linkTrailingBadge:
+              "size-2 min-w-0 rounded-full p-0 text-[0px] ring-2 ring-(--ui-bg)",
           },
         },
         {
@@ -287,18 +288,16 @@ export default defineAppConfig({
           },
         },
       ],
+      slots: {
+        link: "text-default",
+        linkLeadingIcon: "size-[18px] text-muted",
+        // Petit carré arrondi, chiffres alignés (comme une pastille de compteur).
+        linkTrailingBadge:
+          "min-w-5 shrink-0 justify-center rounded-md px-1.5 font-semibold tabular-nums",
+      },
     },
 
     button: {
-      slots: {
-        base: "transition-[color,background-color,box-shadow,translate] active:translate-y-px disabled:active:translate-y-0",
-      },
-      variants: {
-        size: {
-          md: { base: "px-3" },
-          lg: { base: "px-3.5" },
-        },
-      },
       compoundVariants: [
         {
           color: "primary",
@@ -320,17 +319,37 @@ export default defineAppConfig({
         {
           color: "neutral",
           variant: "ghost",
-          class: "text-toned hover:bg-accented/50 hover:text-highlighted active:bg-accented/70",
+          class:
+            "text-toned hover:bg-accented/50 hover:text-highlighted active:bg-accented/70",
         },
         {
           color: "error",
           variant: "outline",
-          class: "bg-default shadow-tactile ring-default hover:bg-error/5 dark:bg-elevated/60",
+          class:
+            "bg-default shadow-tactile ring-default hover:bg-error/5 dark:bg-elevated/60",
         },
       ],
+      slots: {
+        base: "transition-[color,background-color,box-shadow,translate] active:translate-y-px disabled:active:translate-y-0",
+      },
+      variants: {
+        size: {
+          lg: { base: "px-3.5" },
+          md: { base: "px-3" },
+        },
+      },
     },
 
     pageCard: {
+      compoundVariants: [
+        {
+          to: true,
+          variant: "subtle",
+          class: {
+            root: "transition-[background-color,transform] duration-150 ease-(--ease-snappy) hover:bg-elevated active:scale-[0.985]",
+          },
+        },
+      ],
       slots: {
         // Colonne plafonnée à la carte : un graphique ou un tableau large ne l'élargit pas.
         container: "lg:grid-cols-[minmax(0,1fr)]",
@@ -338,7 +357,8 @@ export default defineAppConfig({
         leading: "mb-2",
         leadingIcon: "size-4 text-muted",
         root: "rounded-xl",
-        title: "font-mono text-[11px]/4 font-medium tracking-[0.08em] text-muted uppercase",
+        title:
+          "font-mono text-[11px]/4 font-medium tracking-[0.08em] text-muted uppercase",
       },
       variants: {
         variant: {
@@ -350,15 +370,6 @@ export default defineAppConfig({
           },
         },
       },
-      compoundVariants: [
-        {
-          to: true,
-          variant: "subtle",
-          class: {
-            root: "transition-[background-color,transform] duration-150 ease-(--ease-snappy) hover:bg-elevated active:scale-[0.985]",
-          },
-        },
-      ],
     },
     card: {
       slots: {
@@ -378,30 +389,37 @@ export default defineAppConfig({
     },
 
     badge: {
+      compoundVariants: [
+        {
+          color: "neutral",
+          variant: "subtle",
+          class: "bg-muted text-toned ring-default",
+        },
+        {
+          color: "neutral",
+          variant: "outline",
+          class: "text-muted ring-default",
+        },
+      ],
       variants: {
         size: {
-          sm: { base: "rounded-full px-2 py-0.5 text-[11px]/4" },
-          md: { base: "rounded-full px-2.5 py-0.5" },
           lg: { base: "rounded-full px-2.5" },
+          md: { base: "rounded-full px-2.5 py-0.5" },
+          sm: { base: "rounded-full px-2 py-0.5 text-[11px]/4" },
         },
       },
-      compoundVariants: [
-        { color: "neutral", variant: "subtle", class: "bg-muted text-toned ring-default" },
-        { color: "neutral", variant: "outline", class: "text-muted ring-default" },
-      ],
     },
     alert: {
       compoundVariants: [
-        { color: "neutral", variant: "subtle", class: { root: "bg-muted ring-default" } },
+        {
+          class: { root: "bg-muted ring-default" },
+          color: "neutral",
+          variant: "subtle",
+        },
       ],
     },
     // Onglets en pilule (contrôle segmenté) : la vue choisie est une touche blanche en relief.
     tabs: {
-      defaultVariants: { variant: "pill" },
-      variants: {
-        size: { md: { trigger: "px-3 py-1 text-[13px]", leadingIcon: "size-4" } },
-        variant: { pill: { list: "rounded-lg bg-muted p-0.5 ring ring-default" } },
-      },
       compoundVariants: [
         // À la taille de son contenu, calée à gauche ; défile si l'écran est trop étroit.
         {
@@ -417,11 +435,21 @@ export default defineAppConfig({
           color: "primary",
           variant: "pill",
           class: {
-            indicator: "bg-default shadow-tactile ring ring-default dark:bg-accented",
+            indicator:
+              "bg-default shadow-tactile ring ring-default dark:bg-accented",
             trigger: "data-[state=active]:text-highlighted",
           },
         },
       ],
+      defaultVariants: { variant: "pill" },
+      variants: {
+        size: {
+          md: { leadingIcon: "size-4", trigger: "px-3 py-1 text-[13px]" },
+        },
+        variant: {
+          pill: { list: "rounded-lg bg-muted p-0.5 ring ring-default" },
+        },
+      },
     },
 
     input: field,
@@ -438,11 +466,11 @@ export default defineAppConfig({
     radioGroup: {
       compoundVariants: [
         {
-          color: "primary",
-          variant: "card",
           class: {
             item: "has-data-[state=checked]:border-inverted has-data-[state=checked]:bg-default has-data-[state=checked]:shadow-tactile",
           },
+          color: "primary",
+          variant: "card",
         },
       ],
     },
@@ -457,9 +485,9 @@ export default defineAppConfig({
       // En variantes composées : les variantes `type` du thème sont des chaînes, un objet n'y est pas
       // fusionné.
       compoundVariants: [
-        { type: ["area", "line"], class: { root: "chart-wipe" } },
-        { type: "bar", class: { root: "chart-rise" } },
-        { type: "donut", class: { root: "chart-pop" } },
+        { class: { root: "chart-wipe" }, type: ["area", "line"] },
+        { class: { root: "chart-rise" }, type: "bar" },
+        { class: { root: "chart-pop" }, type: "donut" },
       ],
     },
 
@@ -468,7 +496,8 @@ export default defineAppConfig({
     tooltip: {
       slots: {
         arrow: "fill-inverted stroke-transparent",
-        content: "h-7 rounded-md bg-inverted font-medium text-inverted shadow-overlay ring-0",
+        content:
+          "h-7 rounded-md bg-inverted font-medium text-inverted shadow-overlay ring-0",
       },
     },
     toast: { slots: { root: "rounded-xl shadow-overlay" } },

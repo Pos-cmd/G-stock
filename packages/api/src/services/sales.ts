@@ -1,10 +1,12 @@
+import type { PaymentMethod } from "@G-stock/core/enums";
+import { formatDate, formatFcfa, formatQty } from "@G-stock/core/format";
 import {
   allocatePaymentCoverage,
   daysBetween,
   lineAmountFcfa,
 } from "@G-stock/core/sales";
 import type { PaymentCoverage } from "@G-stock/core/sales";
-import { planFifo, roundQty } from "@G-stock/core/stock";
+import { planFifo, QTY_EPSILON, roundQty } from "@G-stock/core/stock";
 import type { FifoLot } from "@G-stock/core/stock";
 import type { Executor } from "@G-stock/db";
 import { user } from "@G-stock/db/schema/auth";
@@ -15,9 +17,12 @@ import {
   saleDiscounts,
   saleItemLots,
   saleItems,
+  saleReturns,
+  saleReturnItems,
+  saleRevisions,
   sales,
 } from "@G-stock/db/schema/sales";
-import { stockLots } from "@G-stock/db/schema/stock";
+import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { ORPCError } from "@orpc/server";
 import {
   and,
@@ -37,10 +42,13 @@ import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type {
   PaymentInput,
+  PaymentUpdateInput,
   ProductSalesFilters,
   SaleDiscountInput,
   SaleFilters,
   SaleInput,
+  SaleReturnInput,
+  SaleUpdateInput,
 } from "../schemas/sales";
 import { invalidateLedgers, loadLedgers, saleDiscountSql } from "./customers";
 import { nextReference } from "./references";
@@ -268,6 +276,537 @@ export const createSale = async (
   return sale;
 };
 
+const allocationsOf = (executor: Executor, saleItemId: string) =>
+  executor
+    .select()
+    .from(saleItemLots)
+    .where(eq(saleItemLots.saleItemId, saleItemId))
+    .orderBy(asc(saleItemLots.id));
+
+/** Coût de revient d'une ligne : somme des lots encore prélevés pour elle. */
+const refreshItemCost = async (executor: Executor, saleItemId: string) => {
+  const allocations = await allocationsOf(executor, saleItemId);
+  const costFcfa = Math.round(
+    allocations.reduce(
+      (sum, allocation) => sum + allocation.qty * allocation.unitCostFcfa,
+      0
+    )
+  );
+  await executor
+    .update(saleItems)
+    .set({ costFcfa })
+    .where(eq(saleItems.id, saleItemId));
+  return costFcfa;
+};
+
+interface ShrinkParams {
+  occurredAt: Date;
+  productId: string;
+  qty: number;
+  reason: string;
+  referenceId: string;
+  /** Faux quand la marchandise ne retourne pas en stock (casse) : elle est seulement retirée. */
+  restock: boolean;
+  userId?: string | null;
+}
+
+/**
+ * Retire une quantité d'une ligne de vente. La marchandise revient dans les lots d'où elle était
+ * sortie, en commençant par les derniers prélevés : le stock des lots anciens reste tel qu'il était.
+ */
+const shrinkSaleItem = async (
+  executor: Executor,
+  saleItemId: string,
+  params: ShrinkParams
+) => {
+  const allocations = await allocationsOf(executor, saleItemId);
+  if (allocations.length === 0) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Cette ligne de vente n'a aucun lot prélevé",
+    });
+  }
+  const returned: { lotId: string; qty: number; unitCostFcfa: number }[] = [];
+  const updated: { id: string; qty: number }[] = [];
+  let remaining = roundQty(params.qty);
+  for (
+    let index = allocations.length - 1;
+    index >= 0 && remaining > QTY_EPSILON;
+    index -= 1
+  ) {
+    const allocation = allocations[index];
+    if (!allocation) {
+      continue;
+    }
+    const taken = Math.min(allocation.qty, remaining);
+    remaining = roundQty(remaining - taken);
+    returned.push({
+      lotId: allocation.lotId,
+      qty: taken,
+      unitCostFcfa: allocation.unitCostFcfa,
+    });
+    updated.push({ id: allocation.id, qty: roundQty(allocation.qty - taken) });
+  }
+  if (remaining > QTY_EPSILON) {
+    throw new ORPCError("BAD_REQUEST", {
+      message:
+        "Le détail des lots ne couvre pas la quantité retirée : la vente est incohérente",
+    });
+  }
+  if (params.restock) {
+    await returnToLots(executor, {
+      allocations: returned,
+      occurredAt: params.occurredAt,
+      productId: params.productId,
+      reason: params.reason,
+      referenceId: params.referenceId,
+      referenceType: "sale",
+      userId: params.userId,
+    });
+  }
+  for (const row of updated) {
+    // oxlint-disable-next-line no-await-in-loop
+    await (row.qty > QTY_EPSILON
+      ? executor
+          .update(saleItemLots)
+          .set({ qty: row.qty })
+          .where(eq(saleItemLots.id, row.id))
+      : executor.delete(saleItemLots).where(eq(saleItemLots.id, row.id)));
+  }
+  return refreshItemCost(executor, saleItemId);
+};
+
+/** Ajoute une quantité sur une ligne existante : les lots les plus anciens (FIFO) sont repris. */
+const growSaleItem = async (
+  executor: Executor,
+  saleItemId: string,
+  params: {
+    occurredAt: Date;
+    productId: string;
+    qty: number;
+    reference: string;
+    saleId: string;
+    userId?: string | null;
+  }
+) => {
+  const allocations = await consumeFifo(executor, {
+    occurredAt: params.occurredAt,
+    productId: params.productId,
+    qty: params.qty,
+    reason: `Modification vente ${params.reference}`,
+    referenceId: params.saleId,
+    referenceType: "sale",
+    userId: params.userId,
+  });
+  await executor.insert(saleItemLots).values(
+    allocations.map((allocation) => ({
+      lotId: allocation.lotId,
+      qty: allocation.qty,
+      saleItemId,
+      unitCostFcfa: allocation.unitCostFcfa,
+    }))
+  );
+  return refreshItemCost(executor, saleItemId);
+};
+
+/** Crée une ligne de vente et prélève son stock (FIFO). */
+const insertSaleItem = async (
+  executor: Executor,
+  params: {
+    occurredAt: Date;
+    line: { productId: string; qty: number; unitPriceFcfa: number };
+    reason: string;
+    saleId: string;
+    userId?: string | null;
+  }
+) => {
+  const allocations = await consumeFifo(executor, {
+    occurredAt: params.occurredAt,
+    productId: params.line.productId,
+    qty: params.line.qty,
+    reason: params.reason,
+    referenceId: params.saleId,
+    referenceType: "sale",
+    userId: params.userId,
+  });
+  const [item] = await executor
+    .insert(saleItems)
+    .values({
+      costFcfa: Math.round(
+        allocations.reduce(
+          (sum, allocation) => sum + allocation.qty * allocation.unitCostFcfa,
+          0
+        )
+      ),
+      productId: params.line.productId,
+      qty: params.line.qty,
+      saleId: params.saleId,
+      unitPriceFcfa: params.line.unitPriceFcfa,
+    })
+    .returning();
+  if (!item) {
+    throw new Error(
+      "L'insertion de la ligne de vente n'a renvoyé aucune ligne"
+    );
+  }
+  await executor.insert(saleItemLots).values(
+    allocations.map((allocation) => ({
+      lotId: allocation.lotId,
+      qty: allocation.qty,
+      saleItemId: item.id,
+      unitCostFcfa: allocation.unitCostFcfa,
+    }))
+  );
+  return item;
+};
+
+const saleItemsOf = (executor: Executor, saleId: string) =>
+  executor
+    .select()
+    .from(saleItems)
+    .where(eq(saleItems.saleId, saleId))
+    .orderBy(asc(saleItems.id));
+
+/** Somme des quantités vendues d'une vente : le total de la vente en découle. */
+const saleTotalOf = async (executor: Executor, saleId: string) => {
+  const rows = await saleItemsOf(executor, saleId);
+  return rows.reduce(
+    (sum, row) => sum + lineAmountFcfa(row.qty, row.unitPriceFcfa),
+    0
+  );
+};
+
+const discountTotalOf = async (executor: Executor, saleId: string) => {
+  const [row] = await executor
+    .select({
+      total: sql<number>`coalesce(sum(${saleDiscounts.amountFcfa}), 0)`,
+    })
+    .from(saleDiscounts)
+    .where(eq(saleDiscounts.saleId, saleId));
+  return row?.total ?? 0;
+};
+
+const writeRevision = async (
+  executor: Executor,
+  params: {
+    reason: string;
+    revisionDate: Date;
+    saleId: string;
+    summary: string;
+    userId?: string | null;
+  }
+) => {
+  await executor.insert(saleRevisions).values({
+    createdBy: params.userId ?? null,
+    reason: params.reason,
+    revisionDate: params.revisionDate,
+    saleId: params.saleId,
+    summary: params.summary,
+  });
+};
+
+const assertConsistent = async (
+  executor: Executor,
+  sale: typeof sales.$inferSelect,
+  totalFcfa: number
+) => {
+  if (totalFcfa < 0) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Le total de la vente ne peut pas être négatif",
+    });
+  }
+  const discountFcfa = await discountTotalOf(executor, sale.id);
+  if (discountFcfa > totalFcfa) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `Les remises accordées (${formatFcfa(discountFcfa)}) dépassent le nouveau total (${formatFcfa(totalFcfa)}) : retirez d'abord une remise`,
+    });
+  }
+};
+
+/**
+ * Modifie une vente déjà enregistrée : lignes ajoutées, quantités corrigées, lignes retirées.
+ * Le stock suit par différence (le manquant est prélevé, le surplus revient dans ses lots) et la
+ * modification laisse une trace datée avec son motif.
+ */
+export const updateSale = async (
+  executor: Executor,
+  input: SaleUpdateInput,
+  userId?: string | null
+) => {
+  const sale = await getSaleRow(executor, input.id);
+  assertSaleActive(sale);
+  const existing = await saleItemsOf(executor, sale.id);
+  const itemsById = new Map(existing.map((item) => [item.id, item]));
+  const keptIds = new Set<string>();
+  for (const line of input.items) {
+    if (!line.id) {
+      continue;
+    }
+    if (!itemsById.has(line.id)) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Une ligne modifiée n'appartient pas à cette vente",
+      });
+    }
+    if (keptIds.has(line.id)) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "La même ligne apparaît deux fois",
+      });
+    }
+    keptIds.add(line.id);
+  }
+
+  const productsById = await loadProducts(executor, [
+    ...input.items.map((line) => line.productId),
+    ...existing.map((item) => item.productId),
+  ]);
+  const archived = [...productsById.values()].find(
+    (product) => product.archivedAt
+  );
+  if (archived) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `Le produit « ${archived.name} » est archivé`,
+    });
+  }
+  const nameOfItem = (productId: string) =>
+    productsById.get(productId)?.name ?? "Produit";
+  const reason = `Modification vente ${sale.reference} : ${input.reason}`;
+
+  const changes: string[] = [];
+  // Les retraits passent en premier : ils libèrent le stock avant les ajouts.
+  for (const item of existing) {
+    if (keptIds.has(item.id)) {
+      continue;
+    }
+    // oxlint-disable-next-line no-await-in-loop
+    await shrinkSaleItem(executor, item.id, {
+      occurredAt: input.saleDate,
+      productId: item.productId,
+      qty: item.qty,
+      reason,
+      referenceId: sale.id,
+      restock: true,
+      userId,
+    });
+    // oxlint-disable-next-line no-await-in-loop
+    await executor.delete(saleItems).where(eq(saleItems.id, item.id));
+    changes.push(
+      `− ${formatQty(item.qty)} ${nameOfItem(item.productId)} (ligne retirée)`
+    );
+  }
+
+  for (const line of input.items) {
+    const current = line.id ? itemsById.get(line.id) : undefined;
+    if (current && current.productId === line.productId) {
+      const delta = roundQty(line.qty - current.qty);
+      if (delta > QTY_EPSILON) {
+        // oxlint-disable-next-line no-await-in-loop
+        await growSaleItem(executor, current.id, {
+          occurredAt: input.saleDate,
+          productId: current.productId,
+          qty: delta,
+          reference: sale.reference,
+          saleId: sale.id,
+          userId,
+        });
+        changes.push(`+ ${formatQty(delta)} ${nameOfItem(line.productId)}`);
+      } else if (delta < -QTY_EPSILON) {
+        // oxlint-disable-next-line no-await-in-loop
+        await shrinkSaleItem(executor, current.id, {
+          occurredAt: input.saleDate,
+          productId: current.productId,
+          qty: -delta,
+          reason,
+          referenceId: sale.id,
+          restock: true,
+          userId,
+        });
+        changes.push(`− ${formatQty(-delta)} ${nameOfItem(line.productId)}`);
+      }
+      if (line.unitPriceFcfa !== current.unitPriceFcfa) {
+        changes.push(
+          `prix ${nameOfItem(line.productId)} ${formatFcfa(current.unitPriceFcfa)} → ${formatFcfa(line.unitPriceFcfa)}`
+        );
+      }
+      // oxlint-disable-next-line no-await-in-loop
+      await executor
+        .update(saleItems)
+        .set({ qty: line.qty, unitPriceFcfa: line.unitPriceFcfa })
+        .where(eq(saleItems.id, current.id));
+      continue;
+    }
+    if (current) {
+      // Produit changé sur la même ligne : l'ancienne est rendue, la nouvelle est prélevée.
+      // oxlint-disable-next-line no-await-in-loop
+      await shrinkSaleItem(executor, current.id, {
+        occurredAt: input.saleDate,
+        productId: current.productId,
+        qty: current.qty,
+        reason,
+        referenceId: sale.id,
+        restock: true,
+        userId,
+      });
+      // oxlint-disable-next-line no-await-in-loop
+      await executor.delete(saleItems).where(eq(saleItems.id, current.id));
+      changes.push(
+        `− ${formatQty(current.qty)} ${nameOfItem(current.productId)} (ligne remplacée)`
+      );
+    }
+    // oxlint-disable-next-line no-await-in-loop
+    await insertSaleItem(executor, {
+      line: { ...line },
+      occurredAt: input.saleDate,
+      reason: current ? reason : `Modification vente ${sale.reference}`,
+      saleId: sale.id,
+      userId,
+    });
+    changes.push(`+ ${formatQty(line.qty)} ${nameOfItem(line.productId)}`);
+  }
+
+  const totalFcfa = await saleTotalOf(executor, sale.id);
+  await assertConsistent(executor, sale, totalFcfa);
+  await executor
+    .update(sales)
+    .set({ notes: input.notes ?? null, saleDate: input.saleDate, totalFcfa })
+    .where(eq(sales.id, sale.id));
+  if (sale.saleDate.getTime() !== input.saleDate.getTime()) {
+    // Les sorties de stock suivent la date de la vente, pas celle de la saisie.
+    await executor
+      .update(stockMovements)
+      .set({ occurredAt: input.saleDate })
+      .where(
+        and(
+          eq(stockMovements.referenceType, "sale"),
+          eq(stockMovements.referenceId, sale.id)
+        )
+      );
+    changes.push(
+      `date ${formatDate(sale.saleDate)} → ${formatDate(input.saleDate)}`
+    );
+  }
+
+  await writeRevision(executor, {
+    reason: input.reason,
+    revisionDate: new Date(),
+    saleId: sale.id,
+    summary: [
+      ...changes,
+      `total ${formatFcfa(sale.totalFcfa)} → ${formatFcfa(totalFcfa)}`,
+    ].join(" · "),
+    userId,
+  });
+  return { id: sale.id, totalFcfa };
+};
+
+/**
+ * Reprise d'articles : la vente est corrigée (quantités rendues) et la reprise garde sa trace.
+ * La marchandise ressortante revient dans ses lots d'origine ; la casse est seulement sortie de la
+ * vente. Si l'argent est rendu, il est déduit des encaissements du client.
+ */
+export const createSaleReturn = async (
+  executor: Executor,
+  input: SaleReturnInput,
+  userId?: string | null
+) => {
+  const sale = await getSaleRow(executor, input.saleId);
+  assertSaleActive(sale);
+  const items = await saleItemsOf(executor, sale.id);
+  const itemsById = new Map(items.map((item) => [item.id, item]));
+  const seen = new Set<string>();
+  let amountFcfa = 0;
+  const lines = input.items.map((line) => {
+    const item = itemsById.get(line.saleItemId);
+    if (!item) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Un article repris n'appartient pas à cette vente",
+      });
+    }
+    if (seen.has(line.saleItemId)) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Le même article apparaît deux fois dans la reprise",
+      });
+    }
+    seen.add(line.saleItemId);
+    if (line.qty - item.qty > QTY_EPSILON) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: `Quantité reprise supérieure à la quantité vendue (${formatQty(item.qty)}) sur une ligne`,
+      });
+    }
+    const lineAmount = lineAmountFcfa(line.qty, item.unitPriceFcfa);
+    amountFcfa += lineAmount;
+    return { item, line, lineAmount };
+  });
+
+  const [saleReturn] = await executor
+    .insert(saleReturns)
+    .values({
+      amountFcfa,
+      createdBy: userId ?? null,
+      reason: input.reason,
+      refundMethod: input.refundMethod,
+      returnDate: input.returnDate,
+      saleId: sale.id,
+    })
+    .returning();
+  if (!saleReturn) {
+    throw new Error("L'insertion de la reprise n'a renvoyé aucune ligne");
+  }
+
+  const reason = `Reprise ${sale.reference} : ${input.reason}`;
+  await executor.insert(saleReturnItems).values(
+    lines.map(({ item, line, lineAmount }) => ({
+      amountFcfa: lineAmount,
+      productId: item.productId,
+      qty: line.qty,
+      restocked: line.restocked !== false,
+      returnId: saleReturn.id,
+      saleItemId: item.id,
+      unitPriceFcfa: item.unitPriceFcfa,
+    }))
+  );
+
+  for (const { item, line } of lines) {
+    // oxlint-disable-next-line no-await-in-loop
+    await shrinkSaleItem(executor, item.id, {
+      occurredAt: input.returnDate,
+      productId: item.productId,
+      qty: line.qty,
+      reason,
+      referenceId: sale.id,
+      restock: line.restocked !== false,
+      userId,
+    });
+    const left = roundQty(item.qty - line.qty);
+    // oxlint-disable-next-line no-await-in-loop
+    await (left <= QTY_EPSILON
+      ? executor.delete(saleItems).where(eq(saleItems.id, item.id))
+      : executor
+          .update(saleItems)
+          .set({ qty: left })
+          .where(eq(saleItems.id, item.id)));
+  }
+
+  const totalFcfa = await saleTotalOf(executor, sale.id);
+  await assertConsistent(executor, sale, totalFcfa);
+  await executor.update(sales).set({ totalFcfa }).where(eq(sales.id, sale.id));
+  await writeRevision(executor, {
+    reason: input.reason,
+    revisionDate: input.returnDate,
+    saleId: sale.id,
+    summary: `Reprise de ${formatFcfa(amountFcfa)} · total ${formatFcfa(sale.totalFcfa)} → ${formatFcfa(totalFcfa)}`,
+    userId,
+  });
+  return {
+    amountFcfa,
+    items: lines.map(({ item, line }) => ({
+      productId: item.productId,
+      qty: line.qty,
+    })),
+    refundMethod: input.refundMethod,
+    returnId: saleReturn.id,
+    totalFcfa,
+  };
+};
+
 const userNames = async (
   executor: Executor,
   ids: readonly (string | null)[]
@@ -337,11 +876,50 @@ export const getSale = async (executor: Executor, id: string) => {
           .orderBy(asc(saleItemLots.id))
       : [];
   const lotsByItem = Map.groupBy(lots, (lot) => lot.saleItemId);
+  const [returnRows, revisionRows] = await Promise.all([
+    executor
+      .select()
+      .from(saleReturns)
+      .where(eq(saleReturns.saleId, id))
+      .orderBy(desc(saleReturns.returnDate), desc(saleReturns.id)),
+    executor
+      .select()
+      .from(saleRevisions)
+      .where(eq(saleRevisions.saleId, id))
+      .orderBy(desc(saleRevisions.revisionDate), desc(saleRevisions.id)),
+  ]);
+  const returnItems =
+    returnRows.length > 0
+      ? await executor
+          .select({
+            amountFcfa: saleReturnItems.amountFcfa,
+            id: saleReturnItems.id,
+            productId: saleReturnItems.productId,
+            productName: products.name,
+            qty: saleReturnItems.qty,
+            restocked: saleReturnItems.restocked,
+            returnId: saleReturnItems.returnId,
+            saleItemId: saleReturnItems.saleItemId,
+            unitPriceFcfa: saleReturnItems.unitPriceFcfa,
+          })
+          .from(saleReturnItems)
+          .innerJoin(products, eq(products.id, saleReturnItems.productId))
+          .where(
+            inArray(
+              saleReturnItems.returnId,
+              returnRows.map((row) => row.id)
+            )
+          )
+          .orderBy(asc(saleReturnItems.id))
+      : [];
+  const returnItemsByReturn = Map.groupBy(returnItems, (item) => item.returnId);
   const names = await userNames(executor, [
     sale.createdBy,
     sale.cancelledBy,
     ...discounts.map((discount) => discount.createdBy),
     ...salePayments.map((payment) => payment.createdBy),
+    ...returnRows.map((row) => row.createdBy),
+    ...revisionRows.map((row) => row.createdBy),
   ]);
   const nameOf = (userId: string | null) =>
     userId ? (names.get(userId) ?? null) : null;
@@ -375,6 +953,15 @@ export const getSale = async (executor: Executor, id: string) => {
     payments: salePayments.map((payment) => ({
       ...payment,
       createdByName: nameOf(payment.createdBy),
+    })),
+    returns: returnRows.map((row) => ({
+      ...row,
+      createdByName: nameOf(row.createdBy),
+      items: returnItemsByReturn.get(row.id) ?? [],
+    })),
+    revisions: revisionRows.map((row) => ({
+      ...row,
+      createdByName: nameOf(row.createdBy),
     })),
     summary: {
       costFcfa,
@@ -789,7 +1376,49 @@ export const createPayment = async (
       saleId: input.saleId ?? null,
     })
     .returning();
+  invalidateLedgers();
   return payment;
+};
+
+/** Corrige un paiement déjà enregistré (montant, date, mode, vente) sans l'annuler. */
+export const updatePayment = async (
+  executor: Executor,
+  input: PaymentUpdateInput
+) => {
+  const [payment] = await executor
+    .select()
+    .from(payments)
+    .where(eq(payments.id, input.id));
+  if (!payment) {
+    throw new ORPCError("NOT_FOUND", { message: "Paiement introuvable" });
+  }
+  if (payment.cancelledAt) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Ce paiement est annulé : il ne peut plus être modifié",
+    });
+  }
+  if (input.saleId) {
+    const sale = await getSaleRow(executor, input.saleId);
+    assertSaleActive(sale);
+    if (sale.customerId !== payment.customerId) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Cette vente appartient à un autre client",
+      });
+    }
+  }
+  const [updated] = await executor
+    .update(payments)
+    .set({
+      amountFcfa: input.amountFcfa,
+      method: input.method,
+      notes: input.notes ?? null,
+      paymentDate: input.paymentDate,
+      saleId: input.saleId ?? null,
+    })
+    .where(eq(payments.id, input.id))
+    .returning();
+  invalidateLedgers();
+  return updated;
 };
 
 export const cancelPayment = async (
@@ -884,14 +1513,16 @@ const paymentDayKey = (date: Date): string => {
   return `${date.getFullYear()}-${month}-${day}`;
 };
 
-/** Paiement tel qu'affiché dans le relevé : de quoi l'annuler et le retrouver. */
+/** Paiement tel qu'affiché dans le relevé : de quoi le corriger, l'annuler et le retrouver. */
 export interface LedgerPayment {
   id: string;
   amountFcfa: number;
-  method: string;
+  method: PaymentMethod;
   notes: string | null;
   cancelledAt: Date | null;
   createdByName: string | null;
+  paymentDate: Date;
+  saleId: string | null;
   saleReference: string | null;
 }
 
@@ -961,7 +1592,8 @@ const buildPaymentHeatmap = (
   }
   const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const length = Math.round((today.getTime() - start.getTime()) / MS_PER_DAY) + 1;
+  const length =
+    Math.round((today.getTime() - start.getTime()) / MS_PER_DAY) + 1;
   return Array.from({ length }, (_, index) => {
     const date = paymentDayKey(new Date(start.getTime() + index * MS_PER_DAY));
     const entry = paid.get(date);
@@ -986,7 +1618,11 @@ export const paymentsLedger = async (
 ) => {
   const months = params.months ?? 12;
   const now = new Date();
-  const windowStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+  const windowStart = new Date(
+    now.getFullYear(),
+    now.getMonth() - (months - 1),
+    1
+  );
 
   const [detailed, allocationRows, saleRows] = await Promise.all([
     executor
@@ -1052,6 +1688,8 @@ export const paymentsLedger = async (
         id: payment.id,
         method: payment.method,
         notes: payment.notes,
+        paymentDate: payment.paymentDate,
+        saleId: payment.saleId,
         saleReference,
       },
       coverage.get(payment.id) ?? [],
@@ -1077,17 +1715,18 @@ export const paymentsLedger = async (
         .filter((day) => day.date.startsWith(monthPrefix))
         .reduce((total, day) => total + day.paidFcfa, 0),
       todayCount:
-        days
-          .get(todayKey)
-          ?.payments.filter((payment) => !payment.cancelledAt).length ?? 0,
+        days.get(todayKey)?.payments.filter((payment) => !payment.cancelledAt)
+          .length ?? 0,
       todayFcfa: days.get(todayKey)?.paidFcfa ?? 0,
     },
     totals: {
-      cancelledFcfa: allDays.reduce((total, day) => total + day.cancelledFcfa, 0),
+      cancelledFcfa: allDays.reduce(
+        (total, day) => total + day.cancelledFcfa,
+        0
+      ),
       count: allDays.reduce(
         (total, day) =>
-          total +
-          day.payments.filter((payment) => !payment.cancelledAt).length,
+          total + day.payments.filter((payment) => !payment.cancelledAt).length,
         0
       ),
       days: allDays.filter((day) => day.paidFcfa > 0).length,

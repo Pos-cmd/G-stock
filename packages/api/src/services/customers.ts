@@ -1,19 +1,71 @@
-import { allocatePayments, daysBetween, receivableLevel } from "@G-stock/core/sales";
-import type { PaymentAllocation } from "@G-stock/core/sales";
+import {
+  allocatePayments,
+  daysBetween,
+  receivableLevel,
+} from "@G-stock/core/sales";
+import type { DebtPayment, PaymentAllocation } from "@G-stock/core/sales";
 import type { Executor } from "@G-stock/db";
-import { customers, payments, saleDiscounts, sales } from "@G-stock/db/schema/sales";
+import {
+  customers,
+  payments,
+  saleDiscounts,
+  saleReturns,
+  sales,
+} from "@G-stock/db/schema/sales";
 import { ORPCError } from "@orpc/server";
 import { and, asc, count, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 import type { z } from "zod";
 
-import type { CustomerFilters, customerInputSchema } from "../schemas/customers";
+import type {
+  CustomerFilters,
+  customerInputSchema,
+} from "../schemas/customers";
 import { getSettings } from "./settings";
 
 type CustomerInput = z.output<typeof customerInputSchema>;
 
 /** Somme des remises d'une vente (sous-requête corrélée). */
 export const saleDiscountSql = sql<number>`coalesce((select sum(${saleDiscounts.amountFcfa}) from ${saleDiscounts} where ${saleDiscounts.saleId} = ${sales.id}), 0)`;
+
+/**
+ * L'argent réellement rendu sur une reprise sort des encaissements. Il réduit d'abord les paiements
+ * rattachés à la vente concernée, puis les plus récents du client. Un avoir gardé (`credit`) ne
+ * touche à rien : la baisse de la vente suffit à laisser un crédit au client.
+ */
+const applyRefunds = (
+  rows: readonly DebtPayment[],
+  refunds: readonly { amountFcfa: number; saleId: string }[]
+): DebtPayment[] => {
+  const adjusted = rows.map((row) => ({ ...row }));
+  const takeFrom = (indices: readonly number[], amount: number): number => {
+    let remaining = amount;
+    for (const index of indices) {
+      const row = adjusted[index];
+      if (!row || remaining <= 0) {
+        continue;
+      }
+      const taken = Math.min(row.amountFcfa, remaining);
+      row.amountFcfa -= taken;
+      remaining -= taken;
+    }
+    return remaining;
+  };
+  /** Indices du plus récent au plus ancien, pour rendre l'argent reçu en dernier. */
+  const newestFirst = (filter: (row: DebtPayment) => boolean) =>
+    adjusted
+      .map((row, index) => ({ index, row }))
+      .filter(({ row }) => filter(row) && row.amountFcfa > 0)
+      .map(({ index }) => index)
+      .toReversed();
+
+  for (const refund of refunds) {
+    const linked = newestFirst((row) => row.saleId === refund.saleId);
+    const others = newestFirst((row) => row.saleId !== refund.saleId);
+    takeFrom(others, takeFrom(linked, refund.amountFcfa));
+  }
+  return adjusted.filter((row) => row.amountFcfa > 0);
+};
 
 export interface CustomerLedger extends PaymentAllocation {
   /** Total net des ventes validées (remises déduites). */
@@ -28,15 +80,17 @@ export interface CustomerLedger extends PaymentAllocation {
  */
 const computeLedgers = async (
   executor: Executor,
-  customerId?: string | null,
+  customerId?: string | null
 ): Promise<Map<string, CustomerLedger>> => {
   const saleConditions: SQL[] = [eq(sales.status, "active")];
   const paymentConditions: SQL[] = [isNull(payments.cancelledAt)];
+  const refundConditions: SQL[] = [ne(saleReturns.refundMethod, "credit")];
   if (customerId) {
     saleConditions.push(eq(sales.customerId, customerId));
     paymentConditions.push(eq(payments.customerId, customerId));
+    refundConditions.push(eq(sales.customerId, customerId));
   }
-  const [saleRows, paymentRows] = await Promise.all([
+  const [saleRows, paymentRows, refundRows] = await Promise.all([
     executor
       .select({
         customerId: sales.customerId,
@@ -56,11 +110,24 @@ const computeLedgers = async (
       .from(payments)
       .where(and(...paymentConditions))
       .orderBy(asc(payments.paymentDate), asc(payments.id)),
+    executor
+      .select({
+        amountFcfa: saleReturns.amountFcfa,
+        customerId: sales.customerId,
+        saleId: saleReturns.saleId,
+      })
+      .from(saleReturns)
+      .innerJoin(sales, eq(sales.id, saleReturns.saleId))
+      .where(and(...refundConditions)),
   ]);
 
   const salesByCustomer = Map.groupBy(saleRows, (row) => row.customerId);
   const paymentsByCustomer = Map.groupBy(paymentRows, (row) => row.customerId);
-  const customerIds = new Set([...salesByCustomer.keys(), ...paymentsByCustomer.keys()]);
+  const refundsByCustomer = Map.groupBy(refundRows, (row) => row.customerId);
+  const customerIds = new Set([
+    ...salesByCustomer.keys(),
+    ...paymentsByCustomer.keys(),
+  ]);
 
   const ledgers = new Map<string, CustomerLedger>();
   for (const id of customerIds) {
@@ -69,7 +136,14 @@ const computeLedgers = async (
       id: sale.id,
       netFcfa: sale.totalFcfa - sale.discountFcfa,
     }));
-    const allocation = allocatePayments(customerSales, paymentsByCustomer.get(id) ?? []);
+    const refunds = refundsByCustomer.get(id) ?? [];
+    const customerPayments = paymentsByCustomer.get(id) ?? [];
+    const allocation = allocatePayments(
+      customerSales,
+      refunds.length > 0
+        ? applyRefunds(customerPayments, refunds)
+        : customerPayments
+    );
     let lastSaleDate: Date | null = null;
     let purchasedFcfa = 0;
     for (const sale of customerSales) {
@@ -103,7 +177,8 @@ const ledgerFingerprint = async (executor: Executor) => {
   const [row] = await executor.all<{ value: string }>(sql`select
     (select count(*) || ':' || coalesce(max(rowid), 0) from ${sales}) || '|' ||
     (select count(*) || ':' || coalesce(max(rowid), 0) from ${payments}) || '|' ||
-    (select count(*) || ':' || coalesce(max(rowid), 0) from ${saleDiscounts}) as value`);
+    (select count(*) || ':' || coalesce(max(rowid), 0) from ${saleDiscounts}) || '|' ||
+    (select count(*) || ':' || coalesce(max(rowid), 0) from ${saleReturns}) as value`);
   return `${row?.value ?? ""}|${ledgerRevision}`;
 };
 
@@ -121,7 +196,7 @@ const ledgerCache = new WeakMap<
  */
 export const loadLedgers = async (
   executor: Executor,
-  customerId?: string | null,
+  customerId?: string | null
 ): Promise<Map<string, CustomerLedger>> => {
   if (customerId) {
     return computeLedgers(executor, customerId);
@@ -138,8 +213,14 @@ export const loadLedgers = async (
 
 type Thresholds = Awaited<ReturnType<typeof getSettings>>;
 
-const accountOf = (ledger: CustomerLedger | undefined, thresholds: Thresholds, now: Date) => {
-  const daysOverdue = ledger?.oldestUnpaidDate ? daysBetween(ledger.oldestUnpaidDate, now) : null;
+const accountOf = (
+  ledger: CustomerLedger | undefined,
+  thresholds: Thresholds,
+  now: Date
+) => {
+  const daysOverdue = ledger?.oldestUnpaidDate
+    ? daysBetween(ledger.oldestUnpaidDate, now)
+    : null;
   return {
     creditFcfa: ledger?.creditFcfa ?? 0,
     daysOverdue,
@@ -147,7 +228,8 @@ const accountOf = (ledger: CustomerLedger | undefined, thresholds: Thresholds, n
     lastSaleDate: ledger?.lastSaleDate ?? null,
     oldestUnpaidDate: ledger?.oldestUnpaidDate ?? null,
     purchasedFcfa: ledger?.purchasedFcfa ?? 0,
-    receivableLevel: daysOverdue === null ? null : receivableLevel(daysOverdue, thresholds),
+    receivableLevel:
+      daysOverdue === null ? null : receivableLevel(daysOverdue, thresholds),
     saleCount: ledger?.saleCount ?? 0,
   };
 };
@@ -155,12 +237,15 @@ const accountOf = (ledger: CustomerLedger | undefined, thresholds: Thresholds, n
 const containsInsensitive = (column: AnyColumn, needle: string): SQL =>
   sql`instr(lower(coalesce(${column}, '')), lower(${needle})) > 0`;
 
-export const listCustomers = async (executor: Executor, filters: CustomerFilters) => {
+export const listCustomers = async (
+  executor: Executor,
+  filters: CustomerFilters
+) => {
   const where = filters.search
     ? (or(
         containsInsensitive(customers.name, filters.search),
         containsInsensitive(customers.phone, filters.search),
-        containsInsensitive(customers.address, filters.search),
+        containsInsensitive(customers.address, filters.search)
       ) as SQL)
     : undefined;
   const [rows, ledgers, thresholds] = await Promise.all([
@@ -177,11 +262,16 @@ export const listCustomers = async (executor: Executor, filters: CustomerFilters
     return items;
   }
   // Débiteurs : les plus grosses dettes d'abord.
-  return items.filter((customer) => customer.dueFcfa > 0).toSorted((a, b) => b.dueFcfa - a.dueFcfa);
+  return items
+    .filter((customer) => customer.dueFcfa > 0)
+    .toSorted((a, b) => b.dueFcfa - a.dueFcfa);
 };
 
 export const getCustomer = async (executor: Executor, id: string) => {
-  const [customer] = await executor.select().from(customers).where(eq(customers.id, id));
+  const [customer] = await executor
+    .select()
+    .from(customers)
+    .where(eq(customers.id, id));
   if (!customer) {
     throw new ORPCError("NOT_FOUND", { message: "Client introuvable" });
   }
@@ -192,7 +282,11 @@ export const getCustomer = async (executor: Executor, id: string) => {
   return { ...customer, ...accountOf(ledgers.get(id), thresholds, new Date()) };
 };
 
-const assertNameAvailable = async (executor: Executor, name: string, exceptId?: string) => {
+const assertNameAvailable = async (
+  executor: Executor,
+  name: string,
+  exceptId?: string
+) => {
   const conditions: SQL[] = [sql`lower(${customers.name}) = lower(${name})`];
   if (exceptId) {
     conditions.push(ne(customers.id, exceptId));
@@ -208,7 +302,10 @@ const assertNameAvailable = async (executor: Executor, name: string, exceptId?: 
   }
 };
 
-export const createCustomer = async (executor: Executor, input: CustomerInput) => {
+export const createCustomer = async (
+  executor: Executor,
+  input: CustomerInput
+) => {
   await assertNameAvailable(executor, input.name);
   const [created] = await executor.insert(customers).values(input).returning();
   if (!created) {
@@ -217,7 +314,11 @@ export const createCustomer = async (executor: Executor, input: CustomerInput) =
   return created;
 };
 
-export const updateCustomer = async (executor: Executor, id: string, input: CustomerInput) => {
+export const updateCustomer = async (
+  executor: Executor,
+  id: string,
+  input: CustomerInput
+) => {
   await assertNameAvailable(executor, input.name, id);
   const [updated] = await executor
     .update(customers)
@@ -234,14 +335,21 @@ export const updateCustomer = async (executor: Executor, id: string, input: Cust
 export const removeCustomer = async (executor: Executor, id: string) => {
   const [[saleUsage], [paymentUsage]] = await Promise.all([
     executor.select({ n: count() }).from(sales).where(eq(sales.customerId, id)),
-    executor.select({ n: count() }).from(payments).where(eq(payments.customerId, id)),
+    executor
+      .select({ n: count() })
+      .from(payments)
+      .where(eq(payments.customerId, id)),
   ]);
   if ((saleUsage?.n ?? 0) > 0 || (paymentUsage?.n ?? 0) > 0) {
     throw new ORPCError("CONFLICT", {
-      message: "Ce client a un historique de ventes : il ne peut pas être supprimé",
+      message:
+        "Ce client a un historique de ventes : il ne peut pas être supprimé",
     });
   }
-  const [deleted] = await executor.delete(customers).where(eq(customers.id, id)).returning();
+  const [deleted] = await executor
+    .delete(customers)
+    .where(eq(customers.id, id))
+    .returning();
   if (!deleted) {
     throw new ORPCError("NOT_FOUND", { message: "Client introuvable" });
   }

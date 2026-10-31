@@ -1,4 +1,9 @@
-import { PAYMENT_METHODS, PAYMENT_TYPES, SALE_STATUSES } from "@G-stock/core/enums";
+import {
+  PAYMENT_METHODS,
+  PAYMENT_TYPES,
+  RETURN_REFUND_METHODS,
+  SALE_STATUSES,
+} from "@G-stock/core/enums";
 import { z } from "zod";
 
 import { idSchema, optionalText, reasonSchema, sortSchema } from "./common";
@@ -18,7 +23,10 @@ export type SaleLineInput = z.input<typeof saleLineSchema>;
 
 export const saleInputSchema = z.object({
   customerId: idSchema,
-  lines: z.array(saleLineSchema).min(1, "Ajoutez au moins un produit").max(MAX_LINES),
+  lines: z
+    .array(saleLineSchema)
+    .min(1, "Ajoutez au moins un produit")
+    .max(MAX_LINES),
   notes: optionalText(1000),
   /** Montant encaissé à la vente : ignoré au comptant (le total est encaissé). */
   paidFcfa: fcfaAmount.min(0, "Le montant ne peut pas être négatif").default(0),
@@ -28,21 +36,71 @@ export const saleInputSchema = z.object({
 });
 export type SaleInput = z.output<typeof saleInputSchema>;
 
+/** Modification d'une vente enregistrée : les lignes absentes sont retirées, motif obligatoire. */
+export const saleUpdateSchema = z.object({
+  id: idSchema,
+  items: z
+    .array(
+      saleLineSchema.extend({
+        /** Ligne existante à modifier ; absente pour une ligne ajoutée. */
+        id: idSchema.nullish(),
+      })
+    )
+    .min(1, "Une vente doit garder au moins un produit")
+    .max(MAX_LINES),
+  notes: optionalText(1000),
+  reason: reasonSchema,
+  saleDate: z.date(),
+});
+export type SaleUpdateInput = z.output<typeof saleUpdateSchema>;
+
+/** Reprise d'articles : ce qui revient, ce qui repart en stock et l'argent rendu. */
+export const saleReturnSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        qty: z.number().positive("La quantité doit être supérieure à zéro"),
+        /** Remise en stock ; sinon la marchandise est perdue (casse, invendable). */
+        restocked: z.boolean().default(true),
+        saleItemId: idSchema,
+      })
+    )
+    .min(1, "Choisissez au moins un article repris")
+    .max(MAX_LINES),
+  reason: reasonSchema,
+  refundMethod: z.enum(RETURN_REFUND_METHODS).default("credit"),
+  returnDate: z.date(),
+  saleId: idSchema,
+});
+export type SaleReturnInput = z.output<typeof saleReturnSchema>;
+
 /** Aperçu du coût FIFO et du stock disponible, sans rien écrire. */
 export const saleQuoteSchema = z.object({
-  lines: z.array(z.object({ productId: idSchema, qty: z.number().min(0) })).max(MAX_LINES),
+  lines: z
+    .array(z.object({ productId: idSchema, qty: z.number().min(0) }))
+    .max(MAX_LINES),
 });
 
 export const PAYMENT_STATES = ["paid", "due"] as const;
 
 /** Colonnes de tri de l'historique des ventes. */
-export const SALE_SORT_COLUMNS = ["saleDate", "reference", "customerName", "netFcfa"] as const;
+export const SALE_SORT_COLUMNS = [
+  "saleDate",
+  "reference",
+  "customerName",
+  "netFcfa",
+] as const;
 
 export const saleListSchema = z.object({
   customerId: idSchema.nullish(),
   from: z.date().nullish(),
   page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+  pageSize: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_PAGE_SIZE)
+    .default(DEFAULT_PAGE_SIZE),
   paymentState: z.enum(PAYMENT_STATES).nullish(),
   productId: idSchema.nullish(),
   search: z.string().trim().nullish(),
@@ -82,6 +140,14 @@ export const paymentInputSchema = z.object({
   saleId: idSchema.nullish(),
 });
 export type PaymentInput = z.output<typeof paymentInputSchema>;
+
+/** Correction d'un paiement déjà saisi : mêmes champs, mais rien n'est recréé. */
+export const paymentUpdateSchema = paymentInputSchema
+  .omit({ customerId: true })
+  .extend({
+    id: idSchema,
+  });
+export type PaymentUpdateInput = z.output<typeof paymentUpdateSchema>;
 
 /** Relevé des paiements : fenêtre en mois, 12 par défaut (le calendrier en couvre 12). */
 export const paymentLedgerSchema = z.object({

@@ -6,12 +6,15 @@ import {
   paymentCancelSchema,
   paymentInputSchema,
   paymentLedgerSchema,
+  paymentUpdateSchema,
   productSalesSummarySchema,
   saleCancelSchema,
   saleDiscountSchema,
   saleInputSchema,
   saleListSchema,
   saleQuoteSchema,
+  saleReturnSchema,
+  saleUpdateSchema,
 } from "../schemas/sales";
 import { invalidateLedgers } from "../services/customers";
 import {
@@ -20,6 +23,7 @@ import {
   cancelSale,
   createPayment,
   createSale,
+  createSaleReturn,
   getSale,
   listPayments,
   listSales,
@@ -30,6 +34,8 @@ import {
   salesByHour,
   salesSummary,
   salesTrends,
+  updatePayment,
+  updateSale,
 } from "../services/sales";
 
 const MAX_ACTIVITY_DAYS = 731;
@@ -42,31 +48,37 @@ export const salesRouter = {
         customerId: idSchema.nullish(),
         days: z.number().int().min(7).max(MAX_ACTIVITY_DAYS),
         productId: idSchema.nullish(),
-      }),
+      })
     )
     .handler(({ context, input: { days, ...filters } }) =>
-      salesActivity(context.db, days, filters),
+      salesActivity(context.db, days, filters)
     ),
 
   addDiscount: protectedProcedure
     .input(saleDiscountSchema)
-    .handler(({ context, input }) => addSaleDiscount(context.db, input, context.session.user.id)),
+    .handler(({ context, input }) =>
+      addSaleDiscount(context.db, input, context.session.user.id)
+    ),
 
   byHour: protectedProcedure.handler(({ context }) => salesByHour(context.db)),
 
-  cancel: protectedProcedure.input(saleCancelSchema).handler(async ({ context, input }) => {
-    const result = await context.db.transaction((tx) =>
-      cancelSale(tx, input, context.session.user.id),
-    );
-    // Après la validation : les comptes en mémoire ne doivent pas garder l'état d'avant.
-    invalidateLedgers();
-    return result;
-  }),
+  cancel: protectedProcedure
+    .input(saleCancelSchema)
+    .handler(async ({ context, input }) => {
+      const result = await context.db.transaction((tx) =>
+        cancelSale(tx, input, context.session.user.id)
+      );
+      // Après la validation : les comptes en mémoire ne doivent pas garder l'état d'avant.
+      invalidateLedgers();
+      return result;
+    }),
 
   create: protectedProcedure
     .input(saleInputSchema)
     .handler(({ context, input }) =>
-      context.db.transaction((tx) => createSale(tx, input, context.session.user.id)),
+      context.db.transaction((tx) =>
+        createSale(tx, input, context.session.user.id)
+      )
     ),
 
   get: protectedProcedure
@@ -85,16 +97,41 @@ export const salesRouter = {
     .input(saleQuoteSchema)
     .handler(({ context, input }) => quoteSale(context.db, input.lines)),
 
-  summary: protectedProcedure.handler(({ context }) => salesSummary(context.db)),
+  /** Reprise d'articles : stock, total de la vente et trace, dans une seule transaction. */
+  return: protectedProcedure
+    .input(saleReturnSchema)
+    .handler(async ({ context, input }) => {
+      const result = await context.db.transaction((tx) =>
+        createSaleReturn(tx, input, context.session.user.id)
+      );
+      invalidateLedgers();
+      return result;
+    }),
+
+  summary: protectedProcedure.handler(({ context }) =>
+    salesSummary(context.db)
+  ),
 
   trends: protectedProcedure
     .input(
       z.object({
         by: z.enum(["customer", "product"]),
         weeks: z.number().int().min(1).max(MAX_TREND_WEEKS),
-      }),
+      })
     )
-    .handler(({ context, input }) => salesTrends(context.db, input.by, input.weeks)),
+    .handler(({ context, input }) =>
+      salesTrends(context.db, input.by, input.weeks)
+    ),
+
+  update: protectedProcedure
+    .input(saleUpdateSchema)
+    .handler(async ({ context, input }) => {
+      const result = await context.db.transaction((tx) =>
+        updateSale(tx, input, context.session.user.id)
+      );
+      invalidateLedgers();
+      return result;
+    }),
 };
 
 export const paymentsRouter = {
@@ -104,7 +141,9 @@ export const paymentsRouter = {
 
   create: protectedProcedure
     .input(paymentInputSchema)
-    .handler(({ context, input }) => createPayment(context.db, input, context.session.user.id)),
+    .handler(({ context, input }) =>
+      createPayment(context.db, input, context.session.user.id)
+    ),
 
   ledger: protectedProcedure
     .input(paymentLedgerSchema)
@@ -112,5 +151,11 @@ export const paymentsRouter = {
 
   list: protectedProcedure
     .input(z.object({ customerId: idSchema }))
-    .handler(({ context, input }) => listPayments(context.db, input.customerId)),
+    .handler(({ context, input }) =>
+      listPayments(context.db, input.customerId)
+    ),
+
+  update: protectedProcedure
+    .input(paymentUpdateSchema)
+    .handler(({ context, input }) => updatePayment(context.db, input)),
 };

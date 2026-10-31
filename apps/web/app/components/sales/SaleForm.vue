@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { uuidv7 } from "@G-stock/core/ids";
 import { saleInputSchema, saleLineSchema } from "@G-stock/api/schemas/sales";
 import type { PaymentMethod, PaymentType } from "@G-stock/core/enums";
 import { formatFcfa, formatQty } from "@G-stock/core/format";
+import { uuidv7 } from "@G-stock/core/ids";
 import { PAYMENT_METHOD_LABELS } from "@G-stock/core/labels";
 import { lineAmountFcfa } from "@G-stock/core/sales";
 import type { FormSubmitEvent, RadioGroupItem } from "@nuxt/ui";
@@ -12,10 +12,16 @@ import { z } from "zod";
 import DateField from "~/components/common/DateField.vue";
 import CustomerFormModal from "~/components/customers/CustomerFormModal.vue";
 
-const { customerId, formId = "sale-form" } = defineProps<{
+const {
+  customerId,
+  formId = "sale-form",
+  initialLines = [],
+} = defineProps<{
   /** Client choisi d'avance (depuis la fiche client). */
   customerId?: string;
   formId?: string;
+  /** Lignes pré-remplies : articles repris qu'on revend tout de suite à un autre client. */
+  initialLines?: { productId: string; qty: number }[];
 }>();
 const emit = defineEmits<{ saved: [id: string] }>();
 
@@ -36,7 +42,7 @@ const formSchema = saleInputSchema
       .array(
         saleLineSchema.extend({
           productId: z.uuid({ error: "Choisissez un produit" }),
-        }),
+        })
       )
       .min(1, "Ajoutez au moins un produit"),
     notes: z.string().max(1000, "1000 caractères maximum"),
@@ -45,7 +51,7 @@ const formSchema = saleInputSchema
   .superRefine((sale, ctx) => {
     const total = sale.lines.reduce(
       (sum, line) => sum + lineAmountFcfa(line.qty, line.unitPriceFcfa),
-      0,
+      0
     );
     if (sale.paymentType === "credit" && sale.paidFcfa > total) {
       ctx.addIssue({
@@ -64,9 +70,12 @@ interface SaleLineState {
   unitPriceFcfa: number;
 }
 
-const newLine = (): SaleLineState => {
-  return { key: uuidv7(), productId: undefined, qty: 1, unitPriceFcfa: 0 };
-};
+const newLine = (): SaleLineState => ({
+  key: uuidv7(),
+  productId: undefined,
+  qty: 1,
+  unitPriceFcfa: 0,
+});
 
 const state = reactive({
   customerId: customerId as string | undefined,
@@ -83,22 +92,32 @@ type SaleFormState = typeof state;
 const draft = takeFormDraft<SaleFormState>("sale");
 if (draft) {
   Object.assign(state, draft);
+} else if (initialLines.length > 0) {
+  // Articles repris : ils repartent chez un autre client, avec le prix conseillé du produit.
+  state.lines = initialLines.map((line) => ({
+    key: uuidv7(),
+    productId: line.productId,
+    qty: line.qty,
+    unitPriceFcfa: 0,
+  }));
 }
 
 // Listes de choix
 const customers = useQuery($orpc.customers.list.queryOptions({ input: {} }));
 const products = useQuery($orpc.products.list.queryOptions({ input: {} }));
-const productsById = computed(() => new Map((products.data.value ?? []).map((p) => [p.id, p])));
+const productsById = computed(
+  () => new Map((products.data.value ?? []).map((p) => [p.id, p]))
+);
 
 const customerItems = computed(() =>
   (customers.data.value ?? []).map((customer) => ({
     label: customer.name,
     suffix: customer.phone ?? undefined,
     value: customer.id,
-  })),
+  }))
 );
 const selectedCustomer = computed(() =>
-  customers.data.value?.find((customer) => customer.id === state.customerId),
+  customers.data.value?.find((customer) => customer.id === state.customerId)
 );
 const productItems = computed(() =>
   (products.data.value ?? []).map((product) => ({
@@ -106,7 +125,7 @@ const productItems = computed(() =>
     label: product.name,
     suffix: `${formatQty(product.stockQty, product.unit)} en stock`,
     value: product.id,
-  })),
+  }))
 );
 
 const paymentTypeItems: RadioGroupItem[] = [
@@ -121,10 +140,12 @@ const paymentTypeItems: RadioGroupItem[] = [
     value: "credit",
   },
 ];
-const methodItems = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
-  label,
-  value,
-}));
+const methodItems = Object.entries(PAYMENT_METHOD_LABELS).map(
+  ([value, label]) => ({
+    label,
+    value,
+  })
+);
 
 // Lignes
 const addLine = () => {
@@ -134,11 +155,22 @@ const removeLine = (key: string) => {
   state.lines = state.lines.filter((line) => line.key !== key);
 };
 const onProductChange = (line: SaleLineState) => {
-  const product = line.productId ? productsById.value.get(line.productId) : undefined;
+  const product = line.productId
+    ? productsById.value.get(line.productId)
+    : undefined;
   if (product?.suggestedSalePriceFcfa && !line.unitPriceFcfa) {
     line.unitPriceFcfa = product.suggestedSalePriceFcfa;
   }
 };
+
+// Les lignes pré-remplies attendent la liste des produits pour recevoir le prix conseillé.
+watch(productsById, () => {
+  for (const line of state.lines) {
+    if (!line.unitPriceFcfa) {
+      onProductChange(line);
+    }
+  }
+});
 
 // Coût FIFO prévisionnel, calculé par le serveur sur les lots réels.
 const quoteRequest = computed(() =>
@@ -148,7 +180,7 @@ const quoteRequest = computed(() =>
       key: line.key,
       productId: line.productId as string,
       qty: line.qty,
-    })),
+    }))
 );
 const debouncedQuote = refDebounced(quoteRequest, QUOTE_DEBOUNCE_MS);
 const quote = useQuery(
@@ -163,11 +195,13 @@ const quote = useQuery(
     }),
     enabled: debouncedQuote.value.length > 0,
     placeholderData: keepPreviousData,
-  })),
+  }))
 );
 const quoteByKey = computed(() => {
   const results = quote.data.value ?? [];
-  return new Map(debouncedQuote.value.map((line, index) => [line.key, results[index]]));
+  return new Map(
+    debouncedQuote.value.map((line, index) => [line.key, results[index]])
+  );
 });
 
 const lineView = (line: SaleLineState) => {
@@ -179,7 +213,9 @@ const lineView = (line: SaleLineState) => {
     costFcfa,
     marginFcfa: costFcfa === null ? null : amountFcfa - costFcfa,
     missingQty: result?.missingQty ?? 0,
-    unit: line.productId ? productsById.value.get(line.productId)?.unit : undefined,
+    unit: line.productId
+      ? productsById.value.get(line.productId)?.unit
+      : undefined,
   };
 };
 
@@ -192,7 +228,9 @@ const totals = computed(() => {
     costFcfa += view.costFcfa ?? 0;
   }
   const paidFcfa =
-    state.paymentType === "cash" ? totalFcfa : Math.min(state.paidFcfa || 0, totalFcfa);
+    state.paymentType === "cash"
+      ? totalFcfa
+      : Math.min(state.paidFcfa || 0, totalFcfa);
   return {
     costFcfa,
     dueFcfa: totalFcfa - paidFcfa,
@@ -201,9 +239,12 @@ const totals = computed(() => {
     totalFcfa,
   };
 });
-const hasMissingStock = computed(() => state.lines.some((line) => lineView(line).missingQty > 0));
+const hasMissingStock = computed(() =>
+  state.lines.some((line) => lineView(line).missingQty > 0)
+);
 const lossLines = computed(
-  () => state.lines.filter((line) => (lineView(line).marginFcfa ?? 0) < 0).length,
+  () =>
+    state.lines.filter((line) => (lineView(line).marginFcfa ?? 0) < 0).length
 );
 
 // Création rapide d'un client
@@ -239,7 +280,13 @@ defineExpose({
 
 <template>
   <div>
-    <UForm :id="formId" :schema="formSchema" :state="state" class="space-y-6" @submit="onSubmit">
+    <UForm
+      :id="formId"
+      :schema="formSchema"
+      :state="state"
+      class="space-y-6"
+      @submit="onSubmit"
+    >
       <UPageCard variant="subtle" title="Client">
         <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
           <UFormField label="Client" name="customerId" required>
@@ -260,7 +307,10 @@ defineExpose({
                 @click="customerModalOpen = true"
               />
             </div>
-            <template v-if="selectedCustomer && selectedCustomer.dueFcfa > 0" #help>
+            <template
+              v-if="selectedCustomer && selectedCustomer.dueFcfa > 0"
+              #help
+            >
               <span class="text-warning">
                 Doit déjà {{ formatFcfa(selectedCustomer.dueFcfa) }}
                 <template v-if="selectedCustomer.daysOverdue !== null">
@@ -281,7 +331,8 @@ defineExpose({
         :ui="{ container: 'lg:grid-cols-[minmax(0,1fr)]', wrapper: 'min-w-0' }"
       >
         <template #description>
-          Prix conseillé pré-rempli, modifiable. Le coût vient des lots les plus anciens (FIFO).
+          Prix conseillé pré-rempli, modifiable. Le coût vient des lots les plus
+          anciens (FIFO).
         </template>
 
         <UFormField name="lines">
@@ -301,7 +352,11 @@ defineExpose({
                 </tr>
               </thead>
               <tbody class="divide-default divide-y">
-                <tr v-for="(line, index) in state.lines" :key="line.key" class="align-top">
+                <tr
+                  v-for="(line, index) in state.lines"
+                  :key="line.key"
+                  class="align-top"
+                >
                   <td class="px-3 py-2">
                     <UFormField :name="`lines.${index}.productId`">
                       <USelectMenu
@@ -324,11 +379,22 @@ defineExpose({
                         class="w-full"
                       />
                     </UFormField>
-                    <p v-if="lineView(line).missingQty > 0" class="text-error mt-1 text-xs">
+                    <p
+                      v-if="lineView(line).missingQty > 0"
+                      class="text-error mt-1 text-xs"
+                    >
                       Manque
-                      {{ formatQty(lineView(line).missingQty, lineView(line).unit) }}
+                      {{
+                        formatQty(
+                          lineView(line).missingQty,
+                          lineView(line).unit
+                        )
+                      }}
                     </p>
-                    <p v-else-if="lineView(line).unit" class="text-dimmed mt-1 text-xs">
+                    <p
+                      v-else-if="lineView(line).unit"
+                      class="text-dimmed mt-1 text-xs"
+                    >
                       {{ lineView(line).unit }}
                     </p>
                   </td>
@@ -344,7 +410,9 @@ defineExpose({
                       />
                     </UFormField>
                   </td>
-                  <td class="text-highlighted px-3 py-3 text-right font-medium tabular-nums">
+                  <td
+                    class="text-highlighted px-3 py-3 text-right font-medium tabular-nums"
+                  >
                     {{ formatFcfa(lineView(line).amountFcfa) }}
                   </td>
                   <td class="text-muted px-3 py-3 text-right tabular-nums">
@@ -365,7 +433,10 @@ defineExpose({
                       >
                         {{ formatFcfa(lineView(line).marginFcfa ?? 0) }}
                       </span>
-                      <p v-if="(lineView(line).marginFcfa ?? 0) < 0" class="text-error text-xs">
+                      <p
+                        v-if="(lineView(line).marginFcfa ?? 0) < 0"
+                        class="text-error text-xs"
+                      >
                         sous le coût
                       </p>
                     </template>
@@ -388,7 +459,12 @@ defineExpose({
         </UFormField>
 
         <div class="flex flex-wrap items-center gap-2">
-          <UButton variant="soft" :icon="icons.plus" label="Ajouter un produit" @click="addLine" />
+          <UButton
+            variant="soft"
+            :icon="icons.plus"
+            label="Ajouter un produit"
+            @click="addLine"
+          />
         </div>
 
         <UAlert
@@ -432,16 +508,30 @@ defineExpose({
                 />
               </UFormField>
               <UFormField label="Moyen de paiement" name="paymentMethod">
-                <USelect v-model="state.paymentMethod" :items="methodItems" class="w-full" />
+                <USelect
+                  v-model="state.paymentMethod"
+                  :items="methodItems"
+                  class="w-full"
+                />
               </UFormField>
             </div>
             <UFormField label="Notes" name="notes">
-              <UTextarea v-model="state.notes" :rows="2" autoresize class="w-full" />
+              <UTextarea
+                v-model="state.notes"
+                :rows="2"
+                autoresize
+                class="w-full"
+              />
             </UFormField>
           </div>
         </UPageCard>
 
-        <UPageCard variant="subtle" title="Récapitulatif" :icon="icons.sale" class="lg:self-start">
+        <UPageCard
+          variant="subtle"
+          title="Récapitulatif"
+          :icon="icons.sale"
+          class="lg:self-start"
+        >
           <dl class="space-y-2 text-sm">
             <div class="flex justify-between gap-4">
               <dt class="text-muted">Total</dt>
@@ -474,7 +564,9 @@ defineExpose({
               <dt class="text-muted">Reste dû</dt>
               <dd
                 class="font-semibold tabular-nums"
-                :class="totals.dueFcfa > 0 ? 'text-warning' : 'text-highlighted'"
+                :class="
+                  totals.dueFcfa > 0 ? 'text-warning' : 'text-highlighted'
+                "
               >
                 {{ formatFcfa(totals.dueFcfa) }}
               </dd>
@@ -484,6 +576,9 @@ defineExpose({
       </div>
     </UForm>
 
-    <CustomerFormModal v-model:open="customerModalOpen" @saved="onCustomerCreated" />
+    <CustomerFormModal
+      v-model:open="customerModalOpen"
+      @saved="onCustomerCreated"
+    />
   </div>
 </template>

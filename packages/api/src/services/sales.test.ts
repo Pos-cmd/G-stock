@@ -4,9 +4,18 @@ import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
-import type { SaleInput } from "../schemas/sales";
+import type {
+  SaleInput,
+  SaleReturnInput,
+  SaleUpdateInput,
+} from "../schemas/sales";
 import { useTestDatabase } from "../testing/database";
-import { createCustomer, getCustomer, listCustomers, removeCustomer } from "./customers";
+import {
+  createCustomer,
+  getCustomer,
+  listCustomers,
+  removeCustomer,
+} from "./customers";
 import { createProduct, getProduct } from "./products";
 import {
   addSaleDiscount,
@@ -14,6 +23,7 @@ import {
   cancelSale,
   createPayment,
   createSale,
+  createSaleReturn,
   getSale,
   listPayments,
   listSales,
@@ -24,6 +34,8 @@ import {
   salesByHour,
   salesSummary,
   salesTrends,
+  updatePayment,
+  updateSale,
 } from "./sales";
 import { createLot, listMovements } from "./stock";
 
@@ -53,7 +65,12 @@ const newProduct = (name: string) =>
 const newCustomer = (name: string) =>
   createCustomer(db, { address: null, name, notes: null, phone: null });
 
-const entry = (productId: number, qty: number, unitCostFcfa: number, receivedAt: Date) =>
+const entry = (
+  productId: number,
+  qty: number,
+  unitCostFcfa: number,
+  receivedAt: Date
+) =>
   db.transaction((tx) =>
     createLot(tx, {
       productId,
@@ -61,7 +78,7 @@ const entry = (productId: number, qty: number, unitCostFcfa: number, receivedAt:
       receivedAt,
       source: "initial",
       unitCostFcfa,
-    }),
+    })
   );
 
 /** Wax : 5 rouleaux à 1 000 (janvier) puis 10 à 1 200 (février). */
@@ -76,7 +93,9 @@ const setup = async () => {
   return { awa, bazin, moussa, newLot, oldLot, wax };
 };
 
-const sell = (input: Partial<SaleInput> & Pick<SaleInput, "customerId" | "lines">) =>
+const sell = (
+  input: Partial<SaleInput> & Pick<SaleInput, "customerId" | "lines">
+) =>
   db.transaction((tx) =>
     createSale(tx, {
       notes: null,
@@ -85,7 +104,7 @@ const sell = (input: Partial<SaleInput> & Pick<SaleInput, "customerId" | "lines"
       paymentType: "cash",
       saleDate: MARCH_1,
       ...input,
-    }),
+    })
   );
 
 const stockOf = async (productId: number) => {
@@ -99,7 +118,10 @@ const saleDue = async (saleId: number) => {
 };
 
 const lotQty = async (lotId: number) => {
-  const [lot] = await db.select().from(stockLots).where(eq(stockLots.id, lotId));
+  const [lot] = await db
+    .select()
+    .from(stockLots)
+    .where(eq(stockLots.id, lotId));
   return lot?.qtyRemaining;
 };
 
@@ -160,7 +182,7 @@ describe("createSale", () => {
           { productId: bazin.id, qty: 2, unitPriceFcfa: 800 },
           { productId: wax.id, qty: 50, unitPriceFcfa: 1500 },
         ],
-      }),
+      })
     ).rejects.toThrow("Wax — Stock insuffisant");
     expect(await lotQty(oldLot.id)).toBe(5);
     expect(await stockOf(bazin.id)).toBe(20);
@@ -177,7 +199,7 @@ describe("createSale", () => {
         lines: [{ productId: wax.id, qty: 1, unitPriceFcfa: 1500 }],
         paidFcfa: 5000,
         paymentType: "credit",
-      }),
+      })
     ).rejects.toThrow("L'acompte dépasse");
   });
 });
@@ -208,7 +230,7 @@ describe("annulation et remise", () => {
       lines: [{ productId: wax.id, qty: 8, unitPriceFcfa: 1500 }],
     });
     const result = await db.transaction((tx) =>
-      cancelSale(tx, { id: sale.id, reason: "Erreur de saisie" }),
+      cancelSale(tx, { id: sale.id, reason: "Erreur de saisie" })
     );
     expect(result.cancelledPaymentsFcfa).toBe(12_000);
     expect(await lotQty(oldLot.id)).toBe(5);
@@ -217,7 +239,9 @@ describe("annulation et remise", () => {
     const detail = await getSale(db, sale.id);
     expect(detail.status).toBe("cancelled");
     expect(detail.cancelReason).toBe("Erreur de saisie");
-    expect(detail.payments.every((payment) => payment.cancelledAt !== null)).toBe(true);
+    expect(
+      detail.payments.every((payment) => payment.cancelledAt !== null)
+    ).toBe(true);
     const customer = await getCustomer(db, awa.id);
     expect(customer).toMatchObject({
       creditFcfa: 0,
@@ -226,7 +250,7 @@ describe("annulation et remise", () => {
     });
 
     await expect(
-      db.transaction((tx) => cancelSale(tx, { id: sale.id, reason: "Encore" })),
+      db.transaction((tx) => cancelSale(tx, { id: sale.id, reason: "Encore" }))
     ).rejects.toThrow("annulée");
   });
 
@@ -257,7 +281,7 @@ describe("annulation et remise", () => {
         discountDate: MARCH_10,
         reason: "Trop",
         saleId: sale.id,
-      }),
+      })
     ).rejects.toThrow("dépasse le montant net");
   });
 
@@ -404,7 +428,7 @@ describe("paiements", () => {
         notes: null,
         paymentDate: MARCH_10,
         saleId: sale.id,
-      }),
+      })
     ).rejects.toThrow("autre client");
     const rows = await db.select().from(payments).orderBy(asc(payments.id));
     expect(rows).toHaveLength(0);
@@ -454,7 +478,10 @@ describe("historique et fiche client", () => {
       pageSize: 25,
       productId: bazin.id,
     });
-    expect(byProduct.items.map((sale) => sale.customerName)).toEqual(["Awa", "Awa"]);
+    expect(byProduct.items.map((sale) => sale.customerName)).toEqual([
+      "Awa",
+      "Awa",
+    ]);
 
     const inMarch = await listSales(db, {
       from: MARCH_1,
@@ -470,14 +497,21 @@ describe("historique et fiche client", () => {
       paymentState: "due",
     });
     expect(due.items.map((sale) => sale.reference)).toEqual(["V-2026-00002"]);
-    expect(due.items[0]?.lines.map((line) => line.productName)).toEqual(["Bazin"]);
+    expect(due.items[0]?.lines.map((line) => line.productName)).toEqual([
+      "Bazin",
+    ]);
   });
 
   it("résume les achats d'un client produit par produit", async () => {
     const { awa } = await seedHistory();
     const summary = await productSalesSummary(db, { customerId: awa.id });
     expect(
-      summary.map((row) => [row.productName, row.qty, row.revenueFcfa, row.saleCount]),
+      summary.map((row) => [
+        row.productName,
+        row.qty,
+        row.revenueFcfa,
+        row.saleCount,
+      ])
     ).toEqual([
       ["Bazin", 10, 7700, 2],
       ["Wax", 2, 3000, 1],
@@ -490,7 +524,9 @@ describe("historique et fiche client", () => {
     const debtors = await listCustomers(db, { withDebtOnly: true });
     expect(debtors.map((customer) => customer.name)).toEqual(["Awa"]);
     expect(debtors[0]?.dueFcfa).toBe(4500);
-    await expect(removeCustomer(db, moussa.id)).rejects.toThrow("historique de ventes");
+    await expect(removeCustomer(db, moussa.id)).rejects.toThrow(
+      "historique de ventes"
+    );
     const awaAccount = await getCustomer(db, awa.id);
     expect(awaAccount.saleCount).toBe(2);
   });
@@ -515,7 +551,11 @@ describe("historique et fiche client", () => {
       revenueFcfa: 4500,
       saleCount: 1,
     });
-    expect(days.at(-1)).toMatchObject({ date: "2026-03-10", revenueFcfa: 1600, saleCount: 1 });
+    expect(days.at(-1)).toMatchObject({
+      date: "2026-03-10",
+      revenueFcfa: 1600,
+      saleCount: 1,
+    });
     expect(days.slice(1, -1).every((day) => day.saleCount === 0)).toBe(true);
   });
 
@@ -528,7 +568,7 @@ describe("historique et fiche client", () => {
       sort: { desc: false, id: "netFcfa" },
     });
     expect(byAmount.items.map((sale) => sale.netFcfa)).toEqual(
-      byDate.items.map((sale) => sale.netFcfa).toSorted((a, b) => a - b),
+      byDate.items.map((sale) => sale.netFcfa).toSorted((a, b) => a - b)
     );
     expect(byAmount.totals).toEqual(byDate.totals);
     expect(byAmount.total).toBe(3);
@@ -542,7 +582,9 @@ describe("historique et fiche client", () => {
     if (!credit) {
       throw new Error("Vente à crédit introuvable");
     }
-    await db.transaction((tx) => cancelSale(tx, { id: credit.id, reason: "Erreur de saisie" }));
+    await db.transaction((tx) =>
+      cancelSale(tx, { id: credit.id, reason: "Erreur de saisie" })
+    );
     const after = await listSales(db, { page: 1, pageSize: 25 });
     expect(after.totals.dueFcfa).toBe(0);
   });
@@ -550,13 +592,27 @@ describe("historique et fiche client", () => {
   it("filtre l'activité par produit et par client", async () => {
     const { bazin, moussa } = await seedHistory();
     const march = new Date(2026, 2, 10, 18);
-    const bazinDays = await salesActivity(db, 10, { productId: bazin.id }, march);
-    expect(bazinDays[0]).toMatchObject({ qty: 6, revenueFcfa: 4500, saleCount: 1 });
+    const bazinDays = await salesActivity(
+      db,
+      10,
+      { productId: bazin.id },
+      march
+    );
+    expect(bazinDays[0]).toMatchObject({
+      qty: 6,
+      revenueFcfa: 4500,
+      saleCount: 1,
+    });
     expect(bazinDays.at(-1)?.saleCount).toBe(0);
-    const moussaDays = await salesActivity(db, 10, { customerId: moussa.id }, march);
-    expect(moussaDays.filter((day) => day.saleCount > 0).map((day) => day.date)).toEqual([
-      "2026-03-10",
-    ]);
+    const moussaDays = await salesActivity(
+      db,
+      10,
+      { customerId: moussa.id },
+      march
+    );
+    expect(
+      moussaDays.filter((day) => day.saleCount > 0).map((day) => day.date)
+    ).toEqual(["2026-03-10"]);
   });
 
   it("donne la tendance par produit et par client, semaine par semaine", async () => {
@@ -568,7 +624,9 @@ describe("historique et fiche client", () => {
     expect(bazinTrend?.current).toEqual([4500, 0]);
     expect(bazinTrend?.currentQty).toBe(6);
     const byCustomer = await salesTrends(db, "customer", 2, march10);
-    expect(byCustomer.find((row) => row.id === moussa.id)?.current).toEqual([0, 1600]);
+    expect(byCustomer.find((row) => row.id === moussa.id)?.current).toEqual([
+      0, 1600,
+    ]);
     expect(byCustomer.find((row) => row.id === awa.id)?.currentQty).toBe(1);
   });
 
@@ -647,5 +705,408 @@ describe("mouvements de vente", () => {
       type: "in",
     });
     expect(none).toHaveLength(0);
+  });
+});
+
+describe("modification d'une vente", () => {
+  const update = (
+    input: Omit<SaleUpdateInput, "notes" | "reason"> & { reason?: string }
+  ) =>
+    db.transaction((tx) =>
+      updateSale(tx, {
+        notes: null,
+        reason: "oubli",
+        ...input,
+      })
+    );
+
+  it("ajoute une ligne oubliée et prélève le stock en FIFO", async () => {
+    const { awa, bazin, oldLot, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 3, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+    const line = detail.items[0];
+
+    await update({
+      id: sale.id,
+      items: [
+        {
+          id: line?.id,
+          productId: wax.id,
+          qty: 3,
+          unitPriceFcfa: 1500,
+        },
+        { productId: bazin.id, qty: 2, unitPriceFcfa: 800 },
+      ],
+      saleDate: MARCH_1,
+    });
+
+    const after = await getSale(db, sale.id);
+    expect(after.items.map((item) => item.qty)).toEqual([3, 2]);
+    expect(after.summary.netFcfa).toBe(6100);
+    // Le stock du Bazin suit la nouvelle ligne, celui du Wax ne bouge pas.
+    expect(await stockOf(bazin.id)).toBe(18);
+    expect(await lotQty(oldLot.id)).toBe(2);
+    expect(after.revisions).toHaveLength(1);
+    expect(after.revisions[0]?.summary).toContain("total");
+  });
+
+  it("réduit une quantité et rend la marchandise dans ses lots d'origine", async () => {
+    const { awa, newLot, oldLot, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 8, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+    expect(await stockOf(wax.id)).toBe(7);
+
+    await update({
+      id: sale.id,
+      items: [
+        {
+          id: detail.items[0]?.id,
+          productId: wax.id,
+          qty: 3,
+          unitPriceFcfa: 1500,
+        },
+      ],
+      saleDate: MARCH_1,
+    });
+
+    const after = await getSale(db, sale.id);
+    // 5 rendus : les 3 derniers prélevés (lot de février) puis 2 du lot de janvier.
+    expect(await lotQty(newLot.id)).toBe(10);
+    expect(await lotQty(oldLot.id)).toBe(2);
+    expect(await stockOf(wax.id)).toBe(12);
+    expect(after.items[0]?.costFcfa).toBe(3000);
+    expect(after.summary.netFcfa).toBe(4500);
+  });
+
+  it("retire une ligne et remet tout son stock", async () => {
+    const { awa, bazin, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [
+        { productId: wax.id, qty: 2, unitPriceFcfa: 1500 },
+        { productId: bazin.id, qty: 4, unitPriceFcfa: 800 },
+      ],
+    });
+    const detail = await getSale(db, sale.id);
+    const kept = detail.items.find((item) => item.productId === wax.id);
+
+    await update({
+      id: sale.id,
+      items: [
+        {
+          id: kept?.id,
+          productId: wax.id,
+          qty: 2,
+          unitPriceFcfa: 1500,
+        },
+      ],
+      saleDate: MARCH_1,
+    });
+
+    const after = await getSale(db, sale.id);
+    expect(after.items).toHaveLength(1);
+    expect(await stockOf(bazin.id)).toBe(20);
+    expect(after.summary.netFcfa).toBe(3000);
+    expect(after.revisions[0]?.summary).toContain("ligne retirée");
+  });
+
+  it("refuse une hausse au-delà du stock disponible", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 2, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+
+    await expect(
+      update({
+        id: sale.id,
+        items: [
+          {
+            id: detail.items[0]?.id,
+            productId: wax.id,
+            qty: 40,
+            unitPriceFcfa: 1500,
+          },
+        ],
+        saleDate: MARCH_1,
+      })
+    ).rejects.toThrow("Stock insuffisant");
+    // Rien n'a bougé.
+    expect((await getSale(db, sale.id)).items[0]?.qty).toBe(2);
+    expect(await stockOf(wax.id)).toBe(13);
+  });
+
+  it("suit la nouvelle date de la vente dans les mouvements", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 1, unitPriceFcfa: 1500 }],
+      saleDate: MARCH_1,
+    });
+    const detail = await getSale(db, sale.id);
+
+    await update({
+      id: sale.id,
+      items: [
+        {
+          id: detail.items[0]?.id,
+          productId: wax.id,
+          qty: 1,
+          unitPriceFcfa: 1500,
+        },
+      ],
+      saleDate: MARCH_10,
+    });
+
+    const movements = await db
+      .select()
+      .from(stockMovements)
+      .where(eq(stockMovements.referenceType, "sale"));
+    expect(
+      movements.every((row) => row.occurredAt.getTime() === MARCH_10.getTime())
+    ).toBe(true);
+  });
+});
+
+describe("reprise d'articles", () => {
+  const giveBack = (
+    input: Partial<SaleReturnInput> & Pick<SaleReturnInput, "items" | "saleId">
+  ) =>
+    db.transaction((tx) =>
+      createSaleReturn(tx, {
+        reason: "article rendu",
+        refundMethod: "credit",
+        returnDate: MARCH_10,
+        ...input,
+      })
+    );
+
+  it("reprend une partie d'une vente : stock rendu, total corrigé, trace gardée", async () => {
+    const { awa, oldLot, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 10, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+    const line = detail.items[0];
+
+    const result = await giveBack({
+      items: [{ qty: 4, saleItemId: line?.id as number }],
+      saleId: sale.id,
+    });
+
+    expect(result.amountFcfa).toBe(6000);
+    const after = await getSale(db, sale.id);
+    expect(after.items[0]?.qty).toBe(6);
+    expect(after.summary.netFcfa).toBe(9000);
+    // Les 4 rendus repartent du lot le plus récemment prélevé : celui de février.
+    expect(await lotQty(oldLot.id)).toBe(0);
+    expect(await stockOf(wax.id)).toBe(9);
+    expect(after.returns).toHaveLength(1);
+    expect(after.returns[0]?.items[0]).toMatchObject({
+      productName: "Wax",
+      qty: 4,
+      restocked: true,
+    });
+    // L'avoir reste au client : la vente vaut moins que ce qu'il a payé.
+    const customer = await getCustomer(db, awa.id);
+    expect(customer).toMatchObject({ creditFcfa: 6000, dueFcfa: 0 });
+  });
+
+  it("date le retour dans les mouvements et le sort de la vente d'origine", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 6, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+    await giveBack({
+      items: [{ qty: 2, saleItemId: detail.items[0]?.id as number }],
+      saleId: sale.id,
+    });
+
+    const { items } = await listMovements(db, {
+      from: MARCH_10,
+      page: 1,
+      pageSize: 25,
+      to: MARCH_10,
+      type: "in",
+    });
+    expect(items).toHaveLength(2);
+    expect(items.reduce((sum, item) => sum + item.qty, 0)).toBe(2);
+    expect(items.every((item) => item.reason.includes("Reprise"))).toBe(true);
+    expect(items[0]?.party?.name).toBe("Awa");
+  });
+
+  it("déduit des encaissements l'argent rendu au client", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 4, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+
+    await giveBack({
+      items: [{ qty: 2, saleItemId: detail.items[0]?.id as number }],
+      refundMethod: "cash",
+      saleId: sale.id,
+    });
+
+    // 6 000 payés, 3 000 rendus : le client ne doit rien et n'a plus d'avoir.
+    const customer = await getCustomer(db, awa.id);
+    expect(customer).toMatchObject({ creditFcfa: 0, dueFcfa: 0 });
+  });
+
+  it("ne remet pas en stock la marchandise abîmée", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 4, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+    const before = await stockOf(wax.id);
+
+    await giveBack({
+      items: [
+        {
+          qty: 1,
+          restocked: false,
+          saleItemId: detail.items[0]?.id as number,
+        },
+      ],
+      saleId: sale.id,
+    });
+
+    expect(await stockOf(wax.id)).toBe(before);
+    expect((await getSale(db, sale.id)).items[0]?.qty).toBe(3);
+  });
+
+  it("refuse de reprendre plus que la quantité vendue", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 2, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+
+    await expect(
+      giveBack({
+        items: [{ qty: 5, saleItemId: detail.items[0]?.id as number }],
+        saleId: sale.id,
+      })
+    ).rejects.toThrow("Quantité reprise supérieure");
+  });
+
+  it("impute le remboursement au paiement de la vente reprise, pas au plus récent du client", async () => {
+    const { awa, wax } = await setup();
+    const first = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 4, unitPriceFcfa: 1500 }],
+      saleDate: JAN_1,
+    });
+    await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 2, unitPriceFcfa: 1500 }],
+      saleDate: FEB_1,
+    });
+    const detail = await getSale(db, first.id);
+
+    await giveBack({
+      items: [{ qty: 2, saleItemId: detail.items[0]?.id as number }],
+      refundMethod: "cash",
+      saleId: first.id,
+    });
+
+    // Chaque vente reste soldée : les 3 000 rendus viennent de la vente de janvier.
+    const after = await getSale(db, first.id);
+    expect(after.summary).toMatchObject({
+      dueFcfa: 0,
+      netFcfa: 3000,
+      paidFcfa: 3000,
+    });
+    const customer = await getCustomer(db, awa.id);
+    expect(customer).toMatchObject({ creditFcfa: 0, dueFcfa: 0 });
+  });
+
+  it("garde la reprise dans l'historique même quand l'article est vendu entièrement repris", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 3, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+
+    await giveBack({
+      items: [{ qty: 3, saleItemId: detail.items[0]?.id as number }],
+      saleId: sale.id,
+    });
+
+    const after = await getSale(db, sale.id);
+    expect(after.items).toHaveLength(0);
+    expect(after.summary.netFcfa).toBe(0);
+    expect(after.returns[0]?.amountFcfa).toBe(4500);
+    expect(await stockOf(wax.id)).toBe(15);
+  });
+});
+
+describe("correction d'un paiement", () => {
+  it("remplace le montant sans annuler puis recréer", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 4, unitPriceFcfa: 1500 }],
+      paidFcfa: 2000,
+      paymentType: "credit",
+    });
+    const detail = await getSale(db, sale.id);
+    const payment = detail.payments[0];
+    expect(payment).toBeDefined();
+
+    await updatePayment(db, {
+      amountFcfa: 4000,
+      id: payment?.id as number,
+      method: "mobile_money",
+      notes: "erreur de frappe",
+      paymentDate: MARCH_1,
+      saleId: sale.id,
+    });
+
+    const after = await getSale(db, sale.id);
+    expect(after.payments[0]).toMatchObject({
+      amountFcfa: 4000,
+      method: "mobile_money",
+      notes: "erreur de frappe",
+    });
+    expect(after.summary).toMatchObject({ dueFcfa: 2000, paidFcfa: 4000 });
+    expect(await saleDue(sale.id)).toBe(2000);
+  });
+
+  it("refuse de modifier un paiement annulé", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 2, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+    const payment = detail.payments[0];
+    await cancelPayment(db, { id: payment?.id as number, reason: "doublon" });
+
+    await expect(
+      updatePayment(db, {
+        amountFcfa: 1000,
+        id: payment?.id as number,
+        method: "cash",
+        notes: null,
+        paymentDate: MARCH_1,
+        saleId: sale.id,
+      })
+    ).rejects.toThrow("annulé");
   });
 });

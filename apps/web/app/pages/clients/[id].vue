@@ -26,7 +26,9 @@ const notify = useNotify();
 const invalidateSales = useInvalidateSales();
 
 const customer = useQuery(
-  computed(() => $orpc.customers.get.queryOptions({ input: { id: customerId.value } })),
+  computed(() =>
+    $orpc.customers.get.queryOptions({ input: { id: customerId.value } })
+  )
 );
 const data = computed(() => customer.data.value);
 
@@ -73,18 +75,23 @@ const confirmDelete = async () => {
     notify.error("Suppression impossible", error);
   }
 };
-
 </script>
 
 <template>
   <PagePanel
     id="customer-detail"
     :title="data?.name ?? 'Client'"
-    :description="data ? [data.phone, data.address].filter(Boolean).join(' · ') : undefined"
+    :description="
+      data ? [data.phone, data.address].filter(Boolean).join(' · ') : undefined
+    "
     :parents="[{ label: 'Clients', to: '/clients' }]"
   >
     <template #leading>
-      <UAvatar :alt="data?.name ?? 'Client'" size="xl" class="ring-default ring" />
+      <UAvatar
+        :alt="data?.name ?? 'Client'"
+        size="xl"
+        class="ring-default ring"
+      />
     </template>
     <template v-if="data?.receivableLevel && data.daysOverdue !== null" #badges>
       <ReceivableBadge :level="data.receivableLevel" :days="data.daysOverdue" />
@@ -116,7 +123,11 @@ const confirmDelete = async () => {
           @click="paymentOpen = true"
         />
       </UFieldGroup>
-      <UButton :icon="icons.sales" label="Nouvelle vente" @click="create.openSale(customerId)" />
+      <UButton
+        :icon="icons.sales"
+        label="Nouvelle vente"
+        @click="create.openSale(customerId)"
+      />
     </template>
 
     <UAlert
@@ -169,22 +180,28 @@ const confirmDelete = async () => {
       <UPageCard v-if="data" variant="subtle">
         <div class="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
           <span v-if="data.phone"
-            ><UIcon :name="icons.phone" class="text-dimmed me-1 align-middle" />{{
-              data.phone
-            }}</span
+            ><UIcon
+              :name="icons.phone"
+              class="text-dimmed me-1 align-middle"
+            />{{ data.phone }}</span
           >
           <span v-if="data.address"
-            ><UIcon :name="icons.address" class="text-dimmed me-1 align-middle" />{{
-              data.address
-            }}</span
+            ><UIcon
+              :name="icons.address"
+              class="text-dimmed me-1 align-middle"
+            />{{ data.address }}</span
           >
           <ReceivableBadge
             v-if="data.receivableLevel && data.daysOverdue !== null"
             :level="data.receivableLevel"
             :days="data.daysOverdue"
           />
-          <span v-if="data.notes" class="text-muted whitespace-pre-line">{{ data.notes }}</span>
-          <span v-if="!data.phone && !data.address && !data.notes" class="text-dimmed"
+          <span v-if="data.notes" class="text-muted whitespace-pre-line">{{
+            data.notes
+          }}</span>
+          <span
+            v-if="!data.phone && !data.address && !data.notes"
+            class="text-dimmed"
             >Aucune coordonnée.</span
           >
         </div>
@@ -196,7 +213,11 @@ const confirmDelete = async () => {
       <UTabs v-model="tab" :items="tabs">
         <template #sales>
           <div class="space-y-3 pt-2">
-            <SalesTable :filters="filters" :customer-id="customerId" :show-customer="false">
+            <SalesTable
+              :filters="filters"
+              :customer-id="customerId"
+              :show-customer="false"
+            >
               <template #filters="{ stacked }">
                 <SalesFilters v-model="filters" :stacked="stacked" />
               </template>
@@ -206,9 +227,17 @@ const confirmDelete = async () => {
 
         <template #products>
           <div class="space-y-3 pt-2">
-            <ProductSalesTable :from="filters.from" :to="filters.to" :customer-id="customerId">
+            <ProductSalesTable
+              :from="filters.from"
+              :to="filters.to"
+              :customer-id="customerId"
+            >
               <template #filters="{ stacked }">
-                <SalesFilters v-model="filters" period-only :stacked="stacked" />
+                <SalesFilters
+                  v-model="filters"
+                  period-only
+                  :stacked="stacked"
+                />
               </template>
             </ProductSalesTable>
           </div>
@@ -219,6 +248,7 @@ const confirmDelete = async () => {
             <CustomerPayments
               v-if="data"
               :customer-id="customerId"
+              :customer-name="data.name"
               :due-fcfa="data.dueFcfa"
             />
           </div>
