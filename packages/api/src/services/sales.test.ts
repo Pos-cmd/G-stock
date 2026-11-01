@@ -1,7 +1,7 @@
 import type { Database } from "@G-stock/db";
 import { payments } from "@G-stock/db/schema/sales";
 import { stockLots, stockMovements } from "@G-stock/db/schema/stock";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import type {
@@ -123,6 +123,22 @@ const lotQty = async (lotId: number) => {
     .from(stockLots)
     .where(eq(stockLots.id, lotId));
   return lot?.qtyRemaining;
+};
+
+/** Somme des quantités d'un sens de mouvement : le total des deux doit valoir le stock restant. */
+const movementQty = async (lotId: number, type: "in" | "out") => {
+  const rows = await db
+    .select()
+    .from(stockMovements)
+    .where(and(eq(stockMovements.lotId, lotId), eq(stockMovements.type, type)));
+  return rows.reduce((sum, row) => sum + row.qty, 0);
+};
+
+/** Le stock restant d'un lot doit toujours se lire dans son historique de mouvements. */
+const expectHistoryMatchesStock = async (lotId: number) => {
+  const entree = await movementQty(lotId, "in");
+  const sortie = await movementQty(lotId, "out");
+  expect(entree + sortie).toBe(await lotQty(lotId));
 };
 
 describe("createSale", () => {
@@ -252,6 +268,23 @@ describe("annulation et remise", () => {
     await expect(
       db.transaction((tx) => cancelSale(tx, { id: sale.id, reason: "Encore" }))
     ).rejects.toThrow("annulée");
+  });
+
+  it("annule une vente : l'historique ne rend que la quantité vendue", async () => {
+    const { awa, oldLot, newLot, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 8, unitPriceFcfa: 1500 }],
+    });
+    await db.transaction((tx) =>
+      cancelSale(tx, { id: sale.id, reason: "Erreur de saisie" })
+    );
+
+    // 5 sortis du lot de janvier puis 3 du lot de février : l'annulation rend exactement cela.
+    expect(await movementQty(oldLot.id, "in")).toBe(10);
+    expect(await movementQty(newLot.id, "in")).toBe(13);
+    await expectHistoryMatchesStock(oldLot.id);
+    await expectHistoryMatchesStock(newLot.id);
   });
 
   it("trace une remise après la vente et en tient compte dans le solde", async () => {
@@ -782,6 +815,34 @@ describe("modification d'une vente", () => {
     expect(await stockOf(wax.id)).toBe(12);
     expect(after.items[0]?.costFcfa).toBe(3000);
     expect(after.summary.netFcfa).toBe(4500);
+  });
+
+  it("n'inscrit dans l'historique que la quantité réellement rendue", async () => {
+    const { awa, newLot, oldLot, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 8, unitPriceFcfa: 1500 }],
+    });
+    const detail = await getSale(db, sale.id);
+
+    await update({
+      id: sale.id,
+      items: [
+        {
+          id: detail.items[0]?.id,
+          productId: wax.id,
+          qty: 3,
+          unitPriceFcfa: 1500,
+        },
+      ],
+      saleDate: MARCH_1,
+    });
+
+    // 3 rendus sur le lot de février, 2 sur celui de janvier : jamais la taille du lot.
+    expect(await movementQty(newLot.id, "in")).toBe(13);
+    expect(await movementQty(oldLot.id, "in")).toBe(7);
+    await expectHistoryMatchesStock(newLot.id);
+    await expectHistoryMatchesStock(oldLot.id);
   });
 
   it("retire une ligne et remet tout son stock", async () => {
