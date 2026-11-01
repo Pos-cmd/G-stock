@@ -18,6 +18,7 @@ import ReasonDialog from "~/components/common/ReasonDialog.vue";
 import PagePanel from "~/components/layout/PagePanel.vue";
 import DiscountModal from "~/components/sales/DiscountModal.vue";
 import PaymentModal from "~/components/sales/PaymentModal.vue";
+import SaleCancellationModal from "~/components/sales/SaleCancellationModal.vue";
 import SaleEditModal from "~/components/sales/SaleEditModal.vue";
 import SaleReturnModal from "~/components/sales/SaleReturnModal.vue";
 import SaleStatusBadge from "~/components/sales/SaleStatusBadge.vue";
@@ -49,7 +50,9 @@ useHead({ title: () => data.value?.reference ?? "Vente" });
 const paymentOpen = ref(false);
 const discountOpen = ref(false);
 const cancelOpen = ref(false);
+const cancellationOpen = ref(false);
 const editOpen = ref(false);
+const restoreOpen = ref(false);
 const returnOpen = ref(false);
 
 type SalePayment = SaleDetail["payments"][number];
@@ -110,6 +113,27 @@ const paymentActions = (payment: SalePayment): DropdownMenuItem[][] => [
 ];
 
 const cancelMutation = useMutation($orpc.sales.cancel.mutationOptions());
+const restoreMutation = useMutation($orpc.sales.restore.mutationOptions());
+
+const confirmRestore = async (reason: string) => {
+  try {
+    const result = await restoreMutation.mutateAsync({
+      id: saleId.value,
+      reason,
+    });
+    await Promise.all([invalidateSales(), invalidateStock()]);
+    restoreOpen.value = false;
+    notify.success(
+      "Vente restaurée",
+      result.paymentsFcfa > 0
+        ? `Stock de nouveau prélevé ; ${formatFcfa(result.paymentsFcfa)} de paiements réactivés`
+        : "Stock de nouveau prélevé"
+    );
+  } catch (error) {
+    notify.error("Restauration impossible", error);
+  }
+};
+
 const confirmCancel = async (reason: string) => {
   try {
     const result = await cancelMutation.mutateAsync({
@@ -129,41 +153,65 @@ const confirmCancel = async (reason: string) => {
   }
 };
 
-const moreActions = computed<DropdownMenuItem[][]>(() => [
-  [
-    {
-      icon: icons.edit,
-      label: "Modifier la vente",
-      onSelect: () => {
-        editOpen.value = true;
+const moreActions = computed<DropdownMenuItem[][]>(() => {
+  if (data.value?.status === "cancelled") {
+    return [
+      [
+        {
+          icon: icons.calendar,
+          label: "Corriger la date d'annulation",
+          onSelect: () => {
+            cancellationOpen.value = true;
+          },
+        },
+      ],
+      [
+        {
+          icon: icons.undo,
+          label: "Restaurer la vente",
+          onSelect: () => {
+            restoreOpen.value = true;
+          },
+        },
+      ],
+    ];
+  }
+  return [
+    [
+      {
+        icon: icons.edit,
+        label: "Modifier la vente",
+        onSelect: () => {
+          editOpen.value = true;
+        },
       },
-    },
-    {
-      icon: icons.undo,
-      label: "Reprendre des articles",
-      onSelect: () => {
-        returnOpen.value = true;
+      {
+        icon: icons.undo,
+        label: "Reprendre des articles",
+        onSelect: () => {
+          returnOpen.value = true;
+        },
       },
-    },
-    {
-      icon: icons.discount,
-      label: "Accorder une remise",
-      onSelect: () => {
-        discountOpen.value = true;
+      {
+        icon: icons.discount,
+        label: "Accorder une remise",
+        onSelect: () => {
+          discountOpen.value = true;
+        },
       },
-    },
-  ],
-  [
-    {
-      color: "error",
-      icon: icons.cancel,
-      label: "Annuler la vente",
-      onSelect: () => {
-        cancelOpen.value = true;
+    ],
+    [
+      {
+        color: "error",
+        icon: icons.cancel,
+        label: "Annuler la vente",
+        onSelect: () => {
+          cancelOpen.value = true;
+        },
       },
-    },
-  ],
-]);
+    ],
+  ];
+});
 
 const rightAligned = { class: { td: "text-right", th: "text-right" } };
 const columns: TableColumn<SaleItem>[] = [
@@ -214,11 +262,7 @@ const columns: TableColumn<SaleItem>[] = [
               @click="share(data)"
             />
           </UTooltip>
-          <UDropdownMenu
-            v-if="isActive"
-            :items="moreActions"
-            :content="{ align: 'end' }"
-          >
+          <UDropdownMenu :items="moreActions" :content="{ align: 'end' }">
             <UButton
               color="neutral"
               variant="outline"
@@ -253,7 +297,26 @@ const columns: TableColumn<SaleItem>[] = [
         :icon="icons.cancel"
         :title="`Annulée le ${formatDateTime(data.cancelledAt ?? data.createdAt)}${data.cancelledByName ? ` par ${data.cancelledByName}` : ''}`"
         :description="`Motif : ${data.cancelReason}. Le stock est revenu dans ses lots et les paiements de la vente ont été annulés.`"
-      />
+      >
+        <template #actions>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="outline"
+            :icon="icons.calendar"
+            label="Corriger la date"
+            @click="cancellationOpen = true"
+          />
+          <UButton
+            size="sm"
+            color="primary"
+            variant="subtle"
+            :icon="icons.undo"
+            label="Restaurer la vente"
+            @click="restoreOpen = true"
+          />
+        </template>
+      </UAlert>
 
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <UPageCard variant="subtle" title="Vente" class="lg:self-start">
@@ -622,6 +685,23 @@ const columns: TableColumn<SaleItem>[] = [
         confirm-label="Annuler la vente"
         :loading="cancelMutation.isPending.value"
         @confirm="confirmCancel"
+      />
+      <SaleCancellationModal
+        v-model:open="cancellationOpen"
+        :sale="{
+          cancelledAt: data.cancelledAt,
+          id: data.id,
+          reference: data.reference,
+        }"
+      />
+      <ReasonDialog
+        v-model:open="restoreOpen"
+        confirm-color="primary"
+        title="Restaurer cette vente ?"
+        :description="`${data.reference} redevient une vente active datée du ${formatDate(data.saleDate)} : le stock sera de nouveau prélevé (lots les plus anciens d'abord) et ses paiements réactivés.`"
+        confirm-label="Restaurer la vente"
+        :loading="restoreMutation.isPending.value"
+        @confirm="confirmRestore"
       />
       <ReasonDialog
         :open="paymentToCancel !== null"

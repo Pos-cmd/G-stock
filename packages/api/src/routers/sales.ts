@@ -9,10 +9,12 @@ import {
   paymentUpdateSchema,
   productSalesSummarySchema,
   saleCancelSchema,
+  saleCancellationSchema,
   saleDiscountSchema,
   saleInputSchema,
   saleListSchema,
   saleQuoteSchema,
+  saleRestoreSchema,
   saleReturnSchema,
   saleUpdateSchema,
 } from "../schemas/sales";
@@ -30,12 +32,14 @@ import {
   paymentsLedger,
   productSalesSummary,
   quoteSale,
+  restoreSale,
   salesActivity,
   salesByHour,
   salesSummary,
   salesTrends,
   updatePayment,
   updateSale,
+  updateSaleCancellation,
 } from "../services/sales";
 
 const MAX_ACTIVITY_DAYS = 731;
@@ -73,6 +77,16 @@ export const salesRouter = {
       return result;
     }),
 
+  correctCancellation: protectedProcedure
+    .input(saleCancellationSchema)
+    .handler(async ({ context, input }) => {
+      const result = await context.db.transaction((tx) =>
+        updateSaleCancellation(tx, input, context.session.user.id)
+      );
+      invalidateLedgers();
+      return result;
+    }),
+
   create: protectedProcedure
     .input(saleInputSchema)
     .handler(({ context, input }) =>
@@ -96,6 +110,16 @@ export const salesRouter = {
   quote: protectedProcedure
     .input(saleQuoteSchema)
     .handler(({ context, input }) => quoteSale(context.db, input.lines)),
+
+  restore: protectedProcedure
+    .input(saleRestoreSchema)
+    .handler(async ({ context, input }) => {
+      const result = await context.db.transaction((tx) =>
+        restoreSale(tx, input, context.session.user.id)
+      );
+      invalidateLedgers();
+      return result;
+    }),
 
   /** Reprise d'articles : stock, total de la vente et trace, dans une seule transaction. */
   return: protectedProcedure

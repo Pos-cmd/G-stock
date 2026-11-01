@@ -122,6 +122,19 @@ export const saleCancelSchema = z.object({
   reason: reasonSchema,
 });
 
+/** Correction de la date d'annulation : la date réelle, et le motif de la correction. */
+export const saleCancellationSchema = z.object({
+  cancelledAt: z.date(),
+  id: idSchema,
+  reason: reasonSchema,
+});
+
+/** Remise en vente d'une vente annulée par erreur. */
+export const saleRestoreSchema = z.object({
+  id: idSchema,
+  reason: reasonSchema,
+});
+
 export const saleDiscountSchema = z.object({
   amountFcfa: fcfaAmount.positive("La remise doit être supérieure à zéro"),
   discountDate: z.date(),

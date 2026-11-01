@@ -34,6 +34,7 @@ import {
   gte,
   inArray,
   isNull,
+  like,
   lte,
   or,
   sql,
@@ -1323,6 +1324,169 @@ export const cancelSale = async (
       0
     ),
     id: sale.id,
+  };
+};
+
+/** Motif inscrit sur les mouvements et les paiements touchés par une annulation. */
+const cancellationReasons = (sale: {
+  cancelReason: string | null;
+  reference: string;
+}) => ({
+  movement: `Annulation ${sale.reference} : `,
+  payment: `Vente ${sale.reference} annulée : `,
+});
+
+const assertCancelled = (sale: { status: string }, action: string): void => {
+  if (sale.status === "cancelled") {
+    return;
+  }
+  throw new ORPCError("BAD_REQUEST", {
+    message: `Cette vente n'est pas annulée : ${action}`,
+  });
+};
+
+/**
+ * Corrige la date d'une annulation : la vente, les mouvements de retour et les paiements annulés
+ * reprennent la bonne date, pour que l'historique et les décomptes par période retombent juste.
+ */
+export const updateSaleCancellation = async (
+  executor: Executor,
+  input: { cancelledAt: Date; id: string; reason: string },
+  userId?: string | null
+) => {
+  const sale = await getSaleRow(executor, input.id);
+  assertCancelled(sale, "il n'y a pas de date à corriger");
+  const reasons = cancellationReasons(sale);
+
+  const movements = await executor
+    .update(stockMovements)
+    .set({ occurredAt: input.cancelledAt })
+    .where(
+      and(
+        eq(stockMovements.referenceType, "sale"),
+        eq(stockMovements.referenceId, sale.id),
+        eq(stockMovements.type, "in"),
+        like(stockMovements.reason, `${reasons.movement}%`)
+      )
+    )
+    .returning({ id: stockMovements.id });
+  const touchedPayments = await executor
+    .update(payments)
+    .set({ cancelledAt: input.cancelledAt })
+    .where(
+      and(
+        eq(payments.saleId, sale.id),
+        like(payments.cancelReason, `${reasons.payment}%`)
+      )
+    )
+    .returning({ amountFcfa: payments.amountFcfa });
+
+  await executor
+    .update(sales)
+    .set({ cancelledAt: input.cancelledAt })
+    .where(eq(sales.id, sale.id));
+  await writeRevision(executor, {
+    reason: input.reason,
+    revisionDate: new Date(),
+    saleId: sale.id,
+    summary: `date d'annulation ${sale.cancelledAt ? formatDate(sale.cancelledAt) : "—"} → ${formatDate(input.cancelledAt)}`,
+    userId,
+  });
+
+  return {
+    id: sale.id,
+    movementCount: movements.length,
+    paymentsFcfa: touchedPayments.reduce(
+      (sum, payment) => sum + payment.amountFcfa,
+      0
+    ),
+  };
+};
+
+/**
+ * Remet en vente une vente annulée par erreur : le stock ressort (FIFO, au jour de la
+ * restauration), les paiements annulés avec l'annulation redeviennent valables, et la vente
+ * retrouve son statut actif. La restauration laisse une trace datée.
+ */
+export const restoreSale = async (
+  executor: Executor,
+  params: { id: string; reason: string },
+  userId?: string | null
+) => {
+  const sale = await getSaleRow(executor, params.id);
+  assertCancelled(sale, "il n'y a rien à restaurer");
+  const items = await saleItemsOf(executor, sale.id);
+  const now = new Date();
+
+  if (items.length > 0) {
+    // Les lots prélevés avant l'annulation ne valent plus : la vente repart de zéro, en FIFO.
+    await executor.delete(saleItemLots).where(
+      inArray(
+        saleItemLots.saleItemId,
+        items.map((item) => item.id)
+      )
+    );
+  }
+  let lotCount = 0;
+  for (const item of items) {
+    // oxlint-disable-next-line no-await-in-loop
+    const allocations = await consumeFifo(executor, {
+      occurredAt: now,
+      productId: item.productId,
+      qty: item.qty,
+      reason: `Restauration ${sale.reference} : ${params.reason}`,
+      referenceId: sale.id,
+      referenceType: "sale",
+      userId,
+    });
+    // oxlint-disable-next-line no-await-in-loop
+    await executor.insert(saleItemLots).values(
+      allocations.map((allocation) => ({
+        lotId: allocation.lotId,
+        qty: allocation.qty,
+        saleItemId: item.id,
+        unitCostFcfa: allocation.unitCostFcfa,
+      }))
+    );
+    // oxlint-disable-next-line no-await-in-loop
+    await refreshItemCost(executor, item.id);
+    lotCount += allocations.length;
+  }
+
+  const reasons = cancellationReasons(sale);
+  const revived = await executor
+    .update(payments)
+    .set({ cancelReason: null, cancelledAt: null })
+    .where(
+      and(
+        eq(payments.saleId, sale.id),
+        like(payments.cancelReason, `${reasons.payment}%`)
+      )
+    )
+    .returning({ amountFcfa: payments.amountFcfa });
+
+  await executor
+    .update(sales)
+    .set({
+      cancelReason: null,
+      cancelledAt: null,
+      cancelledBy: null,
+      status: "active",
+    })
+    .where(eq(sales.id, sale.id));
+  await writeRevision(executor, {
+    reason: params.reason,
+    revisionDate: now,
+    saleId: sale.id,
+    summary: `vente restaurée (annulation du ${sale.cancelledAt ? formatDate(sale.cancelledAt) : "—"} annulée)${revived.length > 0 ? ` · ${formatFcfa(revived.reduce((sum, payment) => sum + payment.amountFcfa, 0))} de paiements réactivés` : ""}`,
+    userId,
+  });
+  invalidateLedgers();
+
+  return {
+    id: sale.id,
+    lotCount,
+    paymentsFcfa: revived.reduce((sum, payment) => sum + payment.amountFcfa, 0),
   };
 };
 

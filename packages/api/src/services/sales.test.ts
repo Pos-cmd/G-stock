@@ -30,12 +30,14 @@ import {
   paymentsLedger,
   productSalesSummary,
   quoteSale,
+  restoreSale,
   salesActivity,
   salesByHour,
   salesSummary,
   salesTrends,
   updatePayment,
   updateSale,
+  updateSaleCancellation,
 } from "./sales";
 import { createLot, listMovements } from "./stock";
 
@@ -285,6 +287,138 @@ describe("annulation et remise", () => {
     expect(await movementQty(newLot.id, "in")).toBe(13);
     await expectHistoryMatchesStock(oldLot.id);
     await expectHistoryMatchesStock(newLot.id);
+  });
+
+  it("corrige la date d'annulation partout : vente, mouvements et paiements", async () => {
+    const { awa, oldLot, newLot, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 8, unitPriceFcfa: 1500 }],
+    });
+    await db.transaction((tx) =>
+      cancelSale(tx, { id: sale.id, reason: "Erreur de saisie" })
+    );
+    const realDay = new Date(2026, 4, 20);
+
+    const result = await db.transaction((tx) =>
+      updateSaleCancellation(tx, {
+        cancelledAt: realDay,
+        id: sale.id,
+        reason: "Mauvaise date d'annulation",
+      })
+    );
+
+    expect(result.movementCount).toBe(2);
+    expect(result.paymentsFcfa).toBe(12_000);
+    const after = await getSale(db, sale.id);
+    expect(after.cancelledAt?.getTime()).toBe(realDay.getTime());
+    expect(after.revisions[0]?.reason).toBe("Mauvaise date d'annulation");
+    expect(after.revisions[0]?.summary).toContain("date d'annulation");
+    expect(
+      after.payments.every(
+        (payment) => payment.cancelledAt?.getTime() === realDay.getTime()
+      )
+    ).toBe(true);
+
+    // Les retours de stock suivent la bonne date, les quantités restent celles rendues.
+    const retours = await db
+      .select()
+      .from(stockMovements)
+      .where(
+        and(
+          eq(stockMovements.referenceId, sale.id),
+          eq(stockMovements.referenceType, "sale"),
+          eq(stockMovements.type, "in")
+        )
+      );
+    expect(retours).toHaveLength(2);
+    expect(
+      retours.every((row) => row.occurredAt.getTime() === realDay.getTime())
+    ).toBe(true);
+    expect(await movementQty(oldLot.id, "in")).toBe(10);
+    expect(await movementQty(newLot.id, "in")).toBe(13);
+    await expectHistoryMatchesStock(oldLot.id);
+    await expectHistoryMatchesStock(newLot.id);
+  });
+
+  it("restaure une vente annulée : stock repris, paiements réactivés, vente active", async () => {
+    const { awa, newLot, oldLot, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 8, unitPriceFcfa: 1500 }],
+    });
+    await db.transaction((tx) =>
+      cancelSale(tx, { id: sale.id, reason: "Erreur de saisie" })
+    );
+    expect(await stockOf(wax.id)).toBe(15);
+
+    const result = await db.transaction((tx) =>
+      restoreSale(tx, { id: sale.id, reason: "Annulation par erreur" })
+    );
+
+    expect(result.paymentsFcfa).toBe(12_000);
+    expect(await stockOf(wax.id)).toBe(7);
+    const after = await getSale(db, sale.id);
+    expect(after.status).toBe("active");
+    expect(after.cancelledAt).toBeNull();
+    expect(after.cancelReason).toBeNull();
+    expect(after.cancelledByName).toBeNull();
+    expect(
+      after.payments.every((payment) => payment.cancelledAt === null)
+    ).toBe(true);
+    expect(after.summary.dueFcfa).toBe(0);
+    // 5 × 1 000 puis 3 × 1 200 : le coût de revient est recalculé sur les lots repris.
+    expect(after.items[0]?.costFcfa).toBe(8600);
+    expect(after.revisions[0]?.summary).toContain("vente restaurée");
+    await expectHistoryMatchesStock(oldLot.id);
+    await expectHistoryMatchesStock(newLot.id);
+  });
+
+  it("refuse de restaurer une vente encore annulée si le stock est reparti", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 8, unitPriceFcfa: 1500 }],
+    });
+    await db.transaction((tx) =>
+      cancelSale(tx, { id: sale.id, reason: "Erreur de saisie" })
+    );
+    await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 12, unitPriceFcfa: 1500 }],
+    });
+
+    await expect(
+      db.transaction((tx) =>
+        restoreSale(tx, { id: sale.id, reason: "Annulation par erreur" })
+      )
+    ).rejects.toThrow("Stock insuffisant");
+    const after = await getSale(db, sale.id);
+    expect(after.status).toBe("cancelled");
+    expect(await stockOf(wax.id)).toBe(3);
+  });
+
+  it("refuse de corriger ou restaurer une vente qui n'est pas annulée", async () => {
+    const { awa, wax } = await setup();
+    const sale = await sell({
+      customerId: awa.id,
+      lines: [{ productId: wax.id, qty: 2, unitPriceFcfa: 1500 }],
+    });
+
+    await expect(
+      db.transaction((tx) =>
+        updateSaleCancellation(tx, {
+          cancelledAt: MARCH_10,
+          id: sale.id,
+          reason: "Mauvaise date",
+        })
+      )
+    ).rejects.toThrow("pas annulée");
+    await expect(
+      db.transaction((tx) =>
+        restoreSale(tx, { id: sale.id, reason: "Annulation par erreur" })
+      )
+    ).rejects.toThrow("pas annulée");
   });
 
   it("trace une remise après la vente et en tient compte dans le solde", async () => {

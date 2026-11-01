@@ -431,6 +431,38 @@ _Liste des features et améliorations à implémenter - Mise à jour: 2026-10-30
 
 ---
 
+## ♻️ Annulation : corriger la date ou restaurer la vente
+
+### Constat
+
+- [ ] Une annulation est **définitive et figée** : `cancelSale` rend le stock, annule les paiements et pose `cancelledAt` — rien ne revient en arrière
+- [ ] La date d'annulation est prise à l'instant du clic. Une annulation faite le lendemain, ou pour une vente d'hier, place donc le **retour de stock dans le mauvais jour** : les mouvements, l'historique produit et les décomptes par période racontent une autre histoire que le magasin
+- [ ] Se tromper de vente en annulant oblige à ressaisir entièrement la vente perdue (référence, reçu, date, lignes)
+- **Priorité**: Haute — corriger une date fausse ou revenir sur une annulation est un besoin quotidien au comptoir
+
+### Règle
+
+- [ ] Corriger l'annulation ne doit **pas** réécrire la vente : elle reste annulée, seuls la date, les retours de stock et les paiements annulés suivent
+- [ ] Restaurer doit rendre la vente **exactement comme avant** : statut actif, stock de nouveau prélevé, paiements valables, coût de revient cohérent
+- [ ] Les deux gestes sont motivés, datés, attribués et laissent une ligne dans le journal des modifications
+
+### État livré (v1)
+
+- [x] `sales.correctCancellation` : nouvelle date d'annulation ; les mouvements de retour de cette vente (`occurred_at`) et les paiements annulés avec elle (`cancelledAt`) reprennent la bonne date, et le journal garde « date d'annulation 31 oct. → 24 oct. »
+- [x] `sales.restore` : la vente redevient active avec sa date d'origine, le stock ressort en **FIFO au jour de la restauration**, les paiements réactivés redeviennent valables, le coût de revient est recalculé sur les lots repris, et la restauration s'inscrit au journal
+- [x] Refus explicite si la marchandise n'est plus en stock, si la vente n'est pas annulée, ou si l'annulation a été restaurée entre-temps
+- [x] Fiche vente : bandeau et menu d'actions d'une vente annulée proposent **Corriger la date** et **Restaurer la vente**
+- [ ] Reste à faire : corriger le motif de l'annulation, restaurer plusieurs ventes d'un coup depuis la liste, et un état « restaurée » distinct dans le badge
+
+### Critères d'acceptation
+
+- [ ] Je me suis trompé de date : je la corrige, le retour de stock se replace dans le bon jour et la vente reste annulée
+- [ ] J'ai annulé la mauvaise vente : je la restaure, le stock ressort et le client doit de nouveau ce qu'il devait
+- [ ] Si la marchandise a été revendue, la restauration est refusée sans rien modifier
+- [ ] Chaque geste laisse son motif et sa date dans le journal de la vente
+
+---
+
 ## 🕒 Date de l'opération, pas seulement date d'enregistrement
 
 ### Constat
