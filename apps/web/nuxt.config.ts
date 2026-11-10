@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
-import { MIGRATIONS_FOLDER } from "@G-stock/db/migrate";
+import { resolveMigrationsFolder } from "@G-stock/db/migrate";
 import { z } from "zod";
 
 // libsql loads its platform binding by a computed name, which file tracing can't follow
@@ -79,7 +79,7 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
-    migrationsFolder: MIGRATIONS_FOLDER,
+    migrationsFolder: resolveMigrationsFolder(),
   },
   typescript: {
     nodeTsConfig: { references: [apiReference] },
