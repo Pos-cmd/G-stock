@@ -48,7 +48,19 @@ Prérequis de build : Rust (`rustup`) et Visual Studio Build Tools (C++). WebVie
 - **Fenêtre et icône** : fermer la fenêtre la range près de l'horloge, le serveur continue (sauvegardes, téléphone). Le menu de l'icône propose Ouvrir, Sauvegarder maintenant et Quitter. Taille et position de la fenêtre sont retenues ; Paramètres → Application de bureau permet le lancement au démarrage de Windows (l'application démarre alors rangée).
 - **Intégration** : la page sait qu'elle tourne dans l'application (`useDesktop`, `isTauri()`) et appelle quelques commandes Rust (`src-tauri/src/commands.rs`) : choix des dossiers dans une fenêtre Windows, PDF ouverts dans le lecteur du PC, fichiers montrés dans l'Explorateur, reçu WhatsApp envoyé vers WhatsApp Desktop, restauration d'une sauvegarde (serveur arrêté puis relancé, ancienne base gardée à côté), notifications Windows pour les alertes de la cloche quand la fenêtre n'est pas regardée. Dans un navigateur ou sur le téléphone, rien ne change.
 - **Sécurité** : seules ces commandes sont accordées au serveur local (`capabilities/server.json`) ; les plugins Tauri ne lui sont pas ouverts, et les commandes n'ouvrent qu'un PDF ou un dossier. Les liens vers d'autres sites partent dans le navigateur du système.
-- **Tester sans toucher aux vraies données** : en build de développement, `GSTOCK_DATA_DIR=<dossier>` remplace `%APPDATA%\G-stock` (y copier `demo.db` sous le nom `gstock.db`).
+- **Tester sans toucher aux vraies données** : en build de développement, `GSTOCK_DATA_DIR=<dossier>` remplace `%APPDATA%\G-stock` (y copier `demo.db` sous le nom `gstock.db`), et `GSTOCK_UPDATE_ENDPOINT=<url de latest.json>` remplace l'adresse des mises à jour.
+
+### Publier une mise à jour
+
+Les applications installées lisent `latest.json` sur la dernière release GitHub au lancement (notification), et dans Paramètres → Application de bureau (« Installer et redémarrer »). Elles n'installent qu'un installateur signé par la clé de G-stock ; la base, dans `%APPDATA%\G-stock`, n'est pas touchée et ses migrations passent au redémarrage.
+
+```bash
+pnpm desktop:release 0.2.0 --notes "Ce qui change"   # version, installateur signé et latest.json
+git commit -am "chore(desktop): version 0.2.0" && git push
+pnpm desktop:publish                                 # release GitHub desktop-v0.2.0 (gh)
+```
+
+La clé privée est `%USERPROFILE%\.tauri\gstock-updater.key` (hors du dépôt ; autre emplacement : `TAURI_SIGNING_PRIVATE_KEY_PATH`). **Gardez-en une copie à l'abri** : sans elle, les applications installées refuseront toute mise à jour, et il faudrait les réinstaller à la main avec une nouvelle clé. La clé publique est dans `src-tauri/tauri.conf.json`.
 
 ## État des modules
 

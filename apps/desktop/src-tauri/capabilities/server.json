@@ -16,6 +16,8 @@
     "allow-reveal-file",
     "allow-open-whatsapp",
     "allow-notify",
-    "allow-restore-backup"
+    "allow-restore-backup",
+    "allow-check-update",
+    "allow-install-update"
   ]
 }

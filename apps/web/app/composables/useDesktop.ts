@@ -11,6 +11,13 @@ export interface DesktopInfo {
   phoneOrigin: string | null;
 }
 
+/** Nouvelle version publiée (`check_update`). */
+export interface DesktopUpdate {
+  version: string;
+  currentVersion: string;
+  notes: string | null;
+}
+
 /** Émis par l'icône près de l'horloge, « Sauvegarder maintenant ». */
 const BACKUP_REQUESTED_EVENT = "gstock://sauvegarder";
 
@@ -24,7 +31,11 @@ const call = async <T>(command: string, args?: Record<string, unknown>): Promise
 };
 
 const commands = {
+  /** Cherche une nouvelle version ; null si G-stock est à jour. */
+  checkUpdate: () => call<DesktopUpdate | null>("check_update"),
   info: () => call<DesktopInfo>("desktop_info"),
+  /** Télécharge et installe la mise à jour : G-stock se ferme puis se relance. */
+  installUpdate: () => call<null>("install_update"),
   notify: (title: string, body: string) => call<null>("notify", { body, title }),
   /** Avertit quand l'utilisateur demande une sauvegarde depuis l'icône ; renvoie le désabonnement. */
   onBackupRequested: (handler: () => void) => listen(BACKUP_REQUESTED_EVENT, handler),

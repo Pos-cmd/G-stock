@@ -11,6 +11,7 @@ mod secret;
 mod server;
 mod storage;
 mod tray;
+mod updates;
 mod window;
 
 use tauri::{AppHandle, Manager, RunEvent};
@@ -43,7 +44,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(BackendState::default())
+        .manage(updates::PendingUpdate::default())
         .invoke_handler(tauri::generate_handler![
             commands::desktop_info,
             commands::set_autostart,
@@ -54,6 +57,8 @@ pub fn run() {
             commands::open_whatsapp,
             commands::notify,
             commands::restore_backup,
+            updates::check_update,
+            updates::install_update,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -81,12 +86,17 @@ fn boot(app: &AppHandle) {
         }
         window::open_app(app)
     });
-    if let Err(error) = started {
-        app.dialog()
-            .message(format!("{error:#}"))
-            .title("G-stock n'a pas pu démarrer")
-            .kind(MessageDialogKind::Error)
-            .blocking_show();
-        app.exit(1);
+    match started {
+        Ok(()) => {
+            tauri::async_runtime::spawn(updates::check_on_launch(app.clone()));
+        }
+        Err(error) => {
+            app.dialog()
+                .message(format!("{error:#}"))
+                .title("G-stock n'a pas pu démarrer")
+                .kind(MessageDialogKind::Error)
+                .blocking_show();
+            app.exit(1);
+        }
     }
 }

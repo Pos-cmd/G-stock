@@ -33,6 +33,22 @@ const openFolder = async (path: string) => {
   }
 };
 
+const UPDATE_KEY = ["desktop", "update"] as const;
+const UPDATE_STALE_MS = 60 * 60 * 1000;
+const INSTALL_HINT =
+  "G-stock se ferme le temps de l'installation, puis se relance. Vos données ne bougent pas.";
+
+const update = useQuery({
+  queryFn: desktop.checkUpdate,
+  queryKey: UPDATE_KEY,
+  retry: false,
+  staleTime: UPDATE_STALE_MS,
+});
+const install = useMutation({
+  mutationFn: desktop.installUpdate,
+  onError: (error) => notify.error("Mise à jour impossible", error),
+});
+
 const copy = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text);
@@ -70,6 +86,43 @@ const copy = async (text: string) => {
         description="Il démarre rangé près de l'horloge : les sauvegardes et l'accès depuis le téléphone fonctionnent sans y penser."
         @update:model-value="autostart.mutate($event)"
       />
+
+      <UAlert
+        v-if="update.data.value"
+        color="info"
+        variant="subtle"
+        :icon="icons.download"
+        :title="`G-stock ${update.data.value.version} est disponible`"
+        :description="
+          update.data.value.notes ? `${update.data.value.notes} ${INSTALL_HINT}` : INSTALL_HINT
+        "
+        :actions="[
+          {
+            color: 'info',
+            label: 'Installer et redémarrer',
+            loading: install.isPending.value,
+            onClick: () => install.mutate(),
+          },
+        ]"
+      />
+      <div v-else class="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span class="text-muted">
+          <template v-if="update.isFetching.value">Recherche d'une mise à jour…</template>
+          <template v-else-if="update.error.value">
+            Vérification des mises à jour impossible : {{ update.error.value.message }}
+          </template>
+          <template v-else>G-stock est à jour.</template>
+        </span>
+        <UButton
+          :icon="icons.reload"
+          label="Rechercher"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          :loading="update.isFetching.value"
+          @click="update.refetch()"
+        />
+      </div>
 
       <div
         class="bg-elevated/50 flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2"

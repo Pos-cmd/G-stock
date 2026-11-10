@@ -20,6 +20,8 @@
     "dev:landing": "vp run --filter landing dev",
     "desktop:dev": "vp run --filter desktop app:dev",
     "desktop:build": "vp run --filter desktop bundle",
+    "desktop:release": "node apps/desktop/scripts/release.mjs build",
+    "desktop:publish": "node apps/desktop/scripts/release.mjs publish",
     "db:push": "vp run --filter @G-stock/db db:push",
     "db:studio": "vp run --filter @G-stock/db db:studio",
     "db:generate": "vp run --filter @G-stock/db db:generate",

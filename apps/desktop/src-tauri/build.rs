@@ -10,6 +10,8 @@ const COMMANDS: &[&str] = &[
     "open_whatsapp",
     "notify",
     "restore_backup",
+    "check_update",
+    "install_update",
 ];
 
 fn main() {
