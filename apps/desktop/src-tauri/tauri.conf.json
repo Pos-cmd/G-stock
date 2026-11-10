@@ -9,20 +9,10 @@
     "beforeBuildCommand": "node scripts/prepare-server.mjs"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "G-stock",
-        "width": 1360,
-        "height": 860,
-        "minWidth": 1024,
-        "minHeight": 640,
-        "center": true
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null,
-      "capabilities": ["default"]
+      "capabilities": ["default", "server"]
     }
   },
   "bundle": {

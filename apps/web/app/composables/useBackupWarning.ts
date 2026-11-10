@@ -1,12 +1,17 @@
 import { formatDateTime } from "@G-stock/core/format";
 import { useQuery } from "@tanstack/vue-query";
 
+import type { AlertOptions } from "~/composables/useAlerts";
+
 const BACKUP_STALE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
 
 /** Rappel si la sauvegarde quotidienne échoue ou n'a pas tourné depuis plus de deux jours. */
-export const useBackupWarning = () => {
+export const useBackupWarning = (options: AlertOptions = {}) => {
   const { $orpc } = useNuxtApp();
-  const backups = useQuery($orpc.backups.status.queryOptions());
+  const backups = useQuery({
+    ...$orpc.backups.status.queryOptions(),
+    ...backgroundPolling(options),
+  });
 
   return computed(() => {
     const status = backups.data.value;

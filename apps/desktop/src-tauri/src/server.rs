@@ -23,8 +23,9 @@ const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_millis(150);
 const LOG_TAIL_LINES: usize = 15;
 /// Variables héritées qui changeraient le comportement du Node embarqué ou de varlock.
-const INHERITED_TO_CLEAR: [&str; 4] = [
+const INHERITED_TO_CLEAR: [&str; 5] = [
     "NODE_OPTIONS",
+    "TRUSTED_ORIGINS",
     "__VARLOCK_ENV",
     "_VARLOCK_ENV_KEY",
     "_VARLOCK_USE_INJECTED_ENV",
@@ -81,6 +82,8 @@ pub struct Instance<'a> {
     pub database: &'a Path,
     pub working_dir: &'a Path,
     pub log_file: &'a Path,
+    /// Autres adresses autorisées à se connecter (le PC vu par Tailscale, pour le téléphone).
+    pub trusted_origins: &'a [String],
 }
 
 pub struct Server {
@@ -114,12 +117,10 @@ impl Server {
         for key in INHERITED_TO_CLEAR {
             command.env_remove(key);
         }
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-            command.creation_flags(CREATE_NO_WINDOW);
+        if !instance.trusted_origins.is_empty() {
+            command.env("TRUSTED_ORIGINS", instance.trusted_origins.join(","));
         }
+        hide_console(&mut command);
 
         let mut child = command
             .spawn()
@@ -173,6 +174,18 @@ impl Drop for Server {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+/// Lance le programme sans ouvrir de console noire.
+pub fn hide_console(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    #[cfg(not(windows))]
+    let _ = command;
 }
 
 /// Un autre programme sur le port recevrait les requêtes de la fenêtre : on refuse de démarrer.

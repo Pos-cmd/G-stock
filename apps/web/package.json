@@ -29,6 +29,7 @@
     "@tanstack/charts": "^1.1.0",
     "@tanstack/vue-query": "^5.102.8",
     "@tanstack/vue-table": "^8.21.3",
+    "@tauri-apps/api": "2.12.4",
     "@varlock/nuxt-integration": "0.1.4",
     "@vueuse/core": "^15.0.0",
     "@vueuse/nuxt": "^15.0.0",

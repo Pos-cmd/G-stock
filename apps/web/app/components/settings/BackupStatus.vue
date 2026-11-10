@@ -15,8 +15,28 @@ const BYTES_PER_KB = 1024;
 const { $orpc } = useNuxtApp();
 const queryClient = useQueryClient();
 const notify = useNotify();
+const desktop = useDesktop();
 
 const status = useQuery($orpc.backups.status.queryOptions());
+
+/**
+ * Application de bureau : restaure une sauvegarde (après confirmation dans une fenêtre Windows).
+ * L'application redémarre son serveur puis recharge la page sur les données restaurées.
+ */
+const restore = async (source: { path?: string; folder?: string }) => {
+  try {
+    await desktop.restoreBackup(source);
+  } catch (error) {
+    notify.error("Restauration impossible", error);
+  }
+};
+const runOnDesktop = async (action: () => Promise<unknown>) => {
+  try {
+    await action();
+  } catch (error) {
+    notify.error("Dossier introuvable", error);
+  }
+};
 
 const backupNow = useMutation(
   $orpc.backups.create.mutationOptions({
@@ -119,7 +139,32 @@ const formatSize = (bytes: number): string => {
         <span>{{ formatDateTime(backup.createdAt) }}</span>
         <span class="flex items-center gap-2">
           <span class="text-muted">{{ formatSize(backup.sizeBytes) }}</span>
+          <template v-if="desktop.isDesktop && status.data.value">
+            <UButton
+              :icon="icons.backupRestore"
+              label="Restaurer"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              @click="restore({ path: joinWindowsPath(status.data.value.folder, backup.fileName) })"
+            />
+            <UButton
+              :icon="icons.folderOpen"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="`Afficher la sauvegarde du ${formatDateTime(backup.createdAt)} dans son dossier`"
+              @click="
+                runOnDesktop(() =>
+                  desktop.revealFile(
+                    joinWindowsPath(status.data.value?.folder ?? '', backup.fileName),
+                  ),
+                )
+              "
+            />
+          </template>
           <UButton
+            v-else
             :to="`/api/sauvegardes/${backup.fileName}`"
             external
             :icon="icons.download"
@@ -131,5 +176,24 @@ const formatSize = (bytes: number): string => {
         </span>
       </li>
     </ul>
+
+    <div v-if="desktop.isDesktop && status.data.value" class="flex flex-wrap gap-2">
+      <UButton
+        :icon="icons.folderOpen"
+        label="Ouvrir le dossier"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        @click="runOnDesktop(() => desktop.openFolder(status.data.value?.folder ?? ''))"
+      />
+      <UButton
+        :icon="icons.backupRestore"
+        label="Restaurer un autre fichier…"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        @click="restore({ folder: status.data.value.folder })"
+      />
+    </div>
   </div>
 </template>

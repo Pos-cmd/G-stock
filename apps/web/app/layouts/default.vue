@@ -2,10 +2,12 @@
 import AppSearch from "~/components/layout/AppSearch.vue";
 import AppTour from "~/components/layout/AppTour.vue";
 import CreateDialogs from "~/components/layout/CreateDialogs.vue";
+import DesktopBridge from "~/components/layout/DesktopBridge.vue";
 import { useSettingsStore } from "~/stores/settings";
 
 const icons = useIcons();
 const settingsStore = useSettingsStore();
+const { isDesktop } = useDesktop();
 const { sections, settingsLink } = useAppNavigation();
 
 // Sur téléphone, la barre latérale est un menu : il se referme une fois la page choisie.
@@ -103,5 +105,6 @@ const companyName = computed(() => settingsStore.settings?.companyName || undefi
     <AppSearch />
     <CreateDialogs />
     <AppTour />
+    <DesktopBridge v-if="isDesktop" />
   </UDashboardGroup>
 </template>

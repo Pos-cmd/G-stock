@@ -1,71 +1,7 @@
 <script setup lang="ts">
-import { useQuery } from "@tanstack/vue-query";
-
 // Cloche de la barre du haut : ce qui demande une action (stock, créances, sauvegarde).
 const icons = useIcons();
-const { $orpc } = useNuxtApp();
-
-const summary = useQuery($orpc.stock.summary.queryOptions());
-const sales = useQuery($orpc.sales.summary.queryOptions());
-const backupWarning = useBackupWarning();
-
-interface Alert {
-  id: string;
-  icon: string;
-  color: "error" | "warning";
-  title: string;
-  description: string;
-  to: string;
-}
-
-const plural = (count: number, word: string) => `${count} ${word}${count > 1 ? "s" : ""}`;
-
-const alerts = computed<Alert[]>(() => {
-  const list: Alert[] = [];
-  const stock = summary.data.value;
-  const criticalDebtors = sales.data.value?.criticalDebtorCount ?? 0;
-  if (stock && stock.outCount > 0) {
-    list.push({
-      color: "error",
-      description: "Plus aucune unité en stock.",
-      icon: icons.stockOut,
-      id: "out",
-      title: `${plural(stock.outCount, "produit")} en rupture`,
-      to: "/produits?statut=out",
-    });
-  }
-  if (stock && stock.lowCount > 0) {
-    list.push({
-      color: "warning",
-      description: "Au niveau ou sous le seuil d'alerte.",
-      icon: icons.stockLow,
-      id: "low",
-      title: `${plural(stock.lowCount, "produit")} à réapprovisionner`,
-      to: "/produits?statut=low",
-    });
-  }
-  if (criticalDebtors > 0) {
-    list.push({
-      color: "error",
-      description: "Créances anciennes à relancer.",
-      icon: icons.receivablesCritical,
-      id: "debtors",
-      title: `${plural(criticalDebtors, "client")} en retard critique`,
-      to: "/clients?debiteurs",
-    });
-  }
-  if (backupWarning.value) {
-    list.push({
-      color: "warning",
-      description: backupWarning.value,
-      icon: icons.backup,
-      id: "backup",
-      title: "Sauvegarde à vérifier",
-      to: "/parametres",
-    });
-  }
-  return list;
-});
+const alerts = useAlerts();
 
 const open = ref(false);
 const tileColors = {

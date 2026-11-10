@@ -16,6 +16,22 @@ useHead({ title: "Documents" });
 const { $orpc } = useNuxtApp();
 const settingsStore = useSettingsStore();
 const notify = useNotify();
+const desktop = useDesktop();
+
+/** Application de bureau : le PDF s'ouvre dans le lecteur du PC, le dossier dans l'Explorateur. */
+const runOnDesktop = async (action: () => Promise<unknown>, failure: string) => {
+  try {
+    await action();
+  } catch (error) {
+    notify.error(failure, error);
+  }
+};
+const openDocument = (filePath: string) =>
+  runOnDesktop(() => desktop.openFile(filePath), "Ouverture impossible");
+const revealDocument = (filePath: string) =>
+  runOnDesktop(() => desktop.revealFile(filePath), "Dossier introuvable");
+const openDocumentsFolder = (folder: string) =>
+  runOnDesktop(() => desktop.openFolder(folder), "Dossier introuvable");
 
 onMounted(async () => {
   await settingsStore.load();
@@ -98,8 +114,16 @@ const columns: TableColumn<DocumentRow>[] = [
       :loading="documents.isFetching.value"
     >
       <template #title-cell="{ row }">
+        <button
+          v-if="row.original.exists && desktop.isDesktop"
+          type="button"
+          class="text-highlighted text-left font-medium hover:underline"
+          @click="openDocument(row.original.filePath)"
+        >
+          {{ row.original.title }}
+        </button>
         <a
-          v-if="row.original.exists"
+          v-else-if="row.original.exists"
           :href="`/api/documents/${row.original.id}`"
           target="_blank"
           rel="noopener"
@@ -141,7 +165,23 @@ const columns: TableColumn<DocumentRow>[] = [
         </p>
       </template>
       <template #actions-cell="{ row }">
-        <div v-if="row.original.exists" class="flex justify-end gap-1">
+        <div v-if="row.original.exists && desktop.isDesktop" class="flex justify-end gap-1">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            :icon="icons.external"
+            :aria-label="`Ouvrir ${row.original.title}`"
+            @click="openDocument(row.original.filePath)"
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            :icon="icons.folderOpen"
+            :aria-label="`Afficher ${row.original.title} dans son dossier`"
+            @click="revealDocument(row.original.filePath)"
+          />
+        </div>
+        <div v-else-if="row.original.exists" class="flex justify-end gap-1">
           <UButton
             :href="`/api/documents/${row.original.id}`"
             target="_blank"
@@ -165,7 +205,17 @@ const columns: TableColumn<DocumentRow>[] = [
         <USelect v-model="type" :items="typeItems" class="w-48" />
       </template>
       <template #footer>
-        <span v-if="settingsStore.settings" class="flex min-w-0 items-center gap-1 truncate">
+        <button
+          v-if="settingsStore.settings && desktop.isDesktop"
+          type="button"
+          class="hover:text-highlighted flex min-w-0 items-center gap-1 truncate"
+          :title="`Ouvrir ${settingsStore.settings.documentsFolder}`"
+          @click="openDocumentsFolder(settingsStore.settings.documentsFolder)"
+        >
+          <UIcon :name="icons.folderOpen" class="size-3.5 shrink-0" />
+          {{ settingsStore.settings.documentsFolder }}
+        </button>
+        <span v-else-if="settingsStore.settings" class="flex min-w-0 items-center gap-1 truncate">
           <UIcon :name="icons.folder" class="size-3.5 shrink-0" />
           {{ settingsStore.settings.documentsFolder }}
         </span>

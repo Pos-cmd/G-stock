@@ -45,6 +45,9 @@ Prérequis de build : Rust (`rustup`) et Visual Studio Build Tools (C++). WebVie
 - **Données** : la base est `%APPDATA%\G-stock\gstock.db` et le journal du serveur `%APPDATA%\G-stock\logs\serveur.log`. Au premier lancement, l'application propose d'importer une base existante (sauvegarde ou `local.db`, copiée sans être modifiée) ou de commencer vide.
 - **Config** : `scripts/prepare-server.mjs` fige la config varlock au build depuis le seul `.env.schema` (jamais les `.env`) et refuse tout fichier figé contenant une valeur propre au poste. Ces valeurs (`@dynamic=boot` dans le schéma) sont fournies au lancement : le secret de session est généré au premier lancement et rangé dans le Gestionnaire d'identification de Windows.
 - **Processus** : le serveur est rattaché à l'application (job Windows) et s'arrête avec elle, même en cas de plantage. Un second lancement ramène la fenêtre ouverte.
+- **Fenêtre et icône** : fermer la fenêtre la range près de l'horloge, le serveur continue (sauvegardes, téléphone). Le menu de l'icône propose Ouvrir, Sauvegarder maintenant et Quitter. Taille et position de la fenêtre sont retenues ; Paramètres → Application de bureau permet le lancement au démarrage de Windows (l'application démarre alors rangée).
+- **Intégration** : la page sait qu'elle tourne dans l'application (`useDesktop`, `isTauri()`) et appelle quelques commandes Rust (`src-tauri/src/commands.rs`) : choix des dossiers dans une fenêtre Windows, PDF ouverts dans le lecteur du PC, fichiers montrés dans l'Explorateur, reçu WhatsApp envoyé vers WhatsApp Desktop, restauration d'une sauvegarde (serveur arrêté puis relancé, ancienne base gardée à côté), notifications Windows pour les alertes de la cloche quand la fenêtre n'est pas regardée. Dans un navigateur ou sur le téléphone, rien ne change.
+- **Sécurité** : seules ces commandes sont accordées au serveur local (`capabilities/server.json`) ; les plugins Tauri ne lui sont pas ouverts, et les commandes n'ouvrent qu'un PDF ou un dossier. Les liens vers d'autres sites partent dans le navigateur du système.
 - **Tester sans toucher aux vraies données** : en build de développement, `GSTOCK_DATA_DIR=<dossier>` remplace `%APPDATA%\G-stock` (y copier `demo.db` sous le nom `gstock.db`).
 
 ## État des modules
@@ -174,5 +177,7 @@ L'application reste sur le PC (la base ne le quitte pas) ; le téléphone l'ouvr
 4. Sur le téléphone, ouvrez cette adresse, connectez-vous, puis « Ajouter à l'écran d'accueil ».
 
 Le PC doit être allumé et G-stock lancé. En HTTPS, le bouton « WhatsApp » d'une vente envoie directement le PDF du reçu.
+
+Avec l'application de bureau, l'étape 3 est inutile : au lancement, elle lit l'adresse Tailscale du PC et l'autorise d'elle-même (Paramètres → Application de bureau l'affiche). À l'étape 2, publiez son port : `tailscale serve --bg 3210`.
 
 Côté écrans : les fenêtres (`ResponsiveModal`) s'affichent en modale sur PC et en tiroir qui monte du bas sur téléphone ; les actions d'une page passent sous le titre ; les tableaux défilent horizontalement.

@@ -42,6 +42,7 @@ const downloadFile = (file: File) => {
 export const useShareReceipt = () => {
   const { $orpc } = useNuxtApp();
   const notify = useNotify();
+  const desktop = useDesktop();
   const toast = useToast();
   const icons = useIcons();
   const queryClient = useQueryClient();
@@ -80,21 +81,57 @@ export const useShareReceipt = () => {
     }
   };
 
+  const messageFor = (sale: SaleDetail) =>
+    receiptMessage({
+      companyName: settingsStore.settings?.companyName,
+      customerName: sale.customer.name,
+      dueFcfa: sale.summary.dueFcfa,
+      isCancelled: sale.status === "cancelled",
+      netFcfa: sale.summary.netFcfa,
+      reference: sale.reference,
+      saleDate: sale.saleDate,
+    });
+
+  /**
+   * Application de bureau : le reçu est déjà enregistré sur le PC. L'Explorateur le montre
+   * sélectionné et WhatsApp s'ouvre sur la discussion : il reste à glisser le fichier.
+   */
+  const shareOnDesktop = async (sale: SaleDetail) => {
+    try {
+      await settingsStore.load();
+      const generated = await mutation.mutateAsync({
+        referenceId: sale.id,
+        type: "receipt_mobile",
+      });
+      await queryClient.invalidateQueries({ queryKey: $orpc.documents.key() });
+      const phone = whatsappPhone(
+        sale.customer.phone,
+        settingsStore.settings?.phoneCountryCode ?? "",
+      );
+      await desktop.revealFile(generated.filePath);
+      await desktop.openWhatsapp(phone, messageFor(sale));
+      notify.success(
+        "Reçu prêt",
+        phone
+          ? "Glissez le PDF sélectionné dans la discussion WhatsApp qui vient de s'ouvrir."
+          : "Choisissez le client dans WhatsApp, puis glissez-y le PDF sélectionné.",
+      );
+    } catch (error) {
+      notify.error("Envoi impossible", error);
+    }
+  };
+
   const share = async (sale: SaleDetail) => {
+    if (desktop.isDesktop) {
+      await shareOnDesktop(sale);
+      return;
+    }
     const withFile = canShareFiles();
     // Sur PC, l'onglet WhatsApp est ouvert pendant le clic, sinon le navigateur le bloquerait.
     const tab = withFile ? null : window.open("about:blank", "_blank");
     try {
       await settingsStore.load();
-      const message = receiptMessage({
-        companyName: settingsStore.settings?.companyName,
-        customerName: sale.customer.name,
-        dueFcfa: sale.summary.dueFcfa,
-        isCancelled: sale.status === "cancelled",
-        netFcfa: sale.summary.netFcfa,
-        reference: sale.reference,
-        saleDate: sale.saleDate,
-      });
+      const message = messageFor(sale);
       const generated = await mutation.mutateAsync({
         referenceId: sale.id,
         type: "receipt_mobile",

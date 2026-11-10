@@ -7,6 +7,7 @@ import type { FormSubmitEvent } from "@nuxt/ui";
 
 import PagePanel from "~/components/layout/PagePanel.vue";
 import BackupStatus from "~/components/settings/BackupStatus.vue";
+import DesktopSettings from "~/components/settings/DesktopSettings.vue";
 import { useSettingsStore } from "~/stores/settings";
 
 const icons = useIcons();
@@ -17,6 +18,7 @@ const SAMPLE_AMOUNT_RMB = 100;
 
 const settingsStore = useSettingsStore();
 const notify = useNotify();
+const desktop = useDesktop();
 const saving = ref(false);
 
 const state = reactive<AppSettings>({
@@ -46,6 +48,18 @@ const previewRates = computed(() =>
     ? { fcfaPerUsd: state.fcfaPerUsd, rmbPerUsd: state.rmbPerUsd }
     : null,
 );
+
+/** Application de bureau : choix du dossier dans la fenêtre Windows plutôt qu'à la main. */
+const browseFolder = async (field: "backupFolder" | "documentsFolder", title: string) => {
+  try {
+    const folder = await desktop.pickFolder(title, state[field]);
+    if (folder) {
+      state[field] = folder;
+    }
+  } catch (error) {
+    notify.error("Choix du dossier impossible", error);
+  }
+};
 
 const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
   saving.value = true;
@@ -195,7 +209,16 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
             class="sm:col-span-2"
             help="Sous-dossiers créés automatiquement : Ventes, Simulations, Commandes/<référence>."
           >
-            <UInput v-model="state.documentsFolder" :icon="icons.folder" class="w-full" />
+            <div class="flex gap-2">
+              <UInput v-model="state.documentsFolder" :icon="icons.folder" class="min-w-0 flex-1" />
+              <UButton
+                v-if="desktop.isDesktop"
+                label="Parcourir…"
+                color="neutral"
+                variant="outline"
+                @click="browseFolder('documentsFolder', 'Dossier des documents')"
+              />
+            </div>
           </UFormField>
         </div>
       </UPageCard>
@@ -207,7 +230,20 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
       >
         <div class="grid gap-4 sm:grid-cols-[1fr_12rem]">
           <UFormField label="Dossier des sauvegardes" name="backupFolder" required>
-            <UInput v-model="state.backupFolder" :icon="icons.backupFolder" class="w-full" />
+            <div class="flex gap-2">
+              <UInput
+                v-model="state.backupFolder"
+                :icon="icons.backupFolder"
+                class="min-w-0 flex-1"
+              />
+              <UButton
+                v-if="desktop.isDesktop"
+                label="Parcourir…"
+                color="neutral"
+                variant="outline"
+                @click="browseFolder('backupFolder', 'Dossier des sauvegardes')"
+              />
+            </div>
           </UFormField>
           <UFormField
             label="Sauvegardes conservées"
@@ -233,5 +269,10 @@ const onSubmit = async (event: FormSubmitEvent<AppSettings>) => {
         <UButton type="submit" :icon="icons.save" label="Enregistrer" :loading="saving" />
       </div>
     </UForm>
+
+    <!-- Réglages appliqués aussitôt, hors du formulaire « Enregistrer ». -->
+    <div v-if="desktop.isDesktop" class="mx-auto mt-6 max-w-3xl">
+      <DesktopSettings />
+    </div>
   </PagePanel>
 </template>

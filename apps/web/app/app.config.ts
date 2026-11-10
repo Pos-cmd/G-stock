@@ -163,6 +163,7 @@ const backupIcons = {
   backupFolder: "i-tabler-folder-lock",
   backupNow: "i-tabler-database-export",
   backupOk: "i-tabler-shield-check",
+  backupRestore: "i-tabler-history",
   cloud: "i-tabler-cloud",
   cloudOff: "i-tabler-cloud-off",
 };

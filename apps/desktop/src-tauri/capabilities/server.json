@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "server",
+  "description": "Pages du serveur G-stock local : seulement les commandes de bureau de G-stock et les événements (sauvegarde demandée depuis l'icône).",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:3210/*"]
+  },
+  "permissions": [
+    "core:event:default",
+    "allow-desktop-info",
+    "allow-set-autostart",
+    "allow-pick-folder",
+    "allow-open-file",
+    "allow-open-folder",
+    "allow-reveal-file",
+    "allow-open-whatsapp",
+    "allow-notify",
+    "allow-restore-backup"
+  ]
+}
