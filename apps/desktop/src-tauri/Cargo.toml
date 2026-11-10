@@ -1,0 +1,31 @@
+[package]
+name = "gstock-desktop"
+version = "0.1.0"
+description = "G-stock, la gestion du magasin pour les importateurs"
+edition = "2021"
+publish = false
+
+[lib]
+name = "gstock_desktop_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+anyhow = "1"
+dunce = "1"
+getrandom = { version = "0.3", features = ["std"] }
+keyring = { version = "3", features = ["windows-native"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(windows)'.dependencies]
+win32job = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

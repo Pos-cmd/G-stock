@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "G-stock",
+  "version": "0.1.0",
+  "identifier": "local.gstock.desktop",
+  "build": {
+    "frontendDist": "../splash",
+    "beforeDevCommand": "node scripts/prepare-server.mjs --reuse-web-build",
+    "beforeBuildCommand": "node scripts/prepare-server.mjs"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "G-stock",
+        "width": 1360,
+        "height": 860,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": ["default"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "externalBin": ["binaries/node"],
+    "resources": ["resources/**/*"],
+    "shortDescription": "La gestion du magasin pour les importateurs",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["French"]
+      }
+    }
+  }
+}

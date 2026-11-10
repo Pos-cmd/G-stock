@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>G-stock</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --background: #f4f2ef;
+        --text: #1c1917;
+        --muted: #78716c;
+        --track: #e7e5e4;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #1c1917;
+          --text: #fafaf9;
+          --muted: #a8a29e;
+          --track: #292524;
+        }
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        background: var(--background);
+        color: var(--text);
+        font-family: Inter, "Segoe UI", system-ui, sans-serif;
+        user-select: none;
+      }
+      main {
+        display: grid;
+        justify-items: center;
+        gap: 1rem;
+      }
+      svg {
+        width: 3.5rem;
+        height: 3.5rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+      .bar {
+        width: 10rem;
+        height: 0.25rem;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--track);
+      }
+      .bar::after {
+        content: "";
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--text);
+        animation: slide 1.2s ease-in-out infinite;
+      }
+      @keyframes slide {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(250%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .bar::after {
+          width: 100%;
+          animation: none;
+          opacity: 0.4;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#1c1917" />
+        <g transform="translate(6 6) scale(0.8333)">
+          <g
+            fill="none"
+            stroke="#fff"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+          >
+            <path d="m7 16.5l-5-3l5-3l5 3V19l-5 3z" />
+            <path
+              d="M2 13.5V19l5 3m0-5.455l5-3.03m5 2.985l-5-3l5-3l5 3V19l-5 3zM12 19l5 3m0-5.5l5-3m-10 0V8L7 5l5-3l5 3v5.5M7 5.03v5.455M12 8l5-3"
+            />
+          </g>
+        </g>
+      </svg>
+      <h1>G-stock</h1>
+      <div class="bar" role="progressbar" aria-label="Démarrage de G-stock"></div>
+      <p>Ouverture de votre magasin…</p>
+    </main>
+  </body>
+</html>

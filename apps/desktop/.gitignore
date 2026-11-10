@@ -1,0 +1,7 @@
+# Rust et Tauri
+src-tauri/target
+src-tauri/gen
+
+# Assemblés par scripts/prepare-server.mjs à chaque build
+src-tauri/binaries
+src-tauri/resources

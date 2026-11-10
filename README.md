@@ -31,18 +31,34 @@ pnpm dev:demo    # http://localhost:3003, à côté du serveur habituel (3001)
 
 `local.db` n'est jamais ouverte : la démonstration vit dans `demo.db` et `demo-data/` (sauvegardes et PDF), ignorés par git. Les dates suivent le jour de la génération : relancer `pnpm demo:seed` remet « aujourd'hui » à jour. Le script est `packages/api/scripts/seed-demo.ts` ; il passe par les services de l'application, donc stock FIFO, coûts de revient et soldes restent justes.
 
+## Application de bureau (Windows)
+
+`apps/desktop` emballe G-stock dans une application Tauri qui s'installe et se lance sans terminal. L'interface et l'API restent celles de `apps/web` : l'application lance le serveur construit (`apps/web/.output`) avec un Node.js embarqué, puis l'affiche dans sa fenêtre à l'adresse `http://127.0.0.1:3210`.
+
+```bash
+pnpm desktop:build   # installateur : apps/desktop/src-tauri/target/release/bundle/nsis/G-stock_<version>_x64-setup.exe
+pnpm desktop:dev     # fenêtre de développement, sur le dernier build web (pnpm --filter web build)
+```
+
+Prérequis de build : Rust (`rustup`) et Visual Studio Build Tools (C++). WebView2 est déjà présent sur Windows 11.
+
+- **Données** : la base est `%APPDATA%\G-stock\gstock.db` et le journal du serveur `%APPDATA%\G-stock\logs\serveur.log`. Au premier lancement, l'application propose d'importer une base existante (sauvegarde ou `local.db`, copiée sans être modifiée) ou de commencer vide.
+- **Config** : `scripts/prepare-server.mjs` fige la config varlock au build depuis le seul `.env.schema` (jamais les `.env`) et refuse tout fichier figé contenant une valeur propre au poste. Ces valeurs (`@dynamic=boot` dans le schéma) sont fournies au lancement : le secret de session est généré au premier lancement et rangé dans le Gestionnaire d'identification de Windows.
+- **Processus** : le serveur est rattaché à l'application (job Windows) et s'arrête avec elle, même en cas de plantage. Un second lancement ramène la fenêtre ouverte.
+- **Tester sans toucher aux vraies données** : en build de développement, `GSTOCK_DATA_DIR=<dossier>` remplace `%APPDATA%\G-stock` (y copier `demo.db` sous le nom `gstock.db`).
+
 ## État des modules
 
-| Module | État |
-| --- | --- |
-| Stock & Produits | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, ouverture de cartons, historique, alertes de stock bas |
-| Tableau de bord | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes |
-| Paramètres | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances, sauvegarde quotidienne |
-| Achats fournisseurs | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock |
-| Ventes | ✅ Vente comptant ou à crédit (acompte), sortie FIFO, marge, remise et annulation tracées |
-| Clients | ✅ Solde, avoir, ancienneté des créances, historique filtrable, achats par produit, paiements |
-| Simulateur | ✅ Simulations : revient, prix de vente (3 modes), marges, PDF, comparaison avec d'autres simulations et commandes, transformation en commande |
-| Documents | ✅ PDF (reçus, fiches de commande, simulations) rangés dans Documents/G-stock, liste et téléchargement |
+| Module              | État                                                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stock & Produits    | ✅ CRUD produits, lots avec coût de revient, entrées, ajustements, ouverture de cartons, historique, alertes de stock bas                      |
+| Tableau de bord     | ✅ Stock, CA du jour / de la semaine / du mois, marge brute, créances, meilleures ventes                                                       |
+| Paramètres          | ✅ Taux de change RMB → USD → FCFA, seuils d'ancienneté des créances, sauvegarde quotidienne                                                   |
+| Achats fournisseurs | ✅ Fournisseurs, commandes en RMB, frais d'approche, prix de revient par ligne, réception en stock                                             |
+| Ventes              | ✅ Vente comptant ou à crédit (acompte), sortie FIFO, marge, remise et annulation tracées                                                      |
+| Clients             | ✅ Solde, avoir, ancienneté des créances, historique filtrable, achats par produit, paiements                                                  |
+| Simulateur          | ✅ Simulations : revient, prix de vente (3 modes), marges, PDF, comparaison avec d'autres simulations et commandes, transformation en commande |
+| Documents           | ✅ PDF (reçus, fiches de commande, simulations) rangés dans Documents/G-stock, liste et téléchargement                                         |
 
 ## Architecture
 

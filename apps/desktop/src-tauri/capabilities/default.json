@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Écran de démarrage local : aucune permission au-delà du noyau.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

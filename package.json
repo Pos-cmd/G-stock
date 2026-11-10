@@ -18,6 +18,8 @@
     "dev:web": "vp run --filter web dev",
     "dev:docs": "vp run --filter docs dev",
     "dev:landing": "vp run --filter landing dev",
+    "desktop:dev": "vp run --filter desktop app:dev",
+    "desktop:build": "vp run --filter desktop bundle",
     "db:push": "vp run --filter @G-stock/db db:push",
     "db:studio": "vp run --filter @G-stock/db db:studio",
     "db:generate": "vp run --filter @G-stock/db db:generate",
